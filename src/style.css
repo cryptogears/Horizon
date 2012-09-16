@@ -1,0 +1,24 @@
+ 
+
+#threadview > GtkViewport {
+    background-color: #EEF2FF;
+}
+
+
+#posttextview {
+    background-color: #D6DAF0;
+}
+
+#name {
+    color: #117743;
+    font: Arial 12 bold;
+}
+
+#subject {
+    color: #0F0C5D;
+    font: Arial 12 bold;
+}
+
+* {
+    font: Arial 12;
+}
