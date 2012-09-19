@@ -51,12 +51,14 @@ namespace Horizon {
 			
 		}
 
+		thread->update_notify(was_new);
 		if (was_new) {
-
 			//vadjustment->set_value(vadjustment->get_upper());
 			//vadjustment->signal_changed();
 			//show_all();
 			//check_resize();
+		} else {
+
 		}
 	}
 }

@@ -7,6 +7,7 @@
 #include <glibmm/thread.h>
 #include <memory>
 #include <map>
+#include <random>
 
 extern "C" {
 #include "horizon_post.h"
@@ -58,6 +59,8 @@ namespace Horizon {
 		std::time_t last_checked;
 		std::time_t last_post;
 		bool is_404;
+		const std::time_t get_update_interval() const;
+		void update_notify(bool was_new);
 
 		/* Appends to the list any new posts
 		   Marks changed posts (Thread lock/file deletion) as changed.
@@ -74,8 +77,14 @@ namespace Horizon {
 		Thread& operator=(const Thread&) = delete;
 		
 		Glib::Mutex posts_mutex;
+
+		std::time_t update_interval;
+		std::default_random_engine generator;
+		std::uniform_int_distribution<std::time_t> random_int;
 	};
 
+	const std::time_t MIN_UPDATE_INTERVAL = 10;
+	const std::time_t MAX_UPDATE_INTERVAL = 900;
 
 }
 #endif

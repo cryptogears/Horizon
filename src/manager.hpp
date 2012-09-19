@@ -17,14 +17,16 @@ namespace Horizon {
 		bool checkThreads();
 		void addThread(std::shared_ptr<Thread> thread);
 
-		std::set<gint64> updatedThreads;
-		Glib::Mutex data_mutex;
+
+		bool is_updated_thread() const;
+		gint64 pop_updated_thread();
 
 		Glib::Dispatcher signal_thread_updated;
 
 	private:
+		mutable Glib::Mutex data_mutex;
+		std::set<gint64> updatedThreads;
 
-		const gint64 MIN_UPDATE_INTERVAL = 10;
 
 		void downloadThread(std::shared_ptr<Thread> thread);
 

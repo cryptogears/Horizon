@@ -1,6 +1,7 @@
 #include "thread.hpp"
 #include <iostream>
 #include <iomanip>
+#include <chrono>
 
 namespace Horizon {
 
@@ -192,7 +193,10 @@ const int Post::get_thumb_height() const {
 		full_url(url),
 		last_post(0),
 		last_checked(0),
-		is_404(false)
+		is_404(false),
+		update_interval(10),
+		generator(std::chrono::system_clock::now().time_since_epoch().count()),
+		random_int(0, 13)
 	{
 		size_t res_pos = url.rfind("/res/");
 		size_t board_pos = url.rfind("/", res_pos - 1);
@@ -220,8 +224,25 @@ const int Post::get_thumb_height() const {
 		}
 	}
 
+	const std::time_t Thread::get_update_interval() const { 
+		return update_interval;
+	}
+
+	void Thread::update_notify(bool was_new) {
+		if (G_UNLIKELY(was_new)) {
+			update_interval = MIN_UPDATE_INTERVAL;
+		} else {
+			if (update_interval < MAX_UPDATE_INTERVAL) {
+				update_interval = static_cast<std::time_t>(update_interval * 2 + random_int(generator));
+			} else { 
+				update_interval = MAX_UPDATE_INTERVAL;
+			}
+		}
+	}
+
 	std::shared_ptr<Thread> Thread::create(const std::string &url) {
 		return std::shared_ptr<Thread>(new Thread(url));
 	}
 
+	
 }

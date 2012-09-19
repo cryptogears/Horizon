@@ -9,12 +9,32 @@ namespace Horizon {
 		threads.insert({thread->id, thread});
 	}
 
+	bool Manager::is_updated_thread() const {
+		Glib::Mutex::Lock lock(data_mutex);
+
+		return !updatedThreads.empty();
+	}
+
+	gint64 Manager::pop_updated_thread() {
+		Glib::Mutex::Lock lock(data_mutex);
+		gint64 out = 0;
+		
+		if ( updatedThreads.size() > 0) {
+			auto iter = updatedThreads.begin();
+			out = *iter;
+
+			updatedThreads.erase(iter);
+		}
+
+		return out;
+	}
+
 	/* Run in a separate thread */
 	void Manager::downloadThread(std::shared_ptr<Thread> thread) {
 		Glib::Mutex::Lock lock(curler_mutex);
 
 		try{
-			std::list<Post> posts = curler.pullThread(thread->api_url,  thread->last_post, thread->board);
+			std::list<Post> posts = curler.pullThread(thread);
 			thread->last_checked = std::time(NULL);
 
 			if (posts.size() > 0) {
@@ -54,7 +74,8 @@ namespace Horizon {
 			Glib::Mutex::Lock lock(data_mutex);
 			for(auto iter = threads.begin(); iter != threads.end(); iter++) {
 				gint64 diff = now - iter->second->last_checked;
-				if ( diff > MIN_UPDATE_INTERVAL && !iter->second->is_404 ) {
+				if ( diff > iter->second->get_update_interval() && !iter->second->is_404 ) {
+					std::cerr << "Checking thread " << iter->second->number << std::endl;
 					threads_to_check.push_back(iter->second);
 				}
 			}

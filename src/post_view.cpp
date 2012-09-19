@@ -161,7 +161,7 @@ namespace Horizon {
 				int width = post.get_thumb_width();
 				int height = post.get_thumb_height();
 				if (width > 0 && height > 0) 
-					image->set_size_request(post.get_thumb_width(), post.get_thumb_height());
+					;//image->set_size_request(post.get_thumb_width(), post.get_thumb_height());
 				else
 					g_warning("Thumb nail height is %d by %d", width, height);
 				comment_grid.remove(comment);

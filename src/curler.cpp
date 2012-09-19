@@ -36,12 +36,12 @@ namespace Horizon {
 		threadBuffer.append(static_cast<const char*>(data), len);
 	}
 
-	std::list<Post> Curler::pullThread(const std::string &url, const std::time_t &last_post, const std::string &board) {
+	std::list<Post> Curler::pullThread(std::shared_ptr<Thread> thread) {
 		CURLcode res;
 		std::list<Post> posts;
 		std::time_t completed = 0;
 
-		while ( std::time(NULL) == last_pull ) {
+		while ( std::time(NULL) == thread->last_checked ) {
 			g_usleep(G_USEC_PER_SEC);
 		}
 
@@ -57,11 +57,11 @@ namespace Horizon {
 		res = curl_easy_setopt(curl, CURLOPT_WRITEDATA,
 		                       static_cast<void*>(this));
 		res = curl_easy_setopt(curl, CURLOPT_URL,
-		                       url.c_str());
+		                       thread->api_url.c_str());
 		res = curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
 		                       CURL_TIMECOND_IFMODSINCE);
 		res = curl_easy_setopt(curl, CURLOPT_TIMEVALUE,
-		                       static_cast<long>(last_post) + 1);
+		                       static_cast<long>(thread->last_post) + 1);
 		res = curl_easy_setopt(curl, CURLOPT_VERBOSE,
 		                       0);
 
@@ -87,6 +87,7 @@ namespace Horizon {
 		completed = std::time(NULL);
 		
 		if ( threadBuffer.size() == 0 ) {
+			thread->update_notify(false);
 			amWorking = false;
 			return posts;
 		}
@@ -107,7 +108,7 @@ namespace Horizon {
 			
 			JsonNode *obj = json_array_get_element(array, i);
 			GObject *cpost =  json_gobject_deserialize( horizon_post_get_type(), obj );
-			Post post(cpost, false, board);
+			Post post(cpost, false, thread->board);
 			posts.push_back(post);
 		}
 

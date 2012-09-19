@@ -36,7 +36,8 @@ namespace Horizon {
 		/**
 		   Downloads and parses the thread.
 		*/
-		std::list<Post> pullThread(const std::string &url, const std::time_t &last_pull, const std::string &board);
+		std::list<Post> pullThread(std::shared_ptr<Thread> thread);
+
 		void thread_writeback(const void* data, gssize len);
 		Glib::Dispatcher thread_downloaded;
 

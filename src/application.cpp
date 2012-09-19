@@ -67,11 +67,18 @@ namespace Horizon {
 	}
 
 	void Application::onUpdates() {
-		Glib::Mutex::Lock lock(manager.data_mutex);
-		for ( auto iter = manager.updatedThreads.begin();
-		      iter != manager.updatedThreads.end(); iter = manager.updatedThreads.begin()) {
-			thread_map[*iter]->refresh();
-			manager.updatedThreads.erase(iter);
+		while (manager.is_updated_thread()) {
+			gint64 tid = manager.pop_updated_thread();
+			if (G_LIKELY(tid != 0)) {
+				auto iter = thread_map.find(tid);
+				if (G_LIKELY( iter != thread_map.end() )) {
+					iter->second->refresh();
+				} else {
+					g_error("Thread %d not in application.thread_map", tid);
+				}
+			} else {
+				g_warning("pop_updated_thread returned tid = 0");
+			}
 		}
 	}
 
