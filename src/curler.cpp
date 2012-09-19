@@ -36,7 +36,7 @@ namespace Horizon {
 		threadBuffer.append(static_cast<const char*>(data), len);
 	}
 
-	std::list<Post> Curler::pullThread(const std::string &url, const std::time_t &last_post) {
+	std::list<Post> Curler::pullThread(const std::string &url, const std::time_t &last_post, const std::string &board) {
 		CURLcode res;
 		std::list<Post> posts;
 		std::time_t completed = 0;
@@ -61,7 +61,7 @@ namespace Horizon {
 		res = curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
 		                       CURL_TIMECOND_IFMODSINCE);
 		res = curl_easy_setopt(curl, CURLOPT_TIMEVALUE,
-		                       static_cast<long>(last_post));
+		                       static_cast<long>(last_post) + 1);
 		res = curl_easy_setopt(curl, CURLOPT_VERBOSE,
 		                       0);
 
@@ -107,7 +107,7 @@ namespace Horizon {
 			
 			JsonNode *obj = json_array_get_element(array, i);
 			GObject *cpost =  json_gobject_deserialize( horizon_post_get_type(), obj );
-			Post post(cpost, false);
+			Post post(cpost, false, board);
 			posts.push_back(post);
 		}
 

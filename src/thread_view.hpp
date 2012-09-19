@@ -23,7 +23,6 @@ namespace Horizon {
 		Glib::RefPtr<Gtk::Adjustment> vadjustment;
 		Gtk::Grid grid;
 		std::map<gint64, PostView*> post_map;
-
 	};
 
 }

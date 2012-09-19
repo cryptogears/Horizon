@@ -1,11 +1,13 @@
 #include "thread.hpp"
 #include <iostream>
+#include <iomanip>
 
 namespace Horizon {
 
-	Post::Post(gpointer in, bool takeRef):
+	Post::Post(gpointer in, bool takeRef, std::string board_in):
 		post(HORIZON_POST(in)),
-		rendered(false)
+		rendered(false),
+		board(board_in)
 	{
 		if (takeRef)
 			g_object_ref(post);
@@ -14,9 +16,10 @@ namespace Horizon {
 			g_object_ref_sink(post);
 	}
 
-	Post::Post(HorizonPost *in, bool takeRef) :
+	Post::Post(HorizonPost *in, bool takeRef, std::string board_in) :
 		post(in),
-		rendered(false)
+		rendered(false),
+		board(board_in)
 	{
 
 		if (takeRef)
@@ -30,6 +33,7 @@ namespace Horizon {
 		post = in.post;
 		rendered = in.rendered;
 		g_object_ref(post);
+		board = in.board;
 	}
 
 	Post::~Post() {
@@ -138,6 +142,43 @@ namespace Horizon {
 		g_object_get(post, "time", &time, NULL);
 		return time;
 	}
+
+	std::string Post::get_hash() const {
+		gchar *str = NULL;
+		g_object_get(post, "md5", &str, NULL);
+		if (str) {
+			return str;
+		} else {
+			return "";
+		}
+	}
+
+	std::string Post::get_thumb_url() const {
+		gint64 tim = 0;
+		std::stringstream ss;
+		g_object_get(post, "tim", &tim, NULL);
+		if (tim) {
+			ss << "http://thumbs.4chan.org/";
+			ss << board;
+			ss << "/thumb/";
+			ss << std::dec << tim;
+			ss << "s.jpg";
+			return ss.str();
+		} else {
+			return "";
+		}
+	}
+
+const int Post::get_thumb_width() const {
+	gint64 width = 0;
+	g_object_get(post, "tn_w", &width, NULL);
+	return static_cast<int>(width);
+}
+const int Post::get_thumb_height() const {
+	gint64 height = 0;
+	g_object_get(post, "tn_h", &height, NULL);
+	return static_cast<int>(height);
+}
 
 	const bool Post::is_rendered() const {
 		return rendered;

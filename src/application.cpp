@@ -15,49 +15,50 @@ namespace Horizon {
 		add_window(window);
 		window.set_title("Horizon - A Native GTK+ 4chan Viewer");
 		grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+		grid.set_vexpand(true);
 		window.add(grid);
 
 		auto provider = Gtk::CssProvider::get_default();
 
-		std::cout << "Old sheet: " << provider->to_string() << std::endl;
-
 		GResource* resource = horizon_get_resource();
-		g_resources_register(resource);
+				g_resources_register(resource);
 		auto file = Gio::File::create_for_uri("resource:///com/talisein/fourchan/native/gtk/style.css");
-		if ( !file ) {
-			g_error("Unable to load CSS Style Sheet");
-		}
-		if (!provider->load_from_file(file)) {
-			g_error("Unable to load the CSS sheet!");
-		}
-
-		std::cout << "New sheet: " << provider->to_string() << std::endl;
-
 		auto sc = window.get_style_context();
 		auto screen = Gdk::Screen::get_default();
-		sc->add_provider_for_screen(screen, provider, 600);
+				provider->load_from_file(file);
+				sc->add_provider_for_screen(screen, provider, 600);
 
 
-		auto t = Thread::create("http://boards.4chan.org/g/res/27637097");
-		auto tv = new ThreadView(t);
+
+		auto t = Thread::create("http://boards.4chan.org/g/res/27707130");
+		auto tv = Gtk::manage(new ThreadView(t));
 		grid.add(*tv);
 		thread_map.insert({t->id, tv});
 		manager.addThread(t);
 
-		
-		/*
-		auto t2 = Thread::create("https://boards.4chan.org/a/res/71612123");
-		auto tv2 = new ThreadView(t2);
+
+		auto t2 = Thread::create("http://boards.4chan.org/a/res/71802569");
+		auto tv2 = Gtk::manage(new ThreadView(t2));
 		grid.add(*tv2);
 		thread_map.insert({t2->id, tv2});
 		manager.addThread(t2);
-		*/
+
+		auto t3 = Thread::create("http://boards.4chan.org/a/res/71800981");
+		auto tv3 = Gtk::manage(new ThreadView(t3));
+		grid.add(*tv3);
+		thread_map.insert({t3->id, tv3});
+		manager.addThread(t3);
+
+
+		window.set_default_size(500, 800);
+
 		manager_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::checkThreads), 3);
 		manager.signal_thread_updated.connect(sigc::mem_fun(*this, &Application::onUpdates));
 		window.show_all();
 	}
 	
 	Application::~Application() {
+		manager_alarm.disconnect();
 	}
 
 	Glib::RefPtr<Horizon::Application> Application::create(int &argc, char **&argv) {
@@ -72,20 +73,6 @@ namespace Horizon {
 			thread_map[*iter]->refresh();
 			manager.updatedThreads.erase(iter);
 		}
-		/*
-		for ( auto iter = threads.begin(); iter != threads.end(); iter++) {
-			std::cout << "Thread #" << (*iter)->id << " ("
-			          << (*iter)->posts.size() << ")" << std::endl;
-			for ( auto piter = (*iter)->posts.begin(); piter != (*iter)->posts.end(); piter++) {
-				if (! piter->second.is_rendered() ) {
-					std::cout << "\tComment #" << piter->second.getId()
-					          << ": " << piter->second.getComment() 
-					          << std::endl;
-					piter->second.mark_rendered();
-				}
-			}
-		}
-		*/
 	}
 
 	int Application::run() {

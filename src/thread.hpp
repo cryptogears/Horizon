@@ -18,8 +18,8 @@ namespace Horizon {
 	public:
 		~Post();
 		Post() = delete;
-		explicit Post(gpointer in, bool takeRef);
-		explicit Post(HorizonPost* in, bool takeRef);
+		explicit Post(gpointer in, bool takeRef, std::string board);
+		explicit Post(HorizonPost* in, bool takeRef, std::string board);
 		explicit Post(const Post& in);
 		Post& operator=(const Post& in);
 
@@ -35,11 +35,14 @@ namespace Horizon {
 		std::string getTimeStr() const;
 		std::string getNumber() const;
 		std::string getName() const;
+		std::string get_hash() const;
+		std::string get_thumb_url() const;
+		const int get_thumb_width() const;
+		const int get_thumb_height() const;
 
-		
 	private:
 		HorizonPost *post;
-
+		std::string board;
 		bool rendered;
 	};
 

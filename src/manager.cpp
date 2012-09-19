@@ -14,7 +14,7 @@ namespace Horizon {
 		Glib::Mutex::Lock lock(curler_mutex);
 
 		try{
-			std::list<Post> posts = curler.pullThread(thread->api_url,  thread->last_post);
+			std::list<Post> posts = curler.pullThread(thread->api_url,  thread->last_post, thread->board);
 			thread->last_checked = std::time(NULL);
 
 			if (posts.size() > 0) {

@@ -14,58 +14,51 @@ namespace Horizon {
 	ThreadView::ThreadView(std::shared_ptr<Thread> t) :
 		thread(t),
 		Gtk::ScrolledWindow(),
-		grid()
+		vadjustment(get_vadjustment())
 	{
-		grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
 		set_name("threadview");
+		set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
+		set_vexpand(true);
+		set_hexpand(false);
+
+		grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
 		add(grid);
 
-		vadjustment = get_vadjustment(); 
-
-		Gtk::Label* derp = Gtk::manage( new Gtk::Label(t->number) );
-		grid.add(*derp);
-
-		set_size_request(500,1000);
-
-		set_vexpand(true);
-		set_hexpand(true);
-		grid.set_vexpand(true);
-		grid.set_hexpand(true);
-		
-		set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
+		show_all();
 	}
 
 	void ThreadView::refresh() {
 		bool was_new = false;
 		for ( auto iter = thread->posts.begin();
-		      iter != thread->posts.end(); iter++ ) {
+		      iter != thread->posts.end(); 
+		      iter++ ) {
 			if ( post_map.count(iter->second.getId()) > 0 ) {
+				// This post is already in the view
 				if ( ! iter->second.is_rendered() ) {
 					post_map[iter->second.getId()]->refresh(iter->second);
 					iter->second.mark_rendered();
 					was_new = true;
 				}
 			} else {
+				// This is a new post
 				PostView *pv = Gtk::manage( new PostView(iter->second) );
 				post_map.insert({iter->second.getId(), pv});
+				iter->second.mark_rendered();
 				grid.add(*pv);
-				pv->show_all();
-				auto sep = Gtk::manage( new Gtk::HSeparator() );
-				sep->set_margin_bottom(1);
-				
-				grid.add(*sep);
 				was_new = true;
+				pv->show_all();
 			}
 			
 		}
+
 		if (was_new) {
 
-			vadjustment->set_value(vadjustment->get_upper());
-			vadjustment->signal_changed();
+			//vadjustment->set_value(vadjustment->get_upper());
+			//vadjustment->signal_changed();
+			//show_all();
+			//check_resize();
 		}
 	}
-	
-
 }
 
 

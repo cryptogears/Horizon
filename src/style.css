@@ -1,11 +1,10 @@
- 
+
 
 #threadview > GtkViewport {
     background-color: #EEF2FF;
 }
 
-
-#posttextview {
+#commentview {
     background-color: #D6DAF0;
 }
 
@@ -22,3 +21,4 @@
 * {
     font: Arial 12;
 }
+

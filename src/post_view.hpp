@@ -7,6 +7,8 @@
 #include <gtkmm/texttagtable.h>
 #include <gtkmm/textview.h>
 #include <libxml/HTMLparser.h>
+#include <gtkmm/viewport.h>
+#include "image_fetcher.hpp"
 
 namespace Horizon {
 
@@ -23,24 +25,31 @@ namespace Horizon {
 		PostView& operator=(const PostView&) = delete;
 
 		void parseComment();
-		
+		void on_thumb_ready(std::string hash);
+		void on_image_ready(std::string hash);
+		sigc::connection thumb_connection;
+
 		htmlSAXHandlerPtr sax;
 		xmlParserCtxtPtr ctxt;
 
 		Post post;
+		Glib::RefPtr<Gtk::Adjustment> hadjust, vadjust;
+		Gtk::Grid comment_grid;
+		Gtk::Label comment;
+		Gtk::Viewport comment_viewport;
+
+		std::shared_ptr<ImageFetcher> ifetcher;
+		/*
 		Gtk::TextView textview;
 		Glib::RefPtr<Gtk::TextBuffer> comment;
 		Glib::RefPtr<Gtk::TextTagTable> tag_table;
-		Gtk::TextBuffer::iterator comment_iter;
+		Glib::RefPtr<Gtk::Adjustment> vadjustment;
+		*/
+		Glib::ustring built_string;
 
-		void on_start_element(const Glib::ustring &name, std::map<Glib::ustring, Glib::ustring> attr_map);
-		void on_characters(const Glib::ustring&);
 		friend void startElement(void* user_data, const xmlChar* name, const xmlChar** attrs);
 		friend void onCharacters(void* user_data, const xmlChar* chars, int len);
 		friend void on_xmlError(void* user_data, xmlErrorPtr error);
-		
-		friend size_t parser_write_cb(void *ptr, size_t size, size_t nmemb, void *data);
-
 	};
 
 	void startElement(void* user_data, const xmlChar* name, const xmlChar** attrs);
