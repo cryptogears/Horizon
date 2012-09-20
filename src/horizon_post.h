@@ -39,9 +39,23 @@ struct _HorizonPostClass
 
 GType horizon_post_get_type (void);
 
-
 /*
  * Method definitions.
  */
+
+const gchar * horizon_post_get_md5 (HorizonPost *post);
+const gint64 horizon_post_get_fsize (HorizonPost *post);
+const gint64 horizon_post_get_time (HorizonPost *post);
+const gint64 horizon_post_get_post_number (HorizonPost *post);
+const gchar * horizon_post_get_name (HorizonPost *post);
+const gchar * horizon_post_get_subject (HorizonPost *post);
+const gchar * horizon_post_get_comment (HorizonPost *post);
+const gint64 horizon_post_get_renamed_filename(HorizonPost *post);
+const gchar * horizon_post_get_original_filename(HorizonPost *post);
+const gchar * horizon_post_get_ext(HorizonPost *post);
+const gint64 horizon_post_get_width (HorizonPost *post);
+const gint64 horizon_post_get_height (HorizonPost *post);
+const gint64 horizon_post_get_thumbnail_width (HorizonPost *post);
+const gint64 horizon_post_get_thumbnail_height (HorizonPost *post);
 
 #endif

@@ -6,6 +6,28 @@
 
 #commentview {
     background-color: #D6DAF0;
+    border-color: #B7C5D9;
+    border-width: 1px;
+    border-style: solid;
+    
+}
+#originalfilename {
+    color: #070707;
+    font: Arial 8;
+}
+
+#imagenameinfo {
+    font: Arial 8;
+}
+
+#commentgrid {
+    padding: 0px;
+    margin: 0px;
+}
+
+#comment {
+    padding: 2px;
+    color: black;
 }
 
 #name {
@@ -15,10 +37,10 @@
 
 #subject {
     color: #0F0C5D;
-    font: Arial 12 bold;
+    font: Arial 14 bold;
 }
 
 * {
-    font: Arial 12;
+    font: Arial 13;
 }
 

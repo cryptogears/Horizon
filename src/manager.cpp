@@ -39,7 +39,7 @@ namespace Horizon {
 
 			if (posts.size() > 0) {
 				auto iter = posts.rbegin();
-				thread->last_post = static_cast<std::time_t>(iter->getUnixTime());
+				thread->last_post = static_cast<std::time_t>(iter->get_unix_time());
 				thread->updatePosts(posts);
 				{
 					Glib::Mutex::Lock data_lock(data_mutex);
@@ -84,10 +84,17 @@ namespace Horizon {
 		for ( auto iter = threads_to_check.begin(); 
 		      iter != threads_to_check.end();
 		      iter++) {
-			Glib::Thread::create( sigc::bind(sigc::mem_fun(*this, &Manager::downloadThread), *iter), false);
+			Glib::Threads::Thread* t = Glib::Threads::Thread::create( sigc::bind(sigc::mem_fun(*this, &Manager::downloadThread), *iter));
+			free_list.push_back(t);
 		}
 
 		return true;
 	}
 
+	Manager::~Manager() {
+		for (auto iter = free_list.begin(); iter != free_list.end(); iter++) {
+			Glib::Threads::Thread* thread = *iter;
+			thread->join();
+		}
+	}
 }

@@ -3,68 +3,79 @@
 #include "thread.hpp"
 #include <gtkmm/cssprovider.h>
 #include <giomm/file.h>
+#include <giomm/simpleaction.h>
 extern "C" {
 #include "horizon-resources.h"
 }
 
 namespace Horizon {
-	Application::Application(int& argc, char**& argv, const Glib::ustring& application_id) :
-		Gtk::Application(argc, argv, application_id ),
-		window(Gtk::WINDOW_TOPLEVEL)
-	{
-		add_window(window);
-		window.set_title("Horizon - A Native GTK+ 4chan Viewer");
-		grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-		grid.set_vexpand(true);
-		window.add(grid);
 
-		auto provider = Gtk::CssProvider::get_default();
+	void Application::setup_window() {
+		if (!window) {
+			GtkApplicationWindow *win = GTK_APPLICATION_WINDOW(gtk_application_window_new(gobj()));
+			window = Glib::wrap(win, true);
+			grid = Gtk::manage(new Gtk::Grid());
+		
+			window->set_title("Horizon - A Native GTK+ 4chan Viewer");
+			grid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+			grid->set_vexpand(true);
+			window->set_default_size(500, 800);
+			window->add(*grid);
 
-		GResource* resource = horizon_get_resource();
-				g_resources_register(resource);
-		auto file = Gio::File::create_for_uri("resource:///com/talisein/fourchan/native/gtk/style.css");
-		auto sc = window.get_style_context();
-		auto screen = Gdk::Screen::get_default();
-				provider->load_from_file(file);
-				sc->add_provider_for_screen(screen, provider, 600);
+			auto provider = Gtk::CssProvider::get_default();
 
+			GResource* resource = horizon_get_resource();
+			g_resources_register(resource);
+			auto file = Gio::File::create_for_uri("resource:///com/talisein/fourchan/native/gtk/style.css");
+			auto sc = window->get_style_context();
+			auto screen = Gdk::Screen::get_default();
+			provider->load_from_file(file);
+			sc->add_provider_for_screen(screen, provider, 600);
+			gtk_application_add_window(gobj(), GTK_WINDOW(window->gobj()));
 
+			window->show_all();
+		} else {
+			g_warning("Startup called twice");
+		}
+	}
 
-		auto t = Thread::create("http://boards.4chan.org/g/res/27707130");
-		auto tv = Gtk::manage(new ThreadView(t));
-		grid.add(*tv);
-		thread_map.insert({t->id, tv});
-		manager.addThread(t);
+	void Application::on_activate() {
+		Gtk::Application::on_activate();
 
+	}
 
-		auto t2 = Thread::create("http://boards.4chan.org/a/res/71802569");
+	void Application::on_startup() {
+		Gtk::Application::on_startup();
+		Glib::set_application_name("Horizon");
+
+		setup_window();
+		setup_actions();
+
+		auto t2 = Thread::create("http://boards.4chan.org/a/res/71776852");
 		auto tv2 = Gtk::manage(new ThreadView(t2));
-		grid.add(*tv2);
+		grid->add(*tv2);
 		thread_map.insert({t2->id, tv2});
 		manager.addThread(t2);
 
-		auto t3 = Thread::create("http://boards.4chan.org/a/res/71800981");
-		auto tv3 = Gtk::manage(new ThreadView(t3));
-		grid.add(*tv3);
-		thread_map.insert({t3->id, tv3});
-		manager.addThread(t3);
-
-
-		window.set_default_size(500, 800);
 
 		manager_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::checkThreads), 3);
 		manager.signal_thread_updated.connect(sigc::mem_fun(*this, &Application::onUpdates));
-		window.show_all();
+
+	}
+
+	void Application::setup_actions() {
+		auto open = Gio::SimpleAction::create("app.open_thread",  // name
+		                                      Glib::VARIANT_TYPE_STRING
+		                                      );
+		open->signal_activate().connect( sigc::mem_fun(*this, &Application::on_open_thread) );
+		open->set_enabled(true);
+		add_action(open);
+	}
+
+	void Application::on_open_thread(const Glib::VariantBase& parameter) {
+		std::cerr << "Action activated!" << std::endl;
 	}
 	
-	Application::~Application() {
-		manager_alarm.disconnect();
-	}
-
-	Glib::RefPtr<Horizon::Application> Application::create(int &argc, char **&argv) {
-
-		return Glib::RefPtr<Horizon::Application>( new Horizon::Application(argc, argv, Horizon::app_id) );
-	}
 
 	void Application::onUpdates() {
 		while (manager.is_updated_thread()) {
@@ -82,7 +93,19 @@ namespace Horizon {
 		}
 	}
 
-	int Application::run() {
-		return Gtk::Application::run(window);
+	Application::~Application() {
+		manager_alarm.disconnect();
 	}
+
+
+	Application::Application(const Glib::ustring &appid) :
+		Gtk::Application(appid),
+		grid(nullptr)
+	{
+	}
+
+	Glib::RefPtr<Application> Application::create(const Glib::ustring &appid) {
+		return Glib::RefPtr<Application>( new Application(appid) );
+	}
+
 }

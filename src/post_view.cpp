@@ -31,30 +31,75 @@ namespace Horizon {
 		ngrid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		ngrid->set_column_spacing(5);
 
-		auto label = Gtk::manage(new Gtk::Label(post.getSubject()));
+		auto label = Gtk::manage(new Gtk::Label(post.get_subject()));
 		label->set_name("subject");
 		label->set_hexpand(false);
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
 		ngrid->add(*label);
 
-		label = Gtk::manage(new Gtk::Label(post.getName()));
+		label = Gtk::manage(new Gtk::Label(post.get_name()));
 		label->set_name("name");
 		label->set_hexpand(false);
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
 		ngrid->add(*label);
 
-		label = Gtk::manage(new Gtk::Label(post.getTimeStr()));
+		label = Gtk::manage(new Gtk::Label(post.get_time_str()));
 		label->set_name("time");
 		label->set_hexpand(false);
 		ngrid->add(*label);
 
-		label = Gtk::manage(new Gtk::Label("No. " + post.getNumber()));
+		label = Gtk::manage(new Gtk::Label("No. " + post.get_number()));
 		label->set_hexpand(false);
+
 		label->set_justify(Gtk::JUSTIFY_LEFT);
 		ngrid->add(*label);
 
 		add(*ngrid);
 		
+		// Image info
+		if ( post.has_image() ) {
+			ngrid = Gtk::manage(new Gtk::Grid());
+			ngrid->set_name("imageinfogrid");
+
+			std::string filename = post.get_original_filename() + post.get_image_ext();
+
+			label = Gtk::manage(new Gtk::Label(filename));
+			label->set_name("originalfilename");
+			label->set_hexpand(false);
+			label->set_ellipsize(Pango::ELLIPSIZE_END);
+			ngrid->add(*label);
+
+			long long postnum = strtoll(post.get_original_filename().c_str(),
+			                            NULL, 10);
+			postnum = postnum / 1000;
+			if (postnum > 1000000000 && postnum < 10000000000) {
+				std::time_t orig_posted = static_cast<std::time_t>(postnum);
+				std::stringstream str;
+				gpointer dateposted = g_malloc_n(42, sizeof(char));
+				strftime(static_cast<char*>(dateposted), 42, "%B %e, %Y", localtime(&orig_posted));
+				str << " [ " << static_cast<char*>(dateposted) << " ] ";
+				g_free(dateposted);
+
+				label = Gtk::manage(new Gtk::Label(str.str()));
+				label->set_hexpand(false);
+				label->set_name("imagenameinfo");
+				ngrid->add(*label);
+			} 
+
+			std::stringstream imgdims;
+			imgdims << " (" << post.get_fsize() / 1000 
+			        << " KB, " << post.get_width() 
+			        << "x" << post.get_height() << ") ";
+
+			label = Gtk::manage(new Gtk::Label(imgdims.str()));
+			label->set_hexpand(false);
+			label->set_justify(Gtk::JUSTIFY_LEFT);
+			label->set_name("imagenameinfo");
+			ngrid->add(*label);
+			add(*ngrid);
+		}
+
+
 		//ngrid = Gtk::manage(new Gtk::Grid());
 		//ngrid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		//ngrid->set_name("comment_grid");
@@ -84,14 +129,16 @@ namespace Horizon {
 		built_string.clear();
 		parseComment();
 
-		comment.set_text(built_string);
+		comment.set_name("comment");
+		comment.set_markup(built_string);
+		comment.set_selectable(true);
 		comment.set_valign(Gtk::ALIGN_START);
 		comment.set_halign(Gtk::ALIGN_START);
 		comment.set_justify(Gtk::JUSTIFY_LEFT);
 		comment.set_line_wrap(true);
 		comment.set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
-		//comment.set_size_request(400, -1);
 
+		comment_grid.set_name("commentgrid");
 		comment_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		comment_grid.add(comment);
 		comment_viewport.set_name("commentview");
@@ -99,7 +146,7 @@ namespace Horizon {
 		comment_viewport.set_hexpand(true);
 		add(comment_viewport);
 
-		if ( post.get_hash().size() > 0 ) {
+		if ( post.has_image() ) {
 			if ( ! ifetcher->has_thumb(post.get_hash()) ) {
 				thumb_connection = ifetcher->signal_thumb_ready.connect(sigc::mem_fun(*this, &PostView::on_thumb_ready));
 				ifetcher->download_thumb(post.get_hash(), post.get_thumb_url());
@@ -183,7 +230,7 @@ namespace Horizon {
 		}
 
 		htmlCtxtUseOptions(ctxt, HTML_PARSE_RECOVER );
-		htmlParseChunk(ctxt, post.getComment().c_str(), post.getComment().size(), 1);
+		htmlParseChunk(ctxt, post.get_comment().c_str(), post.get_comment().size(), 1);
 		htmlCtxtReset(ctxt);
 		htmlFreeParserCtxt(ctxt);
 		ctxt = NULL;
@@ -236,8 +283,10 @@ namespace Horizon {
 		} catch (Glib::ConvertError e) {
 			g_error("Error casting '%s' to Glib::ustring: %s", chars, e.what().c_str());
 		}
-
-		pv->built_string.append(str);
+		
+		gchar* cstr = g_markup_escape_text(static_cast<const gchar*>(str.c_str()), -1);
+		pv->built_string.append(static_cast<char*>(cstr));
+		g_free(cstr);
 		//pv->comment_iter = pv->comment->insert(pv->comment_iter, str);
 	}
 

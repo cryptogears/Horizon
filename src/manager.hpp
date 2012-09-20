@@ -1,5 +1,5 @@
 #include <glib.h>
-#include <glibmm/thread.h>
+#include <glibmm/threads.h>
 #include <glibmm/dispatcher.h>
 #include <memory>
 #include <map>
@@ -13,7 +13,8 @@ namespace Horizon {
 	class Manager {
 	public:
 		Manager() = default;
-		
+		~Manager();
+
 		bool checkThreads();
 		void addThread(std::shared_ptr<Thread> thread);
 
@@ -33,6 +34,7 @@ namespace Horizon {
 		Curler curler;
 		Glib::Mutex curler_mutex;
 		std::map<gint64, std::shared_ptr<Thread>> threads;
+		std::list<Glib::Threads::Thread*> free_list;
 	};
 
 }

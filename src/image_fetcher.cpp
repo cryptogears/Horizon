@@ -250,9 +250,12 @@ namespace Horizon {
 	                            GAsyncResult *res,
 	                            gpointer user_data) {
 		auto p = static_cast<std::pair<ImageFetcher*, std::string>* >(user_data);
-		
 		GError *error = NULL;
+
+		try {
+
 		GdkPixbuf *cpixbuf = gdk_pixbuf_new_from_stream_finish(res, &error);
+
 		if (error == NULL) {
 			Glib::RefPtr<Gdk::Pixbuf> pixbuf = Glib::wrap(cpixbuf);
 			p->first->thumbs.insert({p->second, pixbuf});
@@ -260,6 +263,11 @@ namespace Horizon {
 		} else {
 			g_warning("Error creating pixbuf: %s", error->message);
 		}
+
+		} catch (std::exception e) {
+			g_critical("pixbuf_ready_callback caught exception: %s", e.what());
+		}
+
 		delete p;
 	}
 
@@ -274,9 +282,10 @@ namespace Horizon {
 					mypair->first = this;
 					mypair->second = hash;
 					gdk_pixbuf_new_from_stream_async(G_INPUT_STREAM(iter->second->gobj()), NULL, pixbuf_ready_callback, mypair);
-				} catch (Glib::Error e) {
-					g_error("Error loading pixmap: %s", e.what().c_str());
+				} catch (std::exception e) {
+					g_error("Error loading pixmap: %s", e.what());
 				} 
+
 				thumb_streams.erase(hash);
 
 				return true;
@@ -285,6 +294,7 @@ namespace Horizon {
 			}
 		} else {
 			// This is a fullsize image
+			g_error("Fullsize images not yet implemented");
 			auto iter = image_streams.find(hash);
 			if ( iter != image_streams.end()) {
 				images.insert({hash, Gdk::Pixbuf::create_from_stream(iter->second)});

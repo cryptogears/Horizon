@@ -396,7 +396,7 @@ horizon_post_class_init (HorizonPostClass *klass)
 	  g_param_spec_string ("now",
 	                       "Date and time",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-now-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_TIME] =
 	  g_param_spec_int64 ("time",
@@ -410,55 +410,55 @@ horizon_post_class_init (HorizonPostClass *klass)
 	  g_param_spec_string ("name",
 	                       "Name",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-name-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_TRIP] =
 	  g_param_spec_string ("trip",
 	                       "Tripcode",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-trip-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_ID] =
 	  g_param_spec_string ("id",
 	                       "ID",
 	                       "Identifies if Mod or Admin",
-	                       NULL, /* default value */
+	                       "no-id-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_CAPCODE] =
 	  g_param_spec_string ("capcode",
 	                       "Capcode",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-capcode-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_COUNTRY] =
 	  g_param_spec_string ("country",
 	                       "Country Code",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-country-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_COUNTRY_NAME] =
 	  g_param_spec_string ("country_name",
 	                       "Country Name",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-country-name-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_EMAIL] =
 	  g_param_spec_string ("email",
 	                       "Email",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-email-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_SUBJECT] =
 	  g_param_spec_string ("sub",
 	                       "Subject",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-sub-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_COMMENT] =
 	  g_param_spec_string ("com",
 	                       "Comment",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-com-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_RENAMED_FILENAME] =
 	  g_param_spec_int64 ("tim",
@@ -472,13 +472,13 @@ horizon_post_class_init (HorizonPostClass *klass)
 	  g_param_spec_string ("filename",
 	                       "Original filename",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-filename-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_EXT] =
 	  g_param_spec_string ("ext",
 	                       "Filename extension",
 	                       "",
-	                       NULL, /* default value */
+	                       "no-ext-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_FSIZE] =
 	  g_param_spec_int64 ("fsize",
@@ -492,7 +492,7 @@ horizon_post_class_init (HorizonPostClass *klass)
 	  g_param_spec_string ("md5",
 	                       "File MD5SUM",
 	                       "24 character base64 MD5",
-	                       NULL, /* default value */
+	                       "no-md5-set", /* default value */
 	                       G_PARAM_READWRITE);
   obj_properties[PROP_WIDTH] =
 	  g_param_spec_int ("w",
@@ -555,5 +555,110 @@ horizon_post_class_init (HorizonPostClass *klass)
                                      N_PROPERTIES,
                                      obj_properties);
   
+}
+
+
+const gchar *
+horizon_post_get_md5 (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
+
+	return post->priv->md5;
+}
+
+const gint64 horizon_post_get_fsize (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->fsize;
+}
+
+const gint64 horizon_post_get_post_number (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->post_number;
+}
+
+const gint64 horizon_post_get_time (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->time;
+}
+
+const gint64 horizon_post_get_renamed_filename (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->renamed_filename;
+}
+
+const gchar *
+horizon_post_get_name (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
+
+	return post->priv->name;
+}
+
+const gchar *
+horizon_post_get_subject (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
+
+	return post->priv->subject;
+}
+
+const gchar *
+horizon_post_get_comment (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
+
+	return post->priv->comment;
+}
+
+const gchar *
+horizon_post_get_original_filename (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
+
+	return post->priv->filename;
+}
+
+const gchar *
+horizon_post_get_ext (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
+
+	return post->priv->ext;
+}
+
+const gint64 horizon_post_get_width (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->image_width;
+}
+
+const gint64 horizon_post_get_height (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->image_height;
+}
+
+const gint64 horizon_post_get_thumbnail_width (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->thumbnail_width;
+}
+
+const gint64 horizon_post_get_thumbnail_height (HorizonPost *post)
+{
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->thumbnail_height;
 }
 

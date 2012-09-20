@@ -32,17 +32,17 @@ namespace Horizon {
 		for ( auto iter = thread->posts.begin();
 		      iter != thread->posts.end(); 
 		      iter++ ) {
-			if ( post_map.count(iter->second.getId()) > 0 ) {
+			if ( post_map.count(iter->second.get_id()) > 0 ) {
 				// This post is already in the view
 				if ( ! iter->second.is_rendered() ) {
-					post_map[iter->second.getId()]->refresh(iter->second);
+					post_map[iter->second.get_id()]->refresh(iter->second);
 					iter->second.mark_rendered();
 					was_new = true;
 				}
 			} else {
 				// This is a new post
 				PostView *pv = Gtk::manage( new PostView(iter->second) );
-				post_map.insert({iter->second.getId(), pv});
+				post_map.insert({iter->second.get_id(), pv});
 				iter->second.mark_rendered();
 				grid.add(*pv);
 				was_new = true;

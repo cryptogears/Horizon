@@ -29,17 +29,23 @@ namespace Horizon {
 		void mark_rendered();
 		const bool is_rendered() const;
 
-		std::string getComment() const;
-		const gint64 getId() const;
-		const gint64 getUnixTime() const;
-		std::string getSubject() const;
-		std::string getTimeStr() const;
-		std::string getNumber() const;
-		std::string getName() const;
+		std::string get_comment() const;
+		const gint64 get_id() const;
+		const std::time_t get_unix_time() const;
+		std::string get_subject() const;
+		std::string get_time_str() const;
+		std::string get_number() const;
+		std::string get_name() const;
+		std::string get_original_filename() const;
+		std::string get_image_ext() const;
 		std::string get_hash() const;
 		std::string get_thumb_url() const;
-		const int get_thumb_width() const;
-		const int get_thumb_height() const;
+		const gint get_thumb_width() const;
+		const gint get_thumb_height() const;
+		const gint get_width() const;
+		const gint get_height() const;
+		const std::size_t get_fsize() const;
+		bool has_image() const;
 
 	private:
 		HorizonPost *post;
