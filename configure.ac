@@ -36,7 +36,6 @@ AC_SUBST([JSON_CFLAGS])
 AC_SUBST([LIBXML_LIBS])
 AC_SUBST([LIBXML_CFLAGS])
 
-
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h string.h])
 

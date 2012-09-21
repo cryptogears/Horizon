@@ -55,10 +55,6 @@ namespace Horizon {
 		Gtk::Application::on_startup();
 		Glib::set_application_name("Horizon");
 
-		if (!notify_init("Horizon")) {
-			g_error("Unable to initialize libnotify");
-		}
-
 		GResource* resource = horizon_get_resource();
 		g_resources_register(resource);
 
@@ -157,8 +153,6 @@ namespace Horizon {
 
 	Application::~Application() {
 		manager_alarm.disconnect();
-
-		notify_uninit();
 	}
 
 
