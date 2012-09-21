@@ -27,14 +27,14 @@ namespace Horizon {
 	private:
 		mutable Glib::Mutex data_mutex;
 		std::set<gint64> updatedThreads;
-
+		void push_updated_thread(const gint64);
+		void signal_404(const gint64 id);
 
 		void downloadThread(std::shared_ptr<Thread> thread);
 
 		Curler curler;
 		Glib::Mutex curler_mutex;
 		std::map<gint64, std::shared_ptr<Thread>> threads;
-		std::list<Glib::Threads::Thread*> free_list;
 	};
 
 }

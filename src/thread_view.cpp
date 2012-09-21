@@ -41,25 +41,31 @@ namespace Horizon {
 				}
 			} else {
 				// This is a new post
-				PostView *pv = Gtk::manage( new PostView(iter->second) );
+				bool should_notify = false;
+				if ( Glib::DateTime::create_now_utc(iter->second.get_unix_time()).difference(thread->last_post) == 0) {
+					if (thread->get_update_interval() > NOTIFICATION_INTERVAL || true) {
+						should_notify = true;
+					}
+				}
+
+				PostView *pv = Gtk::manage( new PostView(iter->second, should_notify) );
 				post_map.insert({iter->second.get_id(), pv});
 				iter->second.mark_rendered();
 				grid.add(*pv);
 				was_new = true;
 				pv->show_all();
+
 			}
 			
 		}
 
-		thread->update_notify(was_new);
 		if (was_new) {
 			//vadjustment->set_value(vadjustment->get_upper());
 			//vadjustment->signal_changed();
 			//show_all();
 			//check_resize();
-		} else {
-
-		}
+		} 
+		thread->update_notify(was_new);
 	}
 }
 

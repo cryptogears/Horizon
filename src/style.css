@@ -11,13 +11,19 @@
     border-style: solid;
     
 }
+
+#imageinfogrid {
+    
+}
+
 #originalfilename {
-    color: #070707;
     font: Arial 8;
+    color: blue
 }
 
 #imagenameinfo {
     font: Arial 8;
+    color: #070707;
 }
 
 #commentgrid {

@@ -9,10 +9,13 @@
 #include <gdkmm/pixbuf.h>
 #include <gtkmm/image.h>
 #include <glibmm/markup.h>
+#include <glibmm/datetime.h>
+#include <libnotify/notify.h>
+#include <ratio>
 
 namespace Horizon {
 
-	PostView::PostView(const Post &in) :
+	PostView::PostView(const Post &in, const bool donotify) :
 		Gtk::Grid(),
 		//textview(),
 		comment(),
@@ -21,7 +24,8 @@ namespace Horizon {
 		hadjust(Gtk::Adjustment::create(0., 0., 1., .1, 0.9, 1.)),
 		comment_viewport(hadjust, vadjust),
 		post(in),
-		ifetcher(ImageFetcher::get())
+		ifetcher(ImageFetcher::get()),
+		notify(donotify)
 	{
 		set_name("postview");
 		set_orientation(Gtk::ORIENTATION_VERTICAL);
@@ -60,6 +64,7 @@ namespace Horizon {
 		if ( post.has_image() ) {
 			ngrid = Gtk::manage(new Gtk::Grid());
 			ngrid->set_name("imageinfogrid");
+			ngrid->set_column_spacing(5);
 
 			std::string filename = post.get_original_filename() + post.get_image_ext();
 
@@ -69,18 +74,11 @@ namespace Horizon {
 			label->set_ellipsize(Pango::ELLIPSIZE_END);
 			ngrid->add(*label);
 
-			long long postnum = strtoll(post.get_original_filename().c_str(),
-			                            NULL, 10);
-			postnum = postnum / 1000;
-			if (postnum > 1000000000 && postnum < 10000000000) {
-				std::time_t orig_posted = static_cast<std::time_t>(postnum);
-				std::stringstream str;
-				gpointer dateposted = g_malloc_n(42, sizeof(char));
-				strftime(static_cast<char*>(dateposted), 42, "%B %e, %Y", localtime(&orig_posted));
-				str << " [ " << static_cast<char*>(dateposted) << " ] ";
-				g_free(dateposted);
-
-				label = Gtk::manage(new Gtk::Label(str.str()));
+			const gint64 original_id = g_ascii_strtoll(post.get_original_filename().c_str(), NULL, 10);
+			const gint64 original_time  = original_id / 1000;
+			if (original_time > 1000000000 && original_time < 10000000000) {
+				Glib::DateTime dtime = Glib::DateTime::create_now_local(original_time);
+				label = Gtk::manage(new Gtk::Label(dtime.format("%B %-e, %Y")));
 				label->set_hexpand(false);
 				label->set_name("imagenameinfo");
 				ngrid->add(*label);
@@ -153,6 +151,10 @@ namespace Horizon {
 			} else {
 				on_thumb_ready(post.get_hash());
 			}
+		} else {
+			if (notify) {
+				do_notify();
+			}
 		}
 	
 		//comment.set_hexpand(true);
@@ -195,26 +197,181 @@ namespace Horizon {
 		post = in;
 	}
 
+	const bool PostView::should_notify() const {
+		return notify;
+	}
+
+	const bool PostView::should_notify(const bool in) {
+		return notify = in;
+	}
+
+	Glib::RefPtr<Gio::DBus::Proxy> PostView::get_dbus_proxy() {
+		static Glib::RefPtr<Gio::DBus::Proxy> proxy = Gio::DBus::Proxy::create_for_bus_sync(
+			              Gio::DBus::BUS_TYPE_SESSION,
+			              "org.freedesktop.Notifications",
+			              "/org/freedesktop/Notifications",
+			              "org.freedesktop.Notifications",
+			              Glib::RefPtr< Gio::DBus::InterfaceInfo >(),
+			              Gio::DBus::PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES);
+
+		return proxy;
+	}
+	
+	static GVariant* get_variant_from_pixbuf(GdkPixbuf *pixbuf) {
+		gint            width;
+        gint            height;
+        gint            rowstride;
+        gint            n_channels;
+        gint            bits_per_sample;
+        guchar         *image;
+        gboolean        has_alpha;
+        gsize           image_len;
+        GVariant       *value;
+
+        width = gdk_pixbuf_get_width(pixbuf);
+        height = gdk_pixbuf_get_height(pixbuf);
+        rowstride = gdk_pixbuf_get_rowstride(pixbuf);
+        n_channels = gdk_pixbuf_get_n_channels(pixbuf);
+        bits_per_sample = gdk_pixbuf_get_bits_per_sample(pixbuf);
+        image = gdk_pixbuf_get_pixels(pixbuf);
+        has_alpha = gdk_pixbuf_get_has_alpha(pixbuf);
+
+        image_len = (height - 1) * rowstride + width *
+	        ((n_channels * bits_per_sample + 7) / 8);
+
+        value = g_variant_new ("(iiibii@ay)",
+                               width,
+                               height,
+                               rowstride,
+                               has_alpha,
+                               bits_per_sample,
+                               n_channels,
+                               g_variant_new_from_data (G_VARIANT_TYPE ("ay"),
+                                                        image,
+                                                        image_len,
+                                                        TRUE,
+                                                        (GDestroyNotify) g_object_unref,
+                                                        g_object_ref (pixbuf)));
+
+        return value;
+	}
+
+	void PostView::do_notify(const Glib::RefPtr<Gdk::Pixbuf>& pixbuf ) {
+		notify = false;
+		std::string summary = "New 4chan post";
+		std::string body = built_string;
+		if (body.size() == 0)
+			body = "";
+		GError *error = nullptr;
+		GVariantBuilder actions_builder;
+		GVariantBuilder hints_builder;
+
+		static GdkPixbuf *icon_pixbuf = gdk_pixbuf_new_from_resource("/com/talisein/fourchan/native/gtk/4chan-icon.png", &error);
+		if (!icon_pixbuf) {
+			g_error("Unable to load 4chan icon: %s", error->message);
+			g_error_free(error);
+			error = nullptr;
+		}
+		static GVariant *icon = get_variant_from_pixbuf(icon_pixbuf);
+		g_variant_builder_init (&actions_builder, G_VARIANT_TYPE ("as")); 
+		g_variant_builder_add(&actions_builder, "s", "win.reply");
+		g_variant_builder_add(&actions_builder, "s", "Reply");
+		
+		g_variant_builder_init (&hints_builder, G_VARIANT_TYPE ("a{sv}"));
+
+		if (pixbuf) {
+			const double target_width = 145.;
+			const double target_height = 140.;
+			GdkPixbuf *scaled_image = pixbuf->gobj();
+			double width = static_cast<double>(pixbuf->get_width());
+			double height = static_cast<double>(pixbuf->get_height());
+			gint new_width;
+			gint new_height;
+			bool do_unref = false;
+			double ratio = width / height;
+			if ( width > height ) {
+				height = (target_width / width) * height;
+				width = target_width;
+			} else {
+				width = ( target_height / height ) * width;
+				height = target_height;
+			}
+
+			if ( width > target_width ) {
+				gdouble shrink_ratio = target_width / width;
+				width = target_width;
+				height = height * shrink_ratio;
+			}
+			if ( height > target_height ) {
+				gdouble shrink_ratio = target_height / height;
+				height = target_height;
+				width = width * shrink_ratio;
+			}
+
+			new_width = static_cast<gint>(width);
+			new_height = static_cast<gint>(height);
+			std::cerr << "Scaling to " << new_width << "x" << new_height << std::endl;
+			scaled_image = gdk_pixbuf_scale_simple(pixbuf->gobj(), new_width, new_height, GDK_INTERP_HYPER);
+			do_unref = true;
+
+			GVariant *image_data = get_variant_from_pixbuf(scaled_image);
+			g_variant_builder_add (&hints_builder, "{sv}", "image-data", image_data);
+			if (do_unref)
+				g_object_unref(scaled_image);
+		} 
+
+		GVariant *notification = g_variant_new ("(susssasa{sv}i)",
+		                                        "Horizon", // (s) app name
+		                                        0, // (u) id
+		                                        "", // (s) iconname
+		                                        summary.c_str(), // (s) summary
+		                                        body.c_str(), // (s) body
+		                                        &actions_builder, // (as) actions
+		                                        &hints_builder, // a{sv} hints
+		                                        -1); // (i) timeout
+		
+		auto proxy = get_dbus_proxy();
+
+		auto result = g_dbus_proxy_call_sync (proxy->gobj(),
+		                                 "Notify",
+		                                 notification,
+		                                 G_DBUS_CALL_FLAGS_NONE,
+		                                 -1,
+		                                 NULL,
+		                                 &error);
+		if ( error ) {
+			g_warning("Error sending notification: ", error->message);
+		}
+	}
+
 	void PostView::on_thumb_ready(std::string hash) {
 		if ( post.get_hash().find(hash) != std::string::npos ) {
 			if (thumb_connection.connected())
 				thumb_connection.disconnect();
 			try {
-				auto image = new Gtk::Image(ifetcher->get_thumb(hash));
-				Gtk::manage(image);
+				auto pixbuf = ifetcher->get_thumb(hash);
+				if (notify) {
+					do_notify(pixbuf);
+				}
+				try {
+					auto image = new Gtk::Image(pixbuf);
+					Gtk::manage(image);
 				
-				image->set_halign(Gtk::ALIGN_START);
-				image->set_valign(Gtk::ALIGN_START);
-				int width = post.get_thumb_width();
-				int height = post.get_thumb_height();
-				if (width > 0 && height > 0) 
-					;//image->set_size_request(post.get_thumb_width(), post.get_thumb_height());
-				else
-					g_warning("Thumb nail height is %d by %d", width, height);
-				comment_grid.remove(comment);
-				comment_grid.add(*image);
-				comment_grid.add(comment);
-				comment_grid.show_all();
+					image->set_halign(Gtk::ALIGN_START);
+					image->set_valign(Gtk::ALIGN_START);
+					int width = post.get_thumb_width();
+					int height = post.get_thumb_height();
+					if (width > 0 && height > 0) 
+						;//image->set_size_request(post.get_thumb_width(), post.get_thumb_height());
+					else
+						g_warning("Thumb nail height is %d by %d", width, height);
+					comment_grid.remove(comment);
+					comment_grid.add(*image);
+					comment_grid.add(comment);
+					comment_grid.show_all();
+				} catch ( ... ) {
+					g_warning("Failed to construct image");
+				}
 			} catch ( Glib::Error e ) {
 				g_warning("Error creating image from Pixmap: %s", e.what().c_str());
 			}

@@ -4,6 +4,12 @@
 #include <gtkmm/cssprovider.h>
 #include <giomm/file.h>
 #include <giomm/simpleaction.h>
+#include <gtkmm/builder.h>
+#include <gtkmm/dialog.h>
+#include <gtkmm/entry.h>
+#include <gtkmm/stock.h>
+#include <libnotify/notify.h>
+
 extern "C" {
 #include "horizon-resources.h"
 }
@@ -24,8 +30,6 @@ namespace Horizon {
 
 			auto provider = Gtk::CssProvider::get_default();
 
-			GResource* resource = horizon_get_resource();
-			g_resources_register(resource);
 			auto file = Gio::File::create_for_uri("resource:///com/talisein/fourchan/native/gtk/style.css");
 			auto sc = window->get_style_context();
 			auto screen = Gdk::Screen::get_default();
@@ -42,21 +46,23 @@ namespace Horizon {
 	void Application::on_activate() {
 		Gtk::Application::on_activate();
 
+		setup_window();
+
+
 	}
 
 	void Application::on_startup() {
 		Gtk::Application::on_startup();
 		Glib::set_application_name("Horizon");
 
-		setup_window();
+		if (!notify_init("Horizon")) {
+			g_error("Unable to initialize libnotify");
+		}
+
+		GResource* resource = horizon_get_resource();
+		g_resources_register(resource);
+
 		setup_actions();
-
-		auto t2 = Thread::create("http://boards.4chan.org/a/res/71776852");
-		auto tv2 = Gtk::manage(new ThreadView(t2));
-		grid->add(*tv2);
-		thread_map.insert({t2->id, tv2});
-		manager.addThread(t2);
-
 
 		manager_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::checkThreads), 3);
 		manager.signal_thread_updated.connect(sigc::mem_fun(*this, &Application::onUpdates));
@@ -64,16 +70,72 @@ namespace Horizon {
 	}
 
 	void Application::setup_actions() {
-		auto open = Gio::SimpleAction::create("app.open_thread",  // name
+		auto open = Gio::SimpleAction::create("open_thread",  // name
 		                                      Glib::VARIANT_TYPE_STRING
 		                                      );
 		open->signal_activate().connect( sigc::mem_fun(*this, &Application::on_open_thread) );
 		open->set_enabled(true);
 		add_action(open);
+
+		auto opendialog = Gio::SimpleAction::create("open_thread_dialog");
+		opendialog->signal_activate().connect( sigc::mem_fun(*this, &Application::on_open_thread_dialog) );
+		opendialog->set_enabled(true);
+		add_action(opendialog);
+
+
+		auto builder = gtk_builder_new();
+		GError *error = NULL;
+		gtk_builder_add_from_resource(builder, 
+		                              "/com/talisein/fourchan/native/gtk/menus.xml",
+		                              &error);
+		if ( error == NULL ) {
+			auto menu = gtk_builder_get_object(builder, "app-menu");
+			set_app_menu(Glib::wrap(G_MENU_MODEL(menu)));
+		} else {
+			g_error ( "Error loading menu resource: %s", error->message );
+		}
+
+		g_object_unref(builder);
+	}
+
+	void Application::on_open_thread_dialog(const Glib::VariantBase&) {
+		Gtk::Dialog* dialog = new Gtk::Dialog("Open New Thread");
+		auto box = dialog->get_vbox();
+		auto label = Gtk::manage(new Gtk::Label("Enter 4chan thread URL:"));
+		auto entry = Gtk::manage(new Gtk::Entry());
+		auto button = dialog->add_button(Gtk::Stock::OK, Gtk::RESPONSE_OK);
+		dialog->set_default_response(Gtk::RESPONSE_OK);
+		entry->set_activates_default(true);
+		box->add(*label);
+		box->add(*entry);
+		box->show_all();
+		auto resp = dialog->run();
+		if ( resp == Gtk::RESPONSE_OK ) {
+			auto parameter = Glib::Variant<Glib::ustring>::create(entry->get_text());
+			activate_action("open_thread", parameter);
+		}
+		dialog->hide();
+		delete dialog;
 	}
 
 	void Application::on_open_thread(const Glib::VariantBase& parameter) {
-		std::cerr << "Action activated!" << std::endl;
+		Glib::Variant<Glib::ustring> str_variant = Glib::VariantBase::cast_dynamic< Glib::Variant<Glib::ustring> >(parameter);
+		Glib::ustring url = str_variant.get();
+
+		if ( url.find("4chan.org") != url.npos ) {
+			std::cerr << "String was " << url << std::endl;
+			if ( auto pos = url.find("https") != url.npos ) {
+				url.erase(pos + 3, 1);
+			}
+
+			if ( url.find("http://") != url.npos ) {
+				auto t = Thread::create(url);
+				auto tv = Gtk::manage(new ThreadView(t));
+				grid->add(*tv);
+				thread_map.insert({t->id, tv});
+				manager.addThread(t);
+			}
+		}
 	}
 	
 
@@ -95,6 +157,8 @@ namespace Horizon {
 
 	Application::~Application() {
 		manager_alarm.disconnect();
+
+		notify_uninit();
 	}
 
 

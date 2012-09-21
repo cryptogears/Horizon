@@ -1,0 +1,11 @@
+<interface>
+  <menu id='app-menu'>
+    <section>
+      <item>
+        <attribute name='label' translatable='yes'>Open new thread...</attribute>
+        <attribute name='action'>app.open_thread_dialog</attribute>
+        <attribute name='accel'>&lt;Primary&gt;t</attribute>
+      </item>
+    </section>
+  </menu>
+<interface>

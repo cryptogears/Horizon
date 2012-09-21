@@ -5,7 +5,7 @@ INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(J
 horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS)
 
 
-horizon-resources.c: horizon.gresource.xml style.css
+horizon-resources.c: horizon.gresource.xml style.css menus.xml 4chan-icon.png
 	glib-compile-resources --target=$@ --sourcedir=$(srcdir) --generate-source --c-name horizon $(srcdir)/horizon.gresource.xml
 
 horizon-resources.h: horizon.gresource.xml

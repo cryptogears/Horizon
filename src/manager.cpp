@@ -29,29 +29,40 @@ namespace Horizon {
 		return out;
 	}
 
-	/* Run in a separate thread */
+	void Manager::push_updated_thread(const gint64 id) {
+		Glib::Mutex::Lock lock(data_mutex);
+		updatedThreads.insert(id);
+	}
+
+	void Manager::signal_404(const gint64 id) {
+		Glib::Mutex::Lock lock(data_mutex);
+		auto erased = threads.erase(id);
+		if (G_UNLIKELY( erased != 1 )) {
+			g_warning("Thread %d was marked as 404 but is not in manager's list. %d were erased.", id, erased);
+		}
+	}
+
+	/* Runs in a separate thread */
 	void Manager::downloadThread(std::shared_ptr<Thread> thread) {
 		Glib::Mutex::Lock lock(curler_mutex);
 
 		try{
 			std::list<Post> posts = curler.pullThread(thread);
-			thread->last_checked = std::time(NULL);
+			thread->last_checked = Glib::DateTime::create_now_utc();
 
 			if (posts.size() > 0) {
 				auto iter = posts.rbegin();
-				thread->last_post = static_cast<std::time_t>(iter->get_unix_time());
+				thread->last_post = Glib::DateTime::create_now_utc(iter->get_unix_time());
 				thread->updatePosts(posts);
-				{
-					Glib::Mutex::Lock data_lock(data_mutex);
-					updatedThreads.insert(thread->id);
-					signal_thread_updated();
-				}
+				push_updated_thread(thread->id);
+				signal_thread_updated();
 			}
 		} catch (Thread404 e) {
-			Glib::Mutex::Lock data_lock(data_mutex);
 			thread->is_404 = true;
-			updatedThreads.insert(thread->id);
+			push_updated_thread(thread->id);
 			signal_thread_updated();
+			signal_404(thread->id);
+
 		} catch (Concurrency e) {
 			// This should be impossible since we are using the mutex.
 			g_critical("Manager's Curler is being used by more than one thread.");
@@ -68,14 +79,14 @@ namespace Horizon {
 		// Don't call downloadThread until we're done walking through
 		// the threads map.
 		std::list<std::shared_ptr<Thread>> threads_to_check;
-		std::time_t now = std::time(NULL);
+		Glib::DateTime now = Glib::DateTime::create_now_utc();
 
 		{
 			Glib::Mutex::Lock lock(data_mutex);
 			for(auto iter = threads.begin(); iter != threads.end(); iter++) {
-				gint64 diff = now - iter->second->last_checked;
+				Glib::TimeSpan diff = now.difference(iter->second->last_checked);
 				if ( diff > iter->second->get_update_interval() && !iter->second->is_404 ) {
-					std::cerr << "Checking thread " << iter->second->number << std::endl;
+					std::cerr << ">Checking thread " << iter->second->number << std::endl;
 					threads_to_check.push_back(iter->second);
 				}
 			}
@@ -84,17 +95,33 @@ namespace Horizon {
 		for ( auto iter = threads_to_check.begin(); 
 		      iter != threads_to_check.end();
 		      iter++) {
-			Glib::Threads::Thread* t = Glib::Threads::Thread::create( sigc::bind(sigc::mem_fun(*this, &Manager::downloadThread), *iter));
-			free_list.push_back(t);
+			Glib::Threads::Thread* t = nullptr;
+			int trycount = 0;
+			while ( !t ) {
+				try {
+					trycount++;
+					t = Glib::Threads::Thread::create( sigc::bind(sigc::mem_fun(*this, &Manager::downloadThread), *iter));
+				} catch (Glib::Threads::ThreadError e) {
+					if ( e.code() == Glib::Threads::ThreadError::AGAIN ) {
+						if (trycount > 20) {
+							g_warning("Unable to create a new thread. Trycount: %d, Message: %s", trycount, e.what().c_str());
+							break;
+						}
+					} else {
+						g_warning("Unable to create a new thread. Trycount: %d Message: %s", trycount, e.what().c_str());
+						break;
+					}
+				}
+			}
+
+			if (t) {
+				g_thread_unref(t->gobj());
+			}
 		}
 
 		return true;
 	}
 
 	Manager::~Manager() {
-		for (auto iter = free_list.begin(); iter != free_list.end(); iter++) {
-			Glib::Threads::Thread* thread = *iter;
-			thread->join();
-		}
 	}
 }

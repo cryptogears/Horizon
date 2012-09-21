@@ -8,26 +8,35 @@
 #include <gtkmm/textview.h>
 #include <libxml/HTMLparser.h>
 #include <gtkmm/viewport.h>
+#include <giomm/dbusproxy.h>
 #include "image_fetcher.hpp"
 
 namespace Horizon {
 
 	class PostView : public Gtk::Grid {
 	public:
-		PostView( const Post &in );
+		PostView( const Post &in, const bool notify);
 		~PostView();
 
 		void refresh( const Post &in );
+		const bool should_notify() const;
+		const bool should_notify(const bool notify);
 
 	private:
 		PostView() = delete;
 		PostView(const PostView&) = delete;
 		PostView& operator=(const PostView&) = delete;
 
+		static Glib::RefPtr<Gio::DBus::Proxy> get_dbus_proxy();
+		void do_notify(const Glib::RefPtr<Gdk::Pixbuf>& = Glib::RefPtr<Gdk::Pixbuf>());
+
+
 		void parseComment();
 		void on_thumb_ready(std::string hash);
 		void on_image_ready(std::string hash);
 		sigc::connection thumb_connection;
+
+		bool notify;
 
 		htmlSAXHandlerPtr sax;
 		xmlParserCtxtPtr ctxt;

@@ -25,6 +25,7 @@ namespace Horizon {
 
 		void onUpdates();
 
+
 	protected:
 		virtual void on_activate();
 		virtual void on_startup();
@@ -43,6 +44,7 @@ namespace Horizon {
 		Gtk::Grid* grid;
 
 		void on_open_thread(const Glib::VariantBase& parameter);
+		void on_open_thread_dialog(const Glib::VariantBase& parameter);
 	};
 
 	static const Glib::ustring app_id = "com.talisein.fourchan.native.gtk";

@@ -2,7 +2,7 @@
 #define NATIVECHAN_THREAD_HPP
 #include <string>
 #include <list>
-#include <ctime>
+#include <glibmm/datetime.h>
 #include <glib.h>
 #include <glibmm/thread.h>
 #include <memory>
@@ -24,16 +24,17 @@ namespace Horizon {
 		explicit Post(const Post& in);
 		Post& operator=(const Post& in);
 
-		bool operator==(const Post& rhs);
+		const bool operator==(const Post& rhs) const;
+		const bool operator!=(const Post& rhs) const;
 		void update(const Post &in);
 		void mark_rendered();
 		const bool is_rendered() const;
 
 		std::string get_comment() const;
 		const gint64 get_id() const;
-		const std::time_t get_unix_time() const;
+		const gint64 get_unix_time() const;
 		std::string get_subject() const;
-		std::string get_time_str() const;
+		Glib::ustring get_time_str() const;
 		std::string get_number() const;
 		std::string get_name() const;
 		std::string get_original_filename() const;
@@ -45,7 +46,11 @@ namespace Horizon {
 		const gint get_width() const;
 		const gint get_height() const;
 		const std::size_t get_fsize() const;
-		bool has_image() const;
+		const bool has_image() const;
+		const bool is_sticky() const;
+		const bool is_closed() const;
+		const bool is_deleted() const;
+		const bool is_spoiler() const;
 
 	private:
 		HorizonPost *post;
@@ -62,10 +67,10 @@ namespace Horizon {
 		const std::string full_url;
 		std::string api_url;
 		std::string board;
-		std::time_t last_checked;
-		std::time_t last_post;
+		Glib::DateTime last_checked;
+		Glib::DateTime last_post;
 		bool is_404;
-		const std::time_t get_update_interval() const;
+		const Glib::TimeSpan get_update_interval() const;
 		void update_notify(bool was_new);
 
 		/* Appends to the list any new posts
@@ -84,13 +89,14 @@ namespace Horizon {
 		
 		Glib::Mutex posts_mutex;
 
-		std::time_t update_interval;
+		Glib::TimeSpan update_interval;
 		std::default_random_engine generator;
-		std::uniform_int_distribution<std::time_t> random_int;
+		std::uniform_int_distribution<Glib::TimeSpan> random_int;
 	};
 
-	const std::time_t MIN_UPDATE_INTERVAL = 10;
-	const std::time_t MAX_UPDATE_INTERVAL = 900;
+	const Glib::TimeSpan MIN_UPDATE_INTERVAL = 10 * 1000 * 1000;
+	const Glib::TimeSpan MAX_UPDATE_INTERVAL = 15 * 60 * 1000 * 1000;
+	const Glib::TimeSpan NOTIFICATION_INTERVAL = 5 * 60 * 1000 * 1000;
 
 }
 #endif

@@ -2,14 +2,14 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
-#include <ctime>
+#include <glibmm/datetime.h>
 
 namespace Horizon {
 
 	Post::Post(gpointer in, bool takeRef, std::string board_in):
 		post(HORIZON_POST(in)),
-		rendered(false),
-		board(board_in)
+		board(board_in),
+		rendered(false)
 	{
 		if (takeRef)
 			g_object_ref(post);
@@ -53,30 +53,38 @@ namespace Horizon {
 		return *this;
 	}
 
-	bool Post::operator==(const Post& rhs) {
-		gint64 nol, nor;
-		gint stickyl, stickyr, closedl, closedr;
-		gint filedeletedl, filedeletedr;
-		bool ret;
+	const bool Post::operator==(const Post& rhs) const {
+		const gint64 nol        = get_id();
+		const bool stickyl      = is_sticky();
+		const bool closedl      = is_closed();
+		const bool filedeletedl = is_deleted();
 
-		g_object_get(post, 
-		             "no", &nol,
-		             "sticky", &stickyl,
-		             "closed", &closedl,
-		             "filedeleted", &filedeletedl,
-		             NULL);
+		const gint64 nor        = rhs.get_id();
+		const bool stickyr      = rhs.is_sticky();
+		const bool closedr      = rhs.is_closed();
+		const bool filedeletedr = rhs.is_deleted();
 
-		g_object_get(rhs.post, 
-		             "no", &nor,
-		             "sticky", &stickyr,
-		             "closed", &closedr,
-		             "filedeleted", &filedeletedr,
-		             NULL);
-		ret = nor == nol 
+		return nor == nol 
 			&& stickyr == stickyl 
 			&& closedr == closedl 
 			&& filedeletedr == filedeletedl;
-		return ret;
+	}
+
+	const bool Post::operator!=(const Post& rhs) const {
+		const gint64 nol        = get_id();
+		const bool stickyl      = is_sticky();
+		const bool closedl      = is_closed();
+		const bool filedeletedl = is_deleted();
+
+		const gint64 nor        = rhs.get_id();
+		const bool stickyr      = rhs.is_sticky();
+		const bool closedr      = rhs.is_closed();
+		const bool filedeletedr = rhs.is_deleted();
+
+		return nor != nol 
+			|| stickyr != stickyl 
+			|| closedr != closedl 
+			|| filedeletedr != filedeletedl;
 	}
 
 	void Post::update(const Post& in) {
@@ -108,26 +116,15 @@ namespace Horizon {
 		return out.str();
 	}
 		
-	std::string Post::get_time_str() const {
-		gint64 time = horizon_post_get_time(post);
-		std::stringstream out;
-
-		if (time >= 0) {
-			std::time_t t = static_cast<std::time_t>(time);
-			const size_t buffsize = 42;
-			gpointer cstring = g_malloc_n(buffsize, sizeof(char));
-			gpointer result = g_malloc0(sizeof(struct tm));
-			size_t total = std::strftime(static_cast<char*>(cstring), buffsize, "%A, %l:%M:%S %P", localtime_r(&t, static_cast<struct tm*>(result)));
-			if (total == 0) {
-				g_error("getTimeStr doesn't allocate large enough buffer. Total = %d", total);
-			} else {
-				out << static_cast<char*>(cstring);
-			}
-			g_free(cstring);
-			g_free(result);
+	Glib::ustring Post::get_time_str() const {
+		gint64 ctime = horizon_post_get_time(post);
+		Glib::ustring out;
+		Glib::DateTime time = Glib::DateTime::create_now_local(ctime);
+		if (G_LIKELY( ctime >= 0 )) {
+			out = time.format("%A, %-l:%M:%S %P");
 		} 
 
-		return out.str();
+		return out;
 	}
 
 	std::string Post::get_name() const {
@@ -156,12 +153,8 @@ namespace Horizon {
 		return horizon_post_get_post_number(post);
 	}
 
-	const std::time_t Post::get_unix_time() const {
-		return static_cast<std::time_t>(horizon_post_get_time(post));
-	}
-
-	bool Post::has_image() const {
-		return horizon_post_get_fsize(post) > 0;
+	const gint64 Post::get_unix_time() const {
+		return horizon_post_get_time(post);
 	}
 
 	std::string Post::get_hash() const {
@@ -229,6 +222,26 @@ namespace Horizon {
 		return static_cast<const std::size_t>(horizon_post_get_fsize(post));
 	}
 
+	const bool Post::has_image() const {
+		return horizon_post_get_fsize(post) > 0;
+	}
+
+	const bool Post::is_sticky() const {
+		return static_cast<const bool>(horizon_post_get_sticky(post));
+	}
+
+	const bool Post::is_closed() const {
+		return static_cast<const bool>(horizon_post_get_closed(post));
+	}
+
+	const bool Post::is_deleted() const {
+		return static_cast<const bool>(horizon_post_get_deleted(post));
+	}
+
+	const bool Post::is_spoiler() const {
+		return static_cast<const bool>(horizon_post_get_spoiler(post));
+	}
+
 	const bool Post::is_rendered() const {
 		return rendered;
 	}
@@ -239,12 +252,12 @@ namespace Horizon {
 
 	Thread::Thread(std::string url) :
 		full_url(url),
-		last_post(0),
-		last_checked(0),
+		last_post(Glib::DateTime::create_now_utc(0)),
+		last_checked(Glib::DateTime::create_now_utc(0)),
 		is_404(false),
-		update_interval(10),
+		update_interval(MIN_UPDATE_INTERVAL),
 		generator(std::chrono::system_clock::now().time_since_epoch().count()),
-		random_int(0, 13)
+		random_int(0, 13 * 1000 * 1000)
 	{
 		size_t res_pos = url.rfind("/res/");
 		size_t board_pos = url.rfind("/", res_pos - 1);
@@ -271,7 +284,7 @@ namespace Horizon {
 		}
 	}
 
-	const std::time_t Thread::get_update_interval() const { 
+	const Glib::TimeSpan Thread::get_update_interval() const { 
 		return update_interval;
 	}
 
@@ -280,7 +293,7 @@ namespace Horizon {
 			update_interval = MIN_UPDATE_INTERVAL;
 		} else {
 			if (update_interval < MAX_UPDATE_INTERVAL) {
-				update_interval = static_cast<std::time_t>(update_interval * 2 + random_int(generator));
+				update_interval = static_cast<Glib::TimeSpan>(update_interval * 2 + random_int(generator));
 			} else { 
 				update_interval = MAX_UPDATE_INTERVAL;
 			}

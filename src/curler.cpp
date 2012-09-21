@@ -19,7 +19,7 @@ namespace Horizon {
 	}
 
 	Curler::Curler() :
-		last_pull(0)
+		last_pull(Glib::DateTime::create_now_utc(0))
 	{
 		curl_global_init(CURL_GLOBAL_ALL);
 		curl = curl_easy_init();
@@ -39,9 +39,9 @@ namespace Horizon {
 	std::list<Post> Curler::pullThread(std::shared_ptr<Thread> thread) {
 		CURLcode res;
 		std::list<Post> posts;
-		std::time_t completed = 0;
+		Glib::DateTime completed;
 
-		while ( std::time(NULL) == thread->last_checked ) {
+		while ( Glib::DateTime::create_now_utc().difference(last_pull) == 0 ) {
 			g_usleep(G_USEC_PER_SEC);
 		}
 
@@ -61,11 +61,11 @@ namespace Horizon {
 		res = curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
 		                       CURL_TIMECOND_IFMODSINCE);
 		res = curl_easy_setopt(curl, CURLOPT_TIMEVALUE,
-		                       static_cast<long>(thread->last_post) + 1);
+		                       static_cast<long>(thread->last_post.to_unix()) + 1);
 		res = curl_easy_setopt(curl, CURLOPT_VERBOSE,
 		                       0);
 
-		last_pull = std::time(NULL);
+		last_pull = Glib::DateTime::create_now_utc();
 		res = curl_easy_perform(curl);
 
 		long code = 0;
@@ -84,7 +84,7 @@ namespace Horizon {
 			}
 		}
 
-		completed = std::time(NULL);
+		completed = Glib::DateTime::create_now_utc();
 		
 		if ( threadBuffer.size() == 0 ) {
 			thread->update_notify(false);

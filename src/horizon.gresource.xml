@@ -2,6 +2,7 @@
 <gresources>
   <gresource prefix="/com/talisein/fourchan/native/gtk">
     <file>style.css</file>
-    <file>fang.png</file>
+    <file>menus.xml</file>
+    <file>4chan-icon.png</file>
   </gresource>
 </gresources>
