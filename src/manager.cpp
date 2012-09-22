@@ -9,6 +9,19 @@ namespace Horizon {
 		threads.insert({thread->id, thread});
 	}
 
+	void Manager::remove_thread(const gint64 id) {
+		Glib::Mutex::Lock lock(data_mutex);
+		auto iter = threads.find(id);
+		if ( iter != threads.end() ) {
+			threads.erase(iter);
+		}
+
+		auto iter2 = updatedThreads.find(id);
+		if ( iter2 != updatedThreads.end() ) {
+			updatedThreads.erase(iter2);
+		}
+	}
+
 	bool Manager::is_updated_thread() const {
 		Glib::Mutex::Lock lock(data_mutex);
 
@@ -31,7 +44,9 @@ namespace Horizon {
 
 	void Manager::push_updated_thread(const gint64 id) {
 		Glib::Mutex::Lock lock(data_mutex);
-		updatedThreads.insert(id);
+
+		if ( threads.count(id) > 0 ) 
+			updatedThreads.insert(id);
 	}
 
 	void Manager::signal_404(const gint64 id) {
@@ -86,7 +101,6 @@ namespace Horizon {
 			for(auto iter = threads.begin(); iter != threads.end(); iter++) {
 				Glib::TimeSpan diff = now.difference(iter->second->last_checked);
 				if ( diff > iter->second->get_update_interval() && !iter->second->is_404 ) {
-					std::cerr << ">Checking thread " << iter->second->number << std::endl;
 					threads_to_check.push_back(iter->second);
 				}
 			}

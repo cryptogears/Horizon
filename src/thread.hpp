@@ -8,6 +8,7 @@
 #include <memory>
 #include <map>
 #include <random>
+#include <glibmm/dispatcher.h>
 
 extern "C" {
 #include "horizon_post.h"
@@ -73,6 +74,8 @@ namespace Horizon {
 		const Glib::TimeSpan get_update_interval() const;
 		void update_notify(bool was_new);
 
+		Glib::Dispatcher signal_updated_interval;
+
 		/* Appends to the list any new posts
 		   Marks changed posts (Thread lock/file deletion) as changed.
 		 */
@@ -87,6 +90,7 @@ namespace Horizon {
 		Thread(const Thread&) = delete;
 		Thread& operator=(const Thread&) = delete;
 		
+
 		Glib::Mutex posts_mutex;
 
 		Glib::TimeSpan update_interval;
@@ -95,7 +99,7 @@ namespace Horizon {
 	};
 
 	const Glib::TimeSpan MIN_UPDATE_INTERVAL = 10 * 1000 * 1000;
-	const Glib::TimeSpan MAX_UPDATE_INTERVAL = 15 * 60 * 1000 * 1000;
+	const Glib::TimeSpan MAX_UPDATE_INTERVAL = 5 * 60 * 1000 * 1000;
 	const Glib::TimeSpan NOTIFICATION_INTERVAL = 5 * 60 * 1000 * 1000;
 
 }

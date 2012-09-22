@@ -46,6 +46,9 @@ namespace Horizon {
 		Gtk::Grid comment_grid;
 		Gtk::Label comment;
 		Gtk::Viewport comment_viewport;
+		void on_postview_show();
+		void on_style_change();
+		int derp = 0;
 
 		std::shared_ptr<ImageFetcher> ifetcher;
 		/*

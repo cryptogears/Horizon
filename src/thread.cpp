@@ -293,11 +293,13 @@ namespace Horizon {
 			update_interval = MIN_UPDATE_INTERVAL;
 		} else {
 			if (update_interval < MAX_UPDATE_INTERVAL) {
-				update_interval = static_cast<Glib::TimeSpan>(update_interval * 2 + random_int(generator));
+				update_interval = static_cast<Glib::TimeSpan>(update_interval + random_int(generator));
 			} else { 
 				update_interval = MAX_UPDATE_INTERVAL;
 			}
 		}
+
+		signal_updated_interval();
 	}
 
 	std::shared_ptr<Thread> Thread::create(const std::string &url) {

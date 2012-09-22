@@ -6,6 +6,21 @@
         <attribute name='action'>app.open_thread_dialog</attribute>
         <attribute name='accel'>&lt;Primary&gt;t</attribute>
       </item>
+      <item>
+        <attribute name='label' translatable='yes'>Add row</attribute>
+        <attribute name='action'>app.add_row</attribute>
+        <attribute name='accel'>&lt;Primary&gt;n</attribute>
+      </item>
+      <item>
+        <attribute name='label' translatable='yes'>Remove row</attribute>
+        <attribute name='action'>app.remove_row</attribute>
+        <attribute name='accel'>&lt;Primary&gt;p</attribute>
+      </item>
+      <item>
+        <attribute name='label' translatable='yes'>Fullscreen</attribute>
+        <attribute name='action'>app.fullscreen</attribute>
+        <attribute name='accel'>F11</attribute>
+      </item>
     </section>
   </menu>
 <interface>

@@ -4,16 +4,35 @@
     background-color: #EEF2FF;
 }
 
-#commentview {
+#commentview:prelight {
+    transition: 300ms ease-in;
     background-color: #D6DAF0;
+}
+
+#commentview {
+    background-color: #EEF2FF;
     border-color: #B7C5D9;
     border-width: 1px;
     border-style: solid;
     
 }
 
-#imageinfogrid {
+#horizonwindow {
+    background-color: #D6DAF0;
+}
+
+#frame {
+    border-width: 2px;
+    border-color: #EEF2FF;
+    border-radius: 1px;
+    border-style: solid;
     
+}
+
+#threadcontrolgrid {
+    border-width: 1px;
+    border-style: solid;
+    border-color: #B7C5D9;
 }
 
 #originalfilename {

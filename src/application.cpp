@@ -20,10 +20,10 @@ namespace Horizon {
 		if (!window) {
 			GtkApplicationWindow *win = GTK_APPLICATION_WINDOW(gtk_application_window_new(gobj()));
 			window = Glib::wrap(win, true);
-			grid = Gtk::manage(new Gtk::Grid());
 		
 			window->set_title("Horizon - A Native GTK+ 4chan Viewer");
-			grid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+			window->set_name("horizonwindow");
+			grid->set_orientation(Gtk::ORIENTATION_VERTICAL);
 			grid->set_vexpand(true);
 			window->set_default_size(500, 800);
 			window->add(*grid);
@@ -78,6 +78,21 @@ namespace Horizon {
 		opendialog->set_enabled(true);
 		add_action(opendialog);
 
+		auto addrow = Gio::SimpleAction::create("add_row");
+		addrow->signal_activate().connect( sigc::mem_fun(*this, &Application::on_add_row) );
+		addrow->set_enabled(true);
+		add_action(addrow);
+
+		auto removerow = Gio::SimpleAction::create("remove_row");
+		removerow->signal_activate().connect( sigc::mem_fun(*this, &Application::on_remove_row) );
+		removerow->set_enabled(true);
+		add_action(removerow);
+
+		auto fullscreen = Gio::SimpleAction::create("fullscreen");
+		fullscreen->signal_activate().connect( sigc::mem_fun(*this, &Application::on_fullscreen) );
+		fullscreen->set_enabled(true);
+		add_action(fullscreen);
+
 
 		auto builder = gtk_builder_new();
 		GError *error = NULL;
@@ -119,21 +134,110 @@ namespace Horizon {
 		Glib::ustring url = str_variant.get();
 
 		if ( url.find("4chan.org") != url.npos ) {
-			std::cerr << "String was " << url << std::endl;
 			if ( auto pos = url.find("https") != url.npos ) {
 				url.erase(pos + 3, 1);
 			}
 
 			if ( url.find("http://") != url.npos ) {
 				auto t = Thread::create(url);
-				auto tv = Gtk::manage(new ThreadView(t));
-				grid->add(*tv);
-				thread_map.insert({t->id, tv});
-				manager.addThread(t);
+				if ( thread_map.count( t->id ) == 0 ) {
+					auto tv = Gtk::manage(new ThreadView(t));
+					tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
+					int least_elems = G_MAXINT;
+					Gtk::Grid *insert_grid = nullptr;
+					for ( auto iter = rows.begin(); iter != rows.end(); iter++ ) {
+						Gtk::Grid *gp = *iter;
+						size_t count = gp->get_children().size();
+						if ( count < least_elems ) {
+							least_elems = count;
+							insert_grid = gp;
+						}
+					}
+					if ( insert_grid ) {
+						insert_grid->add(*tv);
+						insert_grid->show();
+					} else {
+						g_error ( "Didn't find a grid to insert a threadview." );
+					}
+					thread_map.insert({t->id, tv});
+					manager.addThread(t);
+					manager.checkThreads();
+				}
 			}
 		}
 	}
+
+	void Application::on_add_row(const Glib::VariantBase&) {
+		std::vector<Gtk::Widget*> widgets;
+		for ( auto grid_iter = rows.begin(); grid_iter != rows.end(); grid_iter++) {
+			std::vector<Gtk::Widget*> row_widgets = (*grid_iter)->get_children();
+
+			for ( auto iter = row_widgets.rbegin(); iter != row_widgets.rend(); iter++) {
+				widgets.push_back(*iter);
+				(*grid_iter)->remove(**iter);
+			}
+		}
+
+		auto gridp = new Gtk::Grid();
+		gridp->set_vexpand(true);
+		grid->add(*gridp);
+		gridp->set_column_homogeneous(true);
+		rows.push_back(gridp);
+		
+		on_rows_changed(widgets);
+	}
+
+	void Application::on_rows_changed(const std::vector<Gtk::Widget*> &widgets) {
+		int i = 0;
+		int row = 0;
+		while ( i < widgets.size() ) {
+			rows[row]->add(*(widgets[i]));
+			rows[row]->show();
+			i++;
+			row++;
+			if ( row >= rows.size() )
+				row = 0;
+		}
+	}
 	
+	void Application::on_remove_row(const Glib::VariantBase&) {
+		if ( rows.size() > 1 ) {
+			std::vector<Gtk::Widget*> widgets;
+			for ( auto grid_iter = rows.begin(); grid_iter != rows.end(); grid_iter++) {
+				std::vector<Gtk::Widget*> row_widgets = (*grid_iter)->get_children();
+				
+				for ( auto iter = row_widgets.begin(); iter != row_widgets.end(); iter++) {
+					widgets.push_back(*iter);
+					(*grid_iter)->remove(**iter);
+				}
+			}
+
+			auto grid = rows.back();
+			rows.pop_back();
+			delete grid;
+
+			on_rows_changed(widgets);
+		}
+	}
+
+	void Application::on_fullscreen(const Glib::VariantBase&) {
+
+	}
+
+	void Application::on_thread_closed(const gint64 id) {
+		auto iter = thread_map.find(id);
+		if ( iter != thread_map.end() ) {
+			manager.remove_thread(id);
+
+			ThreadView *tv = iter->second;
+			auto parent = tv->get_parent();
+			parent->remove(*tv);
+			if ( parent->get_children().size() == 0)
+				parent->hide();
+			thread_map.erase(iter);
+		}
+		
+	}
 
 	void Application::onUpdates() {
 		while (manager.is_updated_thread()) {
@@ -143,7 +247,7 @@ namespace Horizon {
 				if (G_LIKELY( iter != thread_map.end() )) {
 					iter->second->refresh();
 				} else {
-					g_error("Thread %d not in application.thread_map", tid);
+					g_warning("Thread %d not in application.thread_map", tid);
 				}
 			} else {
 				g_warning("pop_updated_thread returned tid = 0");
@@ -153,6 +257,12 @@ namespace Horizon {
 
 	Application::~Application() {
 		manager_alarm.disconnect();
+
+		for ( auto iter = rows.begin(); iter != rows.end(); iter++ ) {
+			delete *iter;
+		}
+
+		delete grid;
 	}
 
 
@@ -160,6 +270,14 @@ namespace Horizon {
 		Gtk::Application(appid),
 		grid(nullptr)
 	{
+		grid = new Gtk::Grid();
+		grid->show();
+		grid->set_row_homogeneous(true);
+		auto gridp = new Gtk::Grid();
+		grid->add(*gridp);
+		gridp->set_vexpand(true);
+		gridp->set_column_homogeneous(true);
+		rows.push_back(gridp);
 	}
 
 	Glib::RefPtr<Application> Application::create(const Glib::ustring &appid) {

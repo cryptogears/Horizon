@@ -17,7 +17,7 @@ namespace Horizon {
 
 		bool checkThreads();
 		void addThread(std::shared_ptr<Thread> thread);
-
+		void remove_thread(const gint64 id);
 
 		bool is_updated_thread() const;
 		gint64 pop_updated_thread();

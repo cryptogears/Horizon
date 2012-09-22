@@ -10,6 +10,7 @@
 #include <gtkmm/image.h>
 #include <glibmm/markup.h>
 #include <glibmm/datetime.h>
+#include <gtkmm/cssprovider.h>
 #include <libnotify/notify.h>
 #include <ratio>
 
@@ -186,9 +187,34 @@ namespace Horizon {
 		//ngrid->add(*image);
 		//ngrid->add(textview);
 		//vp->add(*label);
+
+		comment_viewport.signal_show().connect( sigc::mem_fun(*this, &PostView::on_postview_show) );
+		comment_viewport.signal_map().connect( sigc::mem_fun(*this, &PostView::on_style_change) );
+
 	}
 
-	
+	void PostView::on_style_change() {
+		auto context = comment_viewport.get_style_context();
+		auto window = comment_viewport.get_window();
+
+		/*
+		context->notify_state_change( window,
+		                              0,
+		                              Gtk::STATE_ACTIVE,
+		                              false );
+
+		context->notify_state_change( window,
+		                              0,
+		                              Gtk::STATE_ACTIVE,
+		                              true );
+		*/
+		comment_viewport.set_state_flags(Gtk::STATE_FLAG_PRELIGHT, false);
+	}
+
+	void PostView::on_postview_show() {
+
+	}
+
 	PostView::~PostView() {
 		free(sax);
 	}
