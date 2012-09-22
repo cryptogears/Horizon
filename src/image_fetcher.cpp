@@ -24,20 +24,48 @@ namespace Horizon {
 		if ( iter != thumbs.end() ) {
 			return iter->second;
 		} else {
-			g_critical("ImageFetcher::get_thumb called for an image not yet downloaded");
-			return Glib::RefPtr<Gdk::Pixbuf>(nullptr);
+			g_error("ImageFetcher::get_thumb called for an image not yet downloaded");
+			return Glib::RefPtr<Gdk::Pixbuf>();
 		}
 	}
 
-	bool ImageFetcher::has_thumb(const std::string &hash) const {
-		Glib::Mutex::Lock lock(thumbs_mutex);
+	const Glib::RefPtr<Gdk::Pixbuf> ImageFetcher::get_image(const std::string &hash) const {
+		Glib::Mutex::Lock lock(images_mutex);
 		
-		auto iter = thumbs.find(hash);
-		if ( iter != thumbs.end() ) {
-			return true;
+		auto iter = images.find(hash);
+		if ( iter != images.end() ) {
+			return iter->second;
 		} else {
-			return false;
+			g_error("ImageFetcher::get_image called for an image not yet downloaded");
+			return Glib::RefPtr<Gdk::Pixbuf>();
 		}
+	}
+
+	const Glib::RefPtr<Gdk::PixbufAnimation> ImageFetcher::get_animation(const std::string &hash) const {
+		Glib::Mutex::Lock lock(images_mutex);
+		
+		auto iter = animations.find(hash);
+		if ( iter != animations.end() ) {
+			return iter->second;
+		} else {
+			g_error("ImageFetcher::get_animation called for an image not yet downloaded");
+			return Glib::RefPtr<Gdk::PixbufAnimation>();
+		}
+	}
+
+	const bool ImageFetcher::has_thumb(const std::string &hash) const {
+		Glib::Mutex::Lock lock(thumbs_mutex);
+		return thumbs.count(hash) > 0;
+	}
+
+	const bool ImageFetcher::has_image(const std::string &hash) const {
+		Glib::Mutex::Lock lock(images_mutex);
+		return images.count(hash) > 0;
+	}
+
+	const bool ImageFetcher::has_animation(const std::string &hash) const {
+		Glib::Mutex::Lock lock(images_mutex);
+		return animations.count(hash) > 0;
 	}
 
 	static void horizon_destroy_notify(gpointer ptr) {
@@ -45,21 +73,30 @@ namespace Horizon {
 	}
 
 	std::size_t horizon_curl_writeback(char *ptr, size_t size, size_t nmemb, void *userdata) {
-		gpointer data = g_memdup(static_cast<gpointer>(ptr), size*nmemb);
+		std::size_t wrote = 0;
 		std::string hash = static_cast<char*>(userdata);
 		std::shared_ptr<ImageFetcher> ifetcher = ImageFetcher::get();
+
 		auto iter = ifetcher->thumb_streams.find(hash);
-		if ( iter != ifetcher->thumb_streams.end() ) {
+
+		if ( G_LIKELY(iter != ifetcher->thumb_streams.end()) ) {
 			Glib::RefPtr< Gdk::PixbufLoader >  loader = iter->second;
-			for ( int i = 0; i < nmemb; i++ ) {
-				loader->write(reinterpret_cast<guint8*>(ptr), static_cast<gsize>(size));
-				ptr += size;
+			try {
+				for ( int i = 0; i < nmemb; i++ ) {
+					loader->write(reinterpret_cast<guint8*>(ptr), static_cast<gsize>(size));
+					ptr += size;
+					wrote += size;
+				}
+			} catch (Gdk::PixbufError e) {
+				std::cerr << "Error writing pixbuf from network: " << e.what() << std::endl;
+			} catch (Glib::FileError e) {
+				std::cerr << "Error writing pixbuf from network: " << e.what() << std::endl;
 			}
 		} else {
 			g_critical("horizon_curl_writeback called with unknown hash %s.", hash.c_str());
 		}
 
-		return size*nmemb;
+		return wrote;
 	}
 
 	void ImageFetcher::start_new_download(CURL *curl) {

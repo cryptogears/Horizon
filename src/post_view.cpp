@@ -379,22 +379,32 @@ namespace Horizon {
 				if (notify) {
 					do_notify(pixbuf);
 				}
+				if (!pixbuf) {
+					g_error("Received pixbuf is null!");
+				}
 				try {
-					auto image = new Gtk::Image(pixbuf);
-					Gtk::manage(image);
-				
-					image->set_halign(Gtk::ALIGN_START);
-					image->set_valign(Gtk::ALIGN_START);
-					int width = post.get_thumb_width();
-					int height = post.get_thumb_height();
-					if (width > 0 && height > 0) 
-						;//image->set_size_request(post.get_thumb_width(), post.get_thumb_height());
-					else
-						g_warning("Thumb nail height is %d by %d", width, height);
-					comment_grid.remove(comment);
-					comment_grid.add(*image);
-					comment_grid.add(comment);
-					comment_grid.show_all();
+					Gtk::Image* image = nullptr;
+					image = new Gtk::Image();
+					if (image) {
+						Gtk::manage(image);
+						
+						image->set(pixbuf);
+						image->set_halign(Gtk::ALIGN_START);
+						image->set_valign(Gtk::ALIGN_START);
+						int width = post.get_thumb_width();
+						int height = post.get_thumb_height();
+						if (width > 0 && height > 0) 
+							;//image->set_size_request(post.get_thumb_width(), post.get_thumb_height());
+						else
+							g_warning("Thumb nail height is %d by %d", width, height);
+						comment_grid.remove(comment);
+						Gtk::Image &image_ref = *image;
+						comment_grid.add(image_ref);
+						comment_grid.add(comment);
+						comment_grid.show_all();
+					} else {
+						g_warning(">Failed to construct image");
+					}
 				} catch ( ... ) {
 					g_warning("Failed to construct image");
 				}

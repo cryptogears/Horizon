@@ -45,8 +45,9 @@ namespace Horizon {
 		const Glib::RefPtr<Gdk::Pixbuf> get_thumb(const std::string &hash) const;
 		const Glib::RefPtr<Gdk::Pixbuf> get_image(const std::string &hash) const;
 		const Glib::RefPtr<Gdk::PixbufAnimation> get_animation(const std::string &hash) const;
-		bool has_thumb(const std::string &hash) const;
-		bool has_image(const std::string &hash) const;
+		const bool has_thumb(const std::string &hash) const;
+		const bool has_image(const std::string &hash) const;
+		const bool has_animation(const std::string &hash) const;
 
 	private:
 		ImageFetcher();
