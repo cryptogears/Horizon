@@ -14,6 +14,8 @@
 #include <glibmm/iochannel.h>
 #include <glibmm/miscutils.h>
 #include <glibmm/main.h>
+#include <gdkmm/pixbufloader.h>
+#include <glibmm/dispatcher.h>
 
 
 namespace Horizon {
@@ -25,6 +27,7 @@ namespace Horizon {
 	struct Request {
 		std::string hash;
 		std::string url;
+		std::string ext;
 		bool is_thumb;
 	};
 
@@ -34,43 +37,52 @@ namespace Horizon {
 		~ImageFetcher();
 
 		void download_thumb(const std::string &hash, const std::string &url);
-		void download_image(const std::string &hash, const std::string &url);
+		void download_image(const std::string &hash, const std::string &url, const std::string &ext);
 
 		sigc::signal<void, std::string> signal_thumb_ready;
 		sigc::signal<void, std::string> signal_image_ready;
 
 		const Glib::RefPtr<Gdk::Pixbuf> get_thumb(const std::string &hash) const;
-		Glib::RefPtr<Gdk::Pixbuf> get_image(const std::string &hash) const;
+		const Glib::RefPtr<Gdk::Pixbuf> get_image(const std::string &hash) const;
+		const Glib::RefPtr<Gdk::PixbufAnimation> get_animation(const std::string &hash) const;
 		bool has_thumb(const std::string &hash) const;
 		bool has_image(const std::string &hash) const;
 
 	private:
 		ImageFetcher();
 		CURLM *curlm;
+
+		mutable Glib::Mutex curl_data_mutex;
+		char* curl_error_buffer;
 		std::queue<CURL*> curl_queue;
-		std::queue<Request> request_queue;
+		std::queue<Request*> request_queue;
 		sigc::connection timeout_connection;
 		std::list<curl_socket_t> active_sockets_;
 		std::vector<Socket_Info*> socket_info_cache_;
 		std::list<Socket_Info*> active_socket_infos_;
 		int running_handles;
 
-		bool create_pixmap(bool isThumb, const std::string &hash);
+		mutable Glib::Mutex pixbuf_mutex;
+		Glib::Dispatcher signal_pixbuf_ready;
+		std::map<const Request*, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
+		std::map<const Request*, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
+		void on_pixbuf_ready();
+
+		bool create_pixmap(const Request* request);
 		void start_new_download(CURL *curl);
 		/* Hash to Image Pixbuf. 
 		   Expose */
 		mutable Glib::Mutex images_mutex;
 		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > images;
-		std::map<std::string, Glib::RefPtr<Gio::MemoryInputStream> > image_streams;
+		std::map<std::string, Glib::RefPtr<Gdk::PixbufAnimation> > animations;
+		std::map<std::string, Glib::RefPtr<Gdk::PixbufLoader> > image_streams;
 
 		/* Hash to Thumbnail Pixbuf 
 		   Expose */
 		mutable Glib::Mutex thumbs_mutex;
 		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > thumbs;
-		std::map<std::string, Glib::RefPtr<Gio::MemoryInputStream> > thumb_streams;
+		std::map<std::string, Glib::RefPtr<Gdk::PixbufLoader> > thumb_streams;
 		
-		std::map<CURL*, bool> curl_is_thumb;
-
 		friend std::size_t horizon_curl_writeback(char *ptr, size_t size, size_t nmemb, void *userdata);
 
 		friend int curl_socket_cb(CURL *easy,      /* easy handle */   

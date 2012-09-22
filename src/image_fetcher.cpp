@@ -1,4 +1,6 @@
 #include "image_fetcher.hpp"
+#include <iostream>
+#include <glibmm/fileutils.h>
 
 namespace Horizon {
 	std::shared_ptr<ImageFetcher> ImageFetcher::get() {
@@ -48,8 +50,11 @@ namespace Horizon {
 		std::shared_ptr<ImageFetcher> ifetcher = ImageFetcher::get();
 		auto iter = ifetcher->thumb_streams.find(hash);
 		if ( iter != ifetcher->thumb_streams.end() ) {
-			Glib::RefPtr< Gio::MemoryInputStream >  stream = iter->second;
-			stream->add_data(data, size*nmemb, horizon_destroy_notify);
+			Glib::RefPtr< Gdk::PixbufLoader >  loader = iter->second;
+			for ( int i = 0; i < nmemb; i++ ) {
+				loader->write(reinterpret_cast<guint8*>(ptr), static_cast<gsize>(size));
+				ptr += size;
+			}
 		} else {
 			g_critical("horizon_curl_writeback called with unknown hash %s.", hash.c_str());
 		}
@@ -57,35 +62,55 @@ namespace Horizon {
 		return size*nmemb;
 	}
 
-	
-	
 	void ImageFetcher::start_new_download(CURL *curl) {
 		if (request_queue.empty()) {
 			curl_queue.push(curl);
 		} else {
-			auto request = request_queue.front(); request_queue.pop();
-			const std::string hash = request.hash;
-			const std::string url = request.url;
-			const bool is_thumb = request.is_thumb;
+			Request *request = request_queue.front(); request_queue.pop();
+			const std::string hash = request->hash;
+			const std::string url = request->url;
+			const bool is_thumb = request->is_thumb;
+			const std::string ext = request->ext;
 			curl_easy_reset(curl);
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, horizon_curl_writeback);
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, hash.c_str());
 			curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-			curl_easy_setopt(curl, CURLOPT_PRIVATE, hash.c_str());
+			curl_easy_setopt(curl, CURLOPT_PRIVATE, static_cast<void*>(request));
+			curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
+			curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_error_buffer);
 			if (is_thumb) {
-				curl_is_thumb.insert({curl, true});
-				thumb_streams.insert({hash, Gio::MemoryInputStream::create()});
+				Glib::RefPtr<Gdk::PixbufLoader> loader;
+				bool loader_error = false;
+				try {
+					loader = Gdk::PixbufLoader::create();
+				} catch ( Gdk::PixbufError e ) {
+					std::cerr << "Pixbuf error starting download: " 
+					          << e.what() << std::endl;
+					loader_error = true;
+				}
+
+				if (!loader_error) {
+					thumb_streams.insert({hash, loader});
+					curl_multi_add_handle(curlm, curl);
+				} else {
+					std::cerr << "Download aborted for url " << url << std::endl;
+				}
+			} else {
+				// FIXME
 			}
-			curl_multi_add_handle(curlm, curl);
 		}
+
+		// Supports "jpeg" "gif" "png"
 	}
 
 	void ImageFetcher::download_thumb(const std::string &hash, const std::string &url) {
-		Request req;
-		req.hash = hash;
-		req.url = url;
-		req.is_thumb = true;
+		Request *req = new Request();
+		req->hash = hash;
+		req->url = url;
+		req->is_thumb = true;
+		req->ext = ".jpg";
 		request_queue.push(req);
+
 		if ( ! curl_queue.empty() ) {
 			CURL* curl = curl_queue.front();
 			curl_queue.pop();
@@ -134,6 +159,7 @@ namespace Horizon {
 	}
 
 	bool ImageFetcher::curl_timeout_expired_cb() {
+
 		CURLMcode code = curl_multi_socket_action(curlm, CURL_SOCKET_TIMEOUT, 0, &running_handles);
 		if (G_UNLIKELY( code != CURLM_OK )) {
 			g_error("Curl socket error from timeout: %s", curl_multi_strerror(code));
@@ -245,7 +271,7 @@ namespace Horizon {
 			g_warning("curl_remsock was called twice for the same socket.");
 		}
 	}
-
+	/*
 	void pixbuf_ready_callback (GObject *source_object, 
 	                            GAsyncResult *res,
 	                            gpointer user_data) {
@@ -270,18 +296,55 @@ namespace Horizon {
 
 		delete p;
 	}
+	*/
 
-	bool ImageFetcher::create_pixmap(bool isThumb, const std::string &hash) {
+	// Lock is held here
+	bool ImageFetcher::create_pixmap(const Request *request) {
+		bool isThumb = request->is_thumb;
+		std::string hash = request->hash;
 		if ( isThumb ) {
 			// This is a thumbnail
-			auto iter = thumb_streams.find(hash);
+			auto iter = thumb_streams.find(request->hash);
 			if (iter != thumb_streams.end()) {
 				try {
-					//auto pixbuf = Gdk::Pixbuf::create_from_stream(iter->second);
-					std::pair<ImageFetcher*, std::string>* mypair = new std::pair<ImageFetcher*, std::string>();
-					mypair->first = this;
-					mypair->second = hash;
-					gdk_pixbuf_new_from_stream_async(G_INPUT_STREAM(iter->second->gobj()), NULL, pixbuf_ready_callback, mypair);
+					Glib::RefPtr<Gdk::PixbufLoader> loader = iter->second;
+					bool close_error = false;
+					try {
+						loader->close();
+					} catch (Gdk::PixbufError e) {
+						std::cerr << "Pixbuf Error creating pixmap for url " << request->url
+						          << ": " << e.what() << std::endl;
+						close_error = true;
+					} catch (Glib::FileError e) {
+						std::cerr << "File error creating pixmap for url " << request->url
+						          << ": " << e.what() << std::endl;
+						close_error = true;
+						// TODO: Determine which errors we can recover
+						// from by trying again
+					}
+
+					if (!close_error) {
+						bool get_error = false;
+						Glib::RefPtr<Gdk::Pixbuf> pixbuf;
+						try {
+							pixbuf = loader->get_pixbuf();
+						} catch (Gdk::PixbufError e) {
+							std::cerr << "Unexpected Pixbuf error fetching "
+							          << "from loader for url " 
+							          << request->url << ": "
+							          << e.what() << std::endl;
+							get_error = true;
+						}
+
+						if (!get_error && pixbuf) {
+							{
+								Glib::Mutex::Lock lock(pixbuf_mutex);
+								pixbuf_map.insert({request, pixbuf});
+							}
+							signal_pixbuf_ready();
+						}
+					}
+					
 				} catch (std::exception e) {
 					g_error("Error loading pixmap: %s", e.what());
 				} 
@@ -294,20 +357,47 @@ namespace Horizon {
 			}
 		} else {
 			// This is a fullsize image
+			// FIXME
 			g_error("Fullsize images not yet implemented");
-			auto iter = image_streams.find(hash);
-			if ( iter != image_streams.end()) {
-				images.insert({hash, Gdk::Pixbuf::create_from_stream(iter->second)});
-				signal_image_ready(hash);
-				image_streams.erase(iter);
-				return true;
-			} else {
-				g_error("Hash not in imagestreams");
-			}
 		}
 		return false;
 	}
 
+	/* No locks should be held calling into here */
+	void ImageFetcher::on_pixbuf_ready() {
+		Glib::Mutex::Lock lock(pixbuf_mutex);
+		while (pixbuf_map.size() > 0) {
+			auto iter = pixbuf_map.begin();
+			if (iter->first->is_thumb) {
+				{
+					Glib::Mutex::Lock lock(thumbs_mutex);
+					thumbs.insert({iter->first->hash, iter->second});
+				}
+				signal_thumb_ready(iter->first->hash);
+			} else {
+				{
+					Glib::Mutex::Lock lock(images_mutex);
+					images.insert({iter->first->hash, iter->second});
+				}
+				signal_image_ready(iter->first->hash);
+			}
+			delete iter->first;
+			pixbuf_map.erase(iter);
+		}
+
+		while (pixbuf_animation_map.size() > 0) {
+			auto iter = pixbuf_animation_map.begin();
+			{
+				Glib::Mutex::Lock lock(images_mutex);
+				animations.insert({iter->first->hash, iter->second});
+			}
+			signal_image_ready(iter->first->hash);
+			delete iter->first;
+			pixbuf_animation_map.erase(iter);
+		}
+	}
+
+	/* Lock already held here */
 	void ImageFetcher::curl_check_info() {
 		int msgs_left;
 		CURL* curl;
@@ -315,7 +405,7 @@ namespace Horizon {
 		CURLMcode mcode;
 		CURLMsg* msg;
 		bool download_error = false;
-		char* hash;
+		Request* request;
 
 		do { 
 			msg = curl_multi_info_read(curlm, &msgs_left);
@@ -325,7 +415,7 @@ namespace Horizon {
 					curl = msg->easy_handle;
 					code = msg->data.result;
 					if ( code != CURLE_OK ) {
-						g_warning("Error downloading image: %s", curl_easy_strerror(code));
+						g_warning("Error downloading image: %s\nExtended error message: %s", curl_easy_strerror(code), curl_error_buffer);
 						download_error = true;
 					}
 
@@ -335,18 +425,11 @@ namespace Horizon {
 						        curl_multi_strerror(mcode));
 					}
 
-					curl_easy_getinfo(curl, CURLINFO_PRIVATE, &hash);
+					curl_easy_getinfo(curl, CURLINFO_PRIVATE, reinterpret_cast<void**>(&request));
 					if (G_LIKELY(!download_error)) {
-						auto iter_is_thumb = curl_is_thumb.find(curl);
-						if (iter_is_thumb != curl_is_thumb.end()) {
-							bool isThumb = iter_is_thumb->second;
-							create_pixmap(isThumb, hash);
-							curl_is_thumb.erase(iter_is_thumb);
-						} else {
-							g_error("Hash not in iter_is_thumb");
-						}
+						create_pixmap(request);
 					} else {
-						g_warning("Error downloading an image.");
+						g_warning("Error downloading %s", request->url.c_str());
 					}
 
 					start_new_download(curl);
@@ -366,6 +449,9 @@ namespace Horizon {
 
 
 	ImageFetcher::ImageFetcher() {
+		signal_pixbuf_ready.connect( sigc::mem_fun(*this, &ImageFetcher::on_pixbuf_ready) );
+		
+		curl_error_buffer = static_cast<char*>(g_malloc0(CURL_ERROR_SIZE * sizeof(char)));
 		curlm = curl_multi_init();
 
 		curl_multi_setopt(curlm, CURLMOPT_SOCKETFUNCTION, &curl_socket_cb);
@@ -386,6 +472,7 @@ namespace Horizon {
 		}
 			
 		curl_multi_cleanup(curlm);
+		g_free(curl_error_buffer);
 	}
 
 }
