@@ -43,19 +43,33 @@ GType horizon_post_get_type (void);
  * Method definitions.
  */
 
-const gchar * horizon_post_get_md5 (HorizonPost *post);
-const gint64 horizon_post_get_fsize (HorizonPost *post);
+const gchar * horizon_post_get_name (HorizonPost *post);
+const gchar * horizon_post_get_comment (HorizonPost *post);
+const gchar * horizon_post_get_subject (HorizonPost *post);
 const gint64 horizon_post_get_time (HorizonPost *post);
 const gint64 horizon_post_get_post_number (HorizonPost *post);
-const gchar * horizon_post_get_name (HorizonPost *post);
-const gchar * horizon_post_get_subject (HorizonPost *post);
-const gchar * horizon_post_get_comment (HorizonPost *post);
 const gint64 horizon_post_get_renamed_filename(HorizonPost *post);
 const gchar * horizon_post_get_original_filename(HorizonPost *post);
 const gchar * horizon_post_get_ext(HorizonPost *post);
-const gint64 horizon_post_get_width (HorizonPost *post);
-const gint64 horizon_post_get_height (HorizonPost *post);
+const gchar * horizon_post_get_md5 (HorizonPost *post);
+const gchar * horizon_post_get_thumb_url(HorizonPost *post);
+const gchar * horizon_post_get_image_url(HorizonPost *post);
 const gint64 horizon_post_get_thumbnail_width (HorizonPost *post);
 const gint64 horizon_post_get_thumbnail_height (HorizonPost *post);
+const gint64 horizon_post_get_width (HorizonPost *post);
+const gint64 horizon_post_get_height (HorizonPost *post);
+const gint64 horizon_post_get_fsize (HorizonPost *post);
+const gboolean horizon_post_has_image (HorizonPost *post);
+const gint horizon_post_get_sticky (HorizonPost *post);
+const gint horizon_post_get_closed (HorizonPost *post);
+const gint horizon_post_get_deleted (HorizonPost *post);
+const gint horizon_post_get_spoiler (HorizonPost *post);
+const gboolean horizon_post_is_gif (HorizonPost *post);
 
+const gchar * horizon_post_get_board (HorizonPost *post) G_GNUC_PURE;
+const gchar * horizon_post_set_board (HorizonPost *post, const gchar *board) G_GNUC_MALLOC;
+const gboolean horizon_post_set_rendered (HorizonPost *post, const gboolean rendered);
+const gboolean horizon_post_is_rendered (HorizonPost *post) G_GNUC_PURE;
+const gboolean horizon_post_is_same_post (HorizonPost *left, HorizonPost *right) G_GNUC_PURE;
+const gboolean horizon_post_is_not_same_post (HorizonPost *left, HorizonPost *right) G_GNUC_PURE;
 #endif

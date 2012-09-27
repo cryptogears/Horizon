@@ -34,6 +34,7 @@ namespace Horizon {
 		control_grid.set_border_width(2);
 
 		Gtk::Button *close = Gtk::manage(new Gtk::Button(Gtk::Stock::CLOSE));
+		close->set_name("closebutton");
 		close->signal_clicked().connect( sigc::mem_fun(*this, &ThreadView::do_close_thread) );
 
 		control_grid.add(*close);
@@ -71,7 +72,7 @@ namespace Horizon {
 		     ((prev_page_size + min_increment - (min_increment / 100))
 		      >= ( prev_upper - prev_value ))) {
 			if ( new_value > value )
-				vadjustment->set_value(new_upper - min_increment);
+				;//vadjustment->set_value(new_upper - min_increment);
 		}
 
 		prev_value = value;
@@ -93,55 +94,58 @@ namespace Horizon {
 		grid.show();
 		control_grid.show_all();
 		Glib::DateTime prev_posttime = Glib::DateTime::create_now_utc(0);
-	
-		for ( auto iter = thread->posts.begin();
-		      iter != thread->posts.end(); 
-		      iter++ ) {
-			if ( post_map.count(iter->second.get_id()) > 0 ) {
-				// This post is already in the view
-				if ( ! iter->second.is_rendered() ) {
-					post_map[iter->second.get_id()]->refresh(iter->second);
-					iter->second.mark_rendered();
+		{
+			Glib::Mutex::Lock lock(thread->posts_mutex);
+
+			for ( auto iter = thread->posts.begin();
+			      iter != thread->posts.end(); 
+			      iter++ ) {
+				if ( post_map.count(iter->second->get_id()) > 0 ) {
+					// This post is already in the view
+					if ( ! iter->second->is_rendered() ) {
+						post_map[iter->second->get_id()]->refresh(iter->second);
+						iter->second->mark_rendered();
+						was_new = true;
+					}
+					prev_posttime = Glib::DateTime::create_now_utc(iter->second->get_unix_time());
+				} else {
+					// This is a new post
+					bool should_notify = false;
+					Glib::DateTime this_posttime = Glib::DateTime::create_now_utc(iter->second->get_unix_time());
+
+					if (this_posttime.difference(thread->last_post) == 0) {
+						if (this_posttime.difference(prev_posttime) > NOTIFICATION_INTERVAL) {
+							should_notify = true;
+						} 
+					}
+					prev_posttime = this_posttime;
+
+					PostView *pv = Gtk::manage( new PostView(iter->second, should_notify) );
+					post_map.insert({iter->second->get_id(), pv});
+					iter->second->mark_rendered();
+					grid.add(*pv);
 					was_new = true;
+					pv->show_all();
 				}
-				prev_posttime = Glib::DateTime::create_now_utc(iter->second.get_unix_time());
-			} else {
-				// This is a new post
-				bool should_notify = false;
-				Glib::DateTime this_posttime = Glib::DateTime::create_now_utc(iter->second.get_unix_time());
-
-				if (this_posttime.difference(thread->last_post) == 0) {
-					if (this_posttime.difference(prev_posttime) > NOTIFICATION_INTERVAL) {
-						should_notify = true;
-					} 
-				}
-				prev_posttime = this_posttime;
-
-				PostView *pv = Gtk::manage( new PostView(iter->second, should_notify) );
-				post_map.insert({iter->second.get_id(), pv});
-				iter->second.mark_rendered();
-				grid.add(*pv);
-				was_new = true;
-				pv->show_all();
 			}
-			
 			thread->update_notify(was_new);
-			
-		} 
+		}
 	}
 	
 
 	void ThreadView::on_updated_interval() {
+		Glib::Mutex::Lock lock(thread->posts_mutex);
+
 		auto fpost = thread->posts.begin();
 		std::stringstream label;
-		if ( fpost->second.get_subject().size() > 0 ) {
-			label << "<b><span color=\"#0F0C5D\">" << fpost->second.get_subject()
+		if ( fpost->second->get_subject().size() > 0 ) {
+			label << "<b><span color=\"#0F0C5D\">" << fpost->second->get_subject()
 			      << "</span></b>";
 		} else {
 			label << thread->number;
 		}
 
-		label << " - <b><span color=\"#117743\">"  << fpost->second.get_name()
+		label << " - <b><span color=\"#117743\">"  << fpost->second->get_name()
 		      << "</span></b> (<small>" 
 		      << thread->get_update_interval() / 1000000 
 		      << "s</small>)";

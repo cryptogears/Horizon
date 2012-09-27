@@ -53,14 +53,16 @@ namespace Horizon {
 		ImageFetcher();
 		CURLM *curlm;
 
+		// Mutex wraps curl_queue, request_queue
 		mutable Glib::Mutex curl_data_mutex;
-		char* curl_error_buffer;
 		std::queue<CURL*> curl_queue;
 		std::queue<Request*> request_queue;
+
 		sigc::connection timeout_connection;
 		std::list<curl_socket_t> active_sockets_;
 		std::vector<Socket_Info*> socket_info_cache_;
 		std::list<Socket_Info*> active_socket_infos_;
+		char* curl_error_buffer;
 		int running_handles;
 
 		mutable Glib::Mutex pixbuf_mutex;
@@ -69,7 +71,8 @@ namespace Horizon {
 		std::map<const Request*, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
 		void on_pixbuf_ready();
 
-		bool create_pixmap(const Request* request);
+		void cleanup_failed_pixmap(const Request *request);
+		void create_pixmap(const Request* request);
 		void start_new_download(CURL *curl);
 		/* Hash to Image Pixbuf. 
 		   Expose */

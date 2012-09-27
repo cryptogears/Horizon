@@ -62,12 +62,12 @@ namespace Horizon {
 		Glib::Mutex::Lock lock(curler_mutex);
 
 		try{
-			std::list<Post> posts = curler.pullThread(thread);
+			std::list<Glib::RefPtr<Post> > posts = curler.pullThread(thread);
 			thread->last_checked = Glib::DateTime::create_now_utc();
 
 			if (posts.size() > 0) {
 				auto iter = posts.rbegin();
-				thread->last_post = Glib::DateTime::create_now_utc(iter->get_unix_time());
+				thread->last_post = Glib::DateTime::create_now_utc((*iter)->get_unix_time());
 				thread->updatePosts(posts);
 				push_updated_thread(thread->id);
 				signal_thread_updated();

@@ -9,24 +9,65 @@
 #include <map>
 #include <random>
 #include <glibmm/dispatcher.h>
+#include <glibmm/object.h>
+#include <glibmm/private/object_p.h>
+#include <glibmm/class.h>
 
 extern "C" {
 #include "horizon_post.h"
 }
 
 namespace Horizon {
+	class Post;
 
-	class Post {
+	class Post_Class : public Glib::Class {
 	public:
-		~Post();
-		Post() = delete;
-		explicit Post(gpointer in, bool takeRef, std::string board);
-		explicit Post(HorizonPost* in, bool takeRef, std::string board);
-		explicit Post(const Post& in);
-		Post& operator=(const Post& in);
+		typedef Post CppObjectType;
+		typedef HorizonPost BaseObjectType;
+		typedef HorizonPostClass BaseClassType;
+		typedef Glib::Object_Class CppClassParent;
+		typedef GObjectClass BaseClassParent;
 
-		const bool operator==(const Post& rhs) const;
-		const bool operator!=(const Post& rhs) const;
+		friend class Post;
+
+		const Glib::Class& init();
+		static void class_init_function(void *g_class, void *class_data);
+		static Glib::ObjectBase* wrap_new(GObject *object);
+	};
+
+	class Post : public Glib::Object {
+	public:
+		typedef Post CppObjectType;
+		typedef Post_Class CppClassType;
+		typedef HorizonPost BaseObjectType;
+		typedef HorizonPostClass BaseObjectClassType;
+
+	private: friend class Post_Class;
+		static CppClassType post_class_;
+
+	public:
+
+		virtual ~Post();
+		Post() = delete;
+		explicit Post(const Post& in) = delete;
+		Post& operator=(const Post& in) = delete;
+
+		static GType get_type()   G_GNUC_CONST;
+		static GType get_base_type()   G_GNUC_CONST;
+		
+		HorizonPost* gobj() {return reinterpret_cast<HorizonPost*>(gobject_);};
+		const HorizonPost* gobj() const { return reinterpret_cast<HorizonPost*>(gobject_);};
+		HorizonPost* gobj_copy();
+
+	protected:
+		explicit Post(const Glib::ConstructParams& construct_params);
+		explicit Post(HorizonPost* castitem);
+
+	public:
+
+		const bool is_same_post(const Glib::RefPtr<Post> &post) const;
+		const bool is_not_same_post(const Glib::RefPtr<Post> &post) const;
+
 		void update(const Post &in);
 		void mark_rendered();
 		const bool is_rendered() const;
@@ -42,6 +83,7 @@ namespace Horizon {
 		std::string get_image_ext() const;
 		std::string get_hash() const;
 		std::string get_thumb_url() const;
+		std::string get_image_url() const;
 		const gint get_thumb_width() const;
 		const gint get_thumb_height() const;
 		const gint get_width() const;
@@ -52,11 +94,8 @@ namespace Horizon {
 		const bool is_closed() const;
 		const bool is_deleted() const;
 		const bool is_spoiler() const;
-
-	private:
-		HorizonPost *post;
-		std::string board;
-		bool rendered;
+		const bool is_gif() const;
+		void set_board(const std::string& board);
 	};
 
 	class Thread {
@@ -79,8 +118,9 @@ namespace Horizon {
 		/* Appends to the list any new posts
 		   Marks changed posts (Thread lock/file deletion) as changed.
 		 */
-		void updatePosts(const std::list<Post> &new_posts);
-		std::map<gint64, Post> posts;
+		void updatePosts(const std::list<Glib::RefPtr<Post> > &new_posts);
+		Glib::Mutex posts_mutex;
+		std::map<gint64, Glib::RefPtr<Post> > posts;
 
 	protected:
 		Thread(std::string url);
@@ -91,7 +131,6 @@ namespace Horizon {
 		Thread& operator=(const Thread&) = delete;
 		
 
-		Glib::Mutex posts_mutex;
 
 		Glib::TimeSpan update_interval;
 		std::default_random_engine generator;
@@ -102,5 +141,12 @@ namespace Horizon {
 	const Glib::TimeSpan MAX_UPDATE_INTERVAL = 5 * 60 * 1000 * 1000;
 	const Glib::TimeSpan NOTIFICATION_INTERVAL = 5 * 60 * 1000 * 1000;
 
+	void wrap_init();
+		
+}
+
+namespace Glib
+{
+	Glib::RefPtr<Horizon::Post> wrap(HorizonPost* object, bool take_copy = false);
 }
 #endif

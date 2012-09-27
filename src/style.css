@@ -4,18 +4,21 @@
     background-color: #EEF2FF;
 }
 
-#commentview:prelight {
-    transition: 300ms ease-in;
-    background-color: #D6DAF0;
-}
-
 #commentview {
-    background-color: #EEF2FF;
+    background-color: #D6DAF0;
     border-color: #B7C5D9;
     border-width: 1px;
     border-style: solid;
-    
+
 }
+
+#imagewindow {
+    background-color: #D6DAF0;
+}    
+
+#imagewindow > * {
+    background-color: #D6DAF0;
+}    
 
 #horizonwindow {
     background-color: #D6DAF0;

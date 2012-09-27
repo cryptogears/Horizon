@@ -16,9 +16,8 @@
 
 namespace Horizon {
 
-	PostView::PostView(const Post &in, const bool donotify) :
+	PostView::PostView(const Glib::RefPtr<Post> &in, const bool donotify) :
 		Gtk::Grid(),
-		//textview(),
 		comment(),
 		comment_grid(),
 		vadjust(Gtk::Adjustment::create(0., 0., 1., .1, 0.9, 1.)),
@@ -26,7 +25,8 @@ namespace Horizon {
 		comment_viewport(hadjust, vadjust),
 		post(in),
 		ifetcher(ImageFetcher::get()),
-		notify(donotify)
+		notify(donotify),
+		scaled_width(-1)
 	{
 		set_name("postview");
 		set_orientation(Gtk::ORIENTATION_VERTICAL);
@@ -36,24 +36,24 @@ namespace Horizon {
 		ngrid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		ngrid->set_column_spacing(5);
 
-		auto label = Gtk::manage(new Gtk::Label(post.get_subject()));
+		auto label = Gtk::manage(new Gtk::Label(post->get_subject()));
 		label->set_name("subject");
 		label->set_hexpand(false);
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
 		ngrid->add(*label);
 
-		label = Gtk::manage(new Gtk::Label(post.get_name()));
+		label = Gtk::manage(new Gtk::Label(post->get_name()));
 		label->set_name("name");
 		label->set_hexpand(false);
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
 		ngrid->add(*label);
 
-		label = Gtk::manage(new Gtk::Label(post.get_time_str()));
+		label = Gtk::manage(new Gtk::Label(post->get_time_str()));
 		label->set_name("time");
 		label->set_hexpand(false);
 		ngrid->add(*label);
 
-		label = Gtk::manage(new Gtk::Label("No. " + post.get_number()));
+		label = Gtk::manage(new Gtk::Label("No. " + post->get_number()));
 		label->set_hexpand(false);
 
 		label->set_justify(Gtk::JUSTIFY_LEFT);
@@ -62,12 +62,12 @@ namespace Horizon {
 		add(*ngrid);
 		
 		// Image info
-		if ( post.has_image() ) {
+		if ( post->has_image() ) {
 			ngrid = Gtk::manage(new Gtk::Grid());
 			ngrid->set_name("imageinfogrid");
 			ngrid->set_column_spacing(5);
 
-			std::string filename = post.get_original_filename() + post.get_image_ext();
+			std::string filename = post->get_original_filename() + post->get_image_ext();
 
 			label = Gtk::manage(new Gtk::Label(filename));
 			label->set_name("originalfilename");
@@ -75,7 +75,7 @@ namespace Horizon {
 			label->set_ellipsize(Pango::ELLIPSIZE_END);
 			ngrid->add(*label);
 
-			const gint64 original_id = g_ascii_strtoll(post.get_original_filename().c_str(), NULL, 10);
+			const gint64 original_id = g_ascii_strtoll(post->get_original_filename().c_str(), NULL, 10);
 			const gint64 original_time  = original_id / 1000;
 			if (original_time > 1000000000 && original_time < 10000000000) {
 				Glib::DateTime dtime = Glib::DateTime::create_now_local(original_time);
@@ -86,9 +86,9 @@ namespace Horizon {
 			} 
 
 			std::stringstream imgdims;
-			imgdims << " (" << post.get_fsize() / 1000 
-			        << " KB, " << post.get_width() 
-			        << "x" << post.get_height() << ") ";
+			imgdims << " (" << post->get_fsize() / 1000 
+			        << " KB, " << post->get_width() 
+			        << "x" << post->get_height() << ") ";
 
 			label = Gtk::manage(new Gtk::Label(imgdims.str()));
 			label->set_hexpand(false);
@@ -98,27 +98,6 @@ namespace Horizon {
 			add(*ngrid);
 		}
 
-
-		//ngrid = Gtk::manage(new Gtk::Grid());
-		//ngrid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-		//ngrid->set_name("comment_grid");
-		
-		//comment.set_name("posttextview");
-		/*
-		textview.set_name("posttextview");
-		comment = textview.get_buffer();
-		tag_table = comment->get_tag_table();
-
-		//textview.set_wrap_mode(Gtk::WRAP_WORD);
-		//textview.set_redraw_on_allocate(true);
-		//textview.set_size_request(500, -1);
-		//textview.set_editable(false);
-		//textview.set_cursor_visible(false);
-		//textview.set_hexpand(true);
-		//		textview.set_hexpand_set(true);
-		//		textview.set_hexpand(true);
-		//textview.set_preferred_width(400,800);
-		*/
 		sax = (htmlSAXHandlerPtr) calloc(1, sizeof(xmlSAXHandler));
 		sax->startElement = &startElement;
 		sax->characters = &onCharacters;
@@ -145,55 +124,155 @@ namespace Horizon {
 		comment_viewport.set_hexpand(true);
 		add(comment_viewport);
 
-		if ( post.has_image() ) {
-			if ( ! ifetcher->has_thumb(post.get_hash()) ) {
-				thumb_connection = ifetcher->signal_thumb_ready.connect(sigc::mem_fun(*this, &PostView::on_thumb_ready));
-				ifetcher->download_thumb(post.get_hash(), post.get_thumb_url());
+		image_window.set_policy(Gtk::POLICY_AUTOMATIC, Gtk::POLICY_AUTOMATIC);
+		image_box.add(image);
+		image_window.add(image_box);
+		image_window.set_name("imagewindow");
+		image_box.set_events(Gdk::BUTTON_PRESS_MASK);
+		image_box.set_visible_window(false);
+		image_box.signal_button_press_event().connect( sigc::mem_fun(*this, &PostView::on_image_click) );
+		image_state = NONE;
+		image.set_name("image");
+		image.set_halign(Gtk::ALIGN_START);
+		image.set_valign(Gtk::ALIGN_START);
+		
+		image.signal_draw().connect( sigc::mem_fun(*this, &PostView::on_image_draw) );
+		if ( post->has_image() ) {
+			image_state = THUMBNAIL;
+
+			if (post->is_gif()) {
+				if (notify) {
+					do_notify();
+				}
+				if ( !ifetcher->has_animation(post->get_hash()) ) {
+					image_connection = ifetcher->signal_image_ready.connect(sigc::mem_fun(*this, &PostView::on_image_ready));
+					ifetcher->download_image(post->get_hash(),
+					                         post->get_image_url(),
+					                         post->get_image_ext());
+				} else {
+					on_image_ready(post->get_hash());
+				}
 			} else {
-				on_thumb_ready(post.get_hash());
+				if ( ! ifetcher->has_thumb(post->get_hash()) ) {
+					thumb_connection = ifetcher->signal_thumb_ready.connect(sigc::mem_fun(*this, &PostView::on_thumb_ready));
+					ifetcher->download_thumb(post->get_hash(),
+					                         post->get_thumb_url());
+				} else {
+					on_thumb_ready(post->get_hash());
+				}
 			}
 		} else {
-			if (notify) {
+			// We notify now because we don't need to wait for the image
+			if (notify) { 
 				do_notify();
 			}
 		}
-	
-		//comment.set_hexpand(true);
-		//		comment.set_justify(Gtk::JUSTIFY_LEFT);
-		//comment.set_halign(Gtk::ALIGN_START);
-		//comment.set_valign(Gtk::ALIGN_START);
-		/*
-		comment->insert(comment->begin(), built_string);
-		*/
-		//auto file = Gio::File::create_for_uri("resource:///com/talisein/fourchan/native/gtk/fang.png");
-		//auto stream = file->read();
-		//auto pixbuf = Gdk::Pixbuf::create_from_stream_at_scale(stream, 150, 150, true);
-		//comment->insert_pixbuf(comment->begin(), pixbuf);
-		//auto image = new Gtk::Image(pixbuf);
-		//image->set_name("image");
-		//image->set_valign(Gtk::ALIGN_START);
-		//image->set_alignment(0.0, 1.0);
-		//auto anchor = comment->create_child_anchor(comment->begin());
-		//textview.add_child_at_anchor(*image, anchor);
-		//textview.add_child_in_window(*image, Gtk::TEXT_WINDOW_TEXT, 0, 0);
-		//textview.set_left_margin(150);
-		//		textview.set_border_window_size(Gtk::TEXT_WINDOW_LEFT, 150);
-		//		textview.add_child_in_window(*image, Gtk::TEXT_WINDOW_LEFT, 0, 0);
-		//Gtk::ScrolledWindow* vp = Gtk::manage(new Gtk::ScrolledWindow());
-		//vp->add(textview);
-		//vp->set_vexpand(false);
-		//vp->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_NEVER);
-		//textview.set_size_request(-1, 150);
-		//ngrid->add(*image);
-		//ngrid->add(textview);
-		//vp->add(*label);
-
-		comment_viewport.signal_show().connect( sigc::mem_fun(*this, &PostView::on_postview_show) );
-		comment_viewport.signal_map().connect( sigc::mem_fun(*this, &PostView::on_style_change) );
-
+		
+		//comment_viewport.signal_realize().connect( sigc::mem_fun(*this, &PostView::on_postview_show) );
+		//comment_viewport.signal_map_event().connect( sigc::mem_fun(*this, &PostView::on_my_mapped) );
 	}
 
-	void PostView::on_style_change() {
+	bool PostView::on_image_draw(const Cairo::RefPtr<Cairo::Context> &ctx) {
+		if ( image_state == EXPAND ) {
+			if ( unscaled_animation ) {
+				// gif
+			} else {
+				// Not a gif
+				double x1, x2, y1, y2;
+				ctx->get_clip_extents(x1, y1, x2, y2);
+				int width = static_cast<int>(x2 - x1);
+
+				if (scaled_width != width)
+					set_new_scaled_image(width);
+				else if (comment_grid.get_allocated_width() > width) {
+					std::cerr << "Comment grid is bigger by " << comment_grid.get_allocated_width() - width << std::endl;
+				} else {
+					std::cerr << "Comment grid is " << comment_grid.get_allocated_width() << " width: " << width << std::endl;
+				}
+			}
+		}
+		return false;
+	}
+
+	void PostView::set_new_scaled_image(const int width) {
+		int full_width = post->get_width();
+		int full_height = post->get_height();
+		
+		if (width >= full_width) {
+			if ( unscaled_image != image.get_pixbuf() ) {
+				image.set(unscaled_image);
+				image_window.set_size_request(full_width, full_height);
+				scaled_width = -1;
+			}
+		} else {
+			if (unscaled_image && 
+			    (width != scaled_width || scaled_width == -1) ) {
+				scaled_width = width;
+				float scale = static_cast<float>(width)
+					/ static_cast<float>(full_width);
+				int new_width = static_cast<int>(scale*full_width);
+				int new_height = static_cast<int>(scale*full_height);
+				scaled_height = new_height;
+				scaled_image = unscaled_image->scale_simple(new_width,
+				                                            new_height,
+				                                            Gdk::INTERP_BILINEAR);
+				image.set(scaled_image);
+				image_window.set_size_request(new_width, new_height);
+			} else {
+				if ( width == scaled_width &&
+				     scaled_image != image.get_pixbuf() ) {
+					image.set(scaled_image);
+					image_window.set_size_request(scaled_width,
+					                              scaled_height);
+				}
+					
+			}
+		}
+	}
+	
+	bool PostView::on_image_click( GdkEventButton* btn ) {
+		switch (image_state) {
+		case NONE:
+			break;
+		case THUMBNAIL:
+			if (!unscaled_image) {
+				if (!image_connection.connected()) {
+					image_connection = ifetcher->signal_image_ready.connect(sigc::mem_fun(*this, &PostView::on_image_ready));
+					ifetcher->download_image(post->get_hash(),
+					                         post->get_image_url(),
+					                         post->get_image_ext());
+				}
+			} else {
+				std::cerr << "EXPANDing: To width " << comment_grid.get_allocated_width() << std::endl;
+				std::cerr << "Scaled_width = " << scaled_width << std::endl;
+				image_state = EXPAND;
+				set_new_scaled_image( comment_grid.get_allocated_width() );
+
+				comment_grid.remove(comment);
+				comment_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
+				comment_grid.add(comment);
+			}
+			break;
+		case EXPAND:
+			image_state = FULL;
+			// For now fall through, we don't have a 'Full' implementation
+		case FULL: 
+			image_state = THUMBNAIL;
+			if (thumbnail_image) {
+				image.set(thumbnail_image);
+				image_window.set_size_request(post->get_thumb_width(), post->get_thumb_height());
+				comment_grid.remove(comment);
+				comment_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+				comment_grid.add(comment);
+			}
+			
+			break;
+		default:
+			break;
+		}
+	}
+
+	bool PostView::on_my_mapped(GdkEventAny* const&) {
 		auto context = comment_viewport.get_style_context();
 		auto window = comment_viewport.get_window();
 
@@ -202,16 +281,20 @@ namespace Horizon {
 		                              0,
 		                              Gtk::STATE_ACTIVE,
 		                              false );
-
 		context->notify_state_change( window,
 		                              0,
 		                              Gtk::STATE_ACTIVE,
 		                              true );
 		*/
-		comment_viewport.set_state_flags(Gtk::STATE_FLAG_PRELIGHT, false);
+
+		comment_viewport.set_state_flags(Gtk::STATE_FLAG_ACTIVE, true);
+
+		return false;
 	}
 
 	void PostView::on_postview_show() {
+		auto vpwin = comment_viewport.get_window();
+		vpwin->set_events(Gdk::STRUCTURE_MASK ^ vpwin->get_events());
 
 	}
 
@@ -219,7 +302,7 @@ namespace Horizon {
 		free(sax);
 	}
 
-	void PostView::refresh(const Post &in) {
+	void PostView::refresh(const Glib::RefPtr<Post> &in) {
 		post = in;
 	}
 
@@ -370,41 +453,60 @@ namespace Horizon {
 		}
 	}
 
+	void PostView::on_image_ready(std::string hash) {
+		if ( post->get_hash().find(hash) != std::string::npos ) {
+			if (image_connection.connected())
+				image_connection.disconnect();
+
+			image_state = EXPAND;
+
+			if (post->is_gif()) {
+				unscaled_animation = ifetcher->get_animation(hash);
+
+				image.set(unscaled_animation);
+				image_window.set_size_request(post->get_width(), post->get_height());
+				comment_grid.remove(comment);
+				comment_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
+				comment_grid.add(image_window);
+				comment_grid.add(comment);
+				comment_grid.show_all();
+
+			} else {
+				unscaled_image = ifetcher->get_image(hash);
+				set_new_scaled_image(comment_grid.get_allocated_width());
+				comment_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
+				comment_grid.remove(comment);
+				comment_grid.add(comment);
+			}
+		} else {
+			// Signal wasn't for this post
+			return;
+		}
+	}
+
 	void PostView::on_thumb_ready(std::string hash) {
-		if ( post.get_hash().find(hash) != std::string::npos ) {
+		if ( post->get_hash().find(hash) != std::string::npos ) {
 			if (thumb_connection.connected())
 				thumb_connection.disconnect();
 			try {
-				auto pixbuf = ifetcher->get_thumb(hash);
-				if (notify) {
-					do_notify(pixbuf);
-				}
-				if (!pixbuf) {
+				thumbnail_image = ifetcher->get_thumb(hash);
+				if (G_UNLIKELY(!thumbnail_image)) {
 					g_error("Received pixbuf is null!");
 				}
+				if (notify) {
+					do_notify(thumbnail_image);
+				}
 				try {
-					Gtk::Image* image = nullptr;
-					image = new Gtk::Image();
-					if (image) {
-						Gtk::manage(image);
-						
-						image->set(pixbuf);
-						image->set_halign(Gtk::ALIGN_START);
-						image->set_valign(Gtk::ALIGN_START);
-						int width = post.get_thumb_width();
-						int height = post.get_thumb_height();
-						if (width > 0 && height > 0) 
-							;//image->set_size_request(post.get_thumb_width(), post.get_thumb_height());
-						else
-							g_warning("Thumb nail height is %d by %d", width, height);
-						comment_grid.remove(comment);
-						Gtk::Image &image_ref = *image;
-						comment_grid.add(image_ref);
-						comment_grid.add(comment);
-						comment_grid.show_all();
-					} else {
-						g_warning(">Failed to construct image");
-					}
+					image.set(thumbnail_image);
+
+					int width = post->get_thumb_width();
+					int height = post->get_thumb_height();
+					image_window.set_size_request(width, height);
+
+					comment_grid.remove(comment);
+					comment_grid.add(image_window);
+					comment_grid.add(comment);
+					comment_grid.show_all();
 				} catch ( ... ) {
 					g_warning("Failed to construct image");
 				}
@@ -423,7 +525,7 @@ namespace Horizon {
 		}
 
 		htmlCtxtUseOptions(ctxt, HTML_PARSE_RECOVER );
-		htmlParseChunk(ctxt, post.get_comment().c_str(), post.get_comment().size(), 1);
+		htmlParseChunk(ctxt, post->get_comment().c_str(), post->get_comment().size(), 1);
 		htmlCtxtReset(ctxt);
 		htmlFreeParserCtxt(ctxt);
 		ctxt = NULL;

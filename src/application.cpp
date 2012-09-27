@@ -8,7 +8,6 @@
 #include <gtkmm/dialog.h>
 #include <gtkmm/entry.h>
 #include <gtkmm/stock.h>
-#include <libnotify/notify.h>
 
 extern "C" {
 #include "horizon-resources.h"
@@ -34,7 +33,7 @@ namespace Horizon {
 			auto sc = window->get_style_context();
 			auto screen = Gdk::Screen::get_default();
 			provider->load_from_file(file);
-			sc->add_provider_for_screen(screen, provider, 600);
+			sc->add_provider_for_screen(screen, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 			gtk_application_add_window(gobj(), GTK_WINDOW(window->gobj()));
 
 			window->show_all();

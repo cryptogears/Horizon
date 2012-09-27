@@ -24,6 +24,7 @@ namespace Horizon {
 		curl_global_init(CURL_GLOBAL_ALL);
 		curl = curl_easy_init();
 		parser = json_parser_new();
+		Horizon::wrap_init();
 	}
 
 	Curler::~Curler() {
@@ -36,9 +37,9 @@ namespace Horizon {
 		threadBuffer.append(static_cast<const char*>(data), len);
 	}
 
-	std::list<Post> Curler::pullThread(std::shared_ptr<Thread> thread) {
+	std::list<Glib::RefPtr<Post> > Curler::pullThread(std::shared_ptr<Thread> thread) {
 		CURLcode res;
-		std::list<Post> posts;
+		std::list<Glib::RefPtr<Post> > posts;
 		Glib::DateTime completed;
 
 		while ( Glib::DateTime::create_now_utc().difference(last_pull) == 0 ) {
@@ -108,7 +109,10 @@ namespace Horizon {
 			
 			JsonNode *obj = json_array_get_element(array, i);
 			GObject *cpost =  json_gobject_deserialize( horizon_post_get_type(), obj );
-			Post post(cpost, false, thread->board);
+			Glib::RefPtr<Post> post = Glib::wrap(HORIZON_POST(cpost));
+			post->set_board(thread->board);
+			//Post cpppost(cpost, false, thread->board);
+			//Glib::RefPtr<Post> post = Glib::RefPtr<Post>(cpppost, false);
 			posts.push_back(post);
 		}
 

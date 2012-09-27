@@ -1,6 +1,6 @@
 #include "horizon_post.h"
 
-#define HORIZON_POST_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE ((obj), HORIZON_TYPE_POST, HorizonPostPrivate))
+#define HORIZON_POST_GET_PRIVATE(obj) ((HorizonPostPrivate *)((HORIZON_POST(obj))->priv))
 
 G_DEFINE_TYPE (HorizonPost, horizon_post, G_TYPE_OBJECT);
 
@@ -35,6 +35,10 @@ enum
   PROP_FILEDELETED,
   PROP_SPOILER,
   PROP_CUSTOM_SPOILER,
+  PROP_IMAGE_URL,
+  PROP_THUMB_URL,
+  PROP_BOARD,
+  PROP_RENDERED,
 
   N_PROPERTIES
 };
@@ -43,8 +47,8 @@ struct _HorizonPostPrivate
 {
 	gint64    post_number;
 	gint64    resto;
-	gint  sticky;
-	gint  closed;
+	gint      sticky;
+	gint      closed;
 	gint64    time;
 	gchar    *now;
 	gchar    *name;
@@ -56,7 +60,7 @@ struct _HorizonPostPrivate
 	gchar    *email;
 	gchar    *subject;
 	gchar    *comment;
-	gint64   renamed_filename;
+	gint64    renamed_filename;
 	gchar    *filename;
 	gchar    *ext;
 	gchar    *md5;
@@ -65,9 +69,13 @@ struct _HorizonPostPrivate
 	gint      image_height;
 	gint      thumbnail_width;
 	gint      thumbnail_height;
-	gint  is_file_deleted;
-	gint  is_spoiler;
-	gint    custom_spoiler;
+	gint      is_file_deleted;
+	gint      is_spoiler;
+	gint      custom_spoiler;
+	gchar    *image_url;
+	gchar    *thumb_url;
+	gchar    *board;
+	gboolean  rendered;
 
 };
 
@@ -177,7 +185,17 @@ horizon_post_set_property (GObject      *object,
 		case PROP_CUSTOM_SPOILER:
 			self->priv->custom_spoiler  = g_value_get_int  (value);
 			break;
-			
+		case PROP_IMAGE_URL:
+			g_free(self->priv->image_url);
+			self->priv->image_url = g_value_dup_string (value);
+		case PROP_THUMB_URL:
+			g_free(self->priv->thumb_url);
+			self->priv->thumb_url = g_value_dup_string (value);
+		case PROP_BOARD:
+			g_free(self->priv->board);
+			self->priv->board = g_value_dup_string (value);
+		case PROP_RENDERED:
+			self->priv->rendered = g_value_get_boolean (value);
 		default:
 			/* We don't have any other property... */
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -198,7 +216,6 @@ horizon_post_get_property (GObject    *object,
 		case PROP_POST_NUMBER:
 			g_value_set_int64 (value, self->priv->post_number);
 			break;
-
 		case PROP_RESTO:
 			g_value_set_int64 (value, self->priv->resto);
 			break;
@@ -277,7 +294,17 @@ horizon_post_get_property (GObject    *object,
 		case PROP_CUSTOM_SPOILER:
 			g_value_set_int (value, self->priv->custom_spoiler  );
 			break;
-
+		case PROP_IMAGE_URL:
+			g_value_set_string  (value, horizon_post_get_image_url(self));
+			break;
+		case PROP_THUMB_URL:
+			g_value_set_string  (value, horizon_post_get_thumb_url(self));
+			break;
+		case PROP_BOARD:
+			g_value_set_string  (value, self->priv->board);
+			break;
+		case PROP_RENDERED:
+			g_value_set_boolean  (value, self->priv->rendered);
 			
 		default:
 			/* We don't have any other property... */
@@ -289,10 +316,9 @@ horizon_post_get_property (GObject    *object,
 static void
 horizon_post_init (HorizonPost *self)
 {
-  HorizonPostPrivate *priv;
+  HorizonPostPrivate *priv = NULL;
 
-  self->priv = priv = HORIZON_POST_GET_PRIVATE (self);
-
+  self->priv = priv = (HorizonPostPrivate*) g_malloc0(sizeof(HorizonPostPrivate));
 }
 
 static void
@@ -340,7 +366,11 @@ horizon_post_finalize (GObject *gobject)
   g_free (self->priv->filename);
   g_free (self->priv->ext);
   g_free (self->priv->md5);
+  g_free (self->priv->thumb_url);
+  g_free (self->priv->image_url);
+  g_free (self->priv->board);
 
+  g_free (self->priv);
   /* Chain up to the parent class */
   G_OBJECT_CLASS (horizon_post_parent_class)->finalize (gobject);
 }
@@ -550,7 +580,31 @@ horizon_post_class_init (HorizonPostClass *klass)
 	                    99,
 	                    0, /* default value */
 	                    G_PARAM_READWRITE);
-  
+  obj_properties[PROP_IMAGE_URL] =
+	  g_param_spec_string ("image_url",
+	                       "URL for image",
+	                       "",
+	                       "no-image-url-set", /* default value */
+	                       G_PARAM_READWRITE);
+  obj_properties[PROP_THUMB_URL] =
+	  g_param_spec_string ("thumb_url",
+	                       "URL for thumbnail",
+	                       "",
+	                       "no-thumb-url-set", /* default value */
+	                       G_PARAM_READWRITE);
+  obj_properties[PROP_BOARD] =
+	  g_param_spec_string ("board",
+	                       "Image board",
+	                       "",
+	                       "no-board-set", /* default value */
+	                       G_PARAM_READWRITE);
+  obj_properties[PROP_RENDERED] =
+	  g_param_spec_boolean ("rendered",
+	                        "Whether the post is rendered in a postview",
+	                        "",
+	                        FALSE,
+	                        G_PARAM_READWRITE);
+
   g_object_class_install_properties (gobject_class,
                                      N_PROPERTIES,
                                      obj_properties);
@@ -662,3 +716,109 @@ const gint64 horizon_post_get_thumbnail_height (HorizonPost *post)
 	return post->priv->thumbnail_height;
 }
 
+const gint horizon_post_get_sticky(HorizonPost *post) {
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->sticky;
+}
+
+const gint horizon_post_get_closed(HorizonPost *post) {
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->closed;
+}
+
+const gint horizon_post_get_deleted(HorizonPost *post) {
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->is_file_deleted;
+}
+
+const gint horizon_post_get_spoiler(HorizonPost *post) {
+	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
+
+	return post->priv->is_spoiler;
+}
+
+const gchar *
+horizon_post_get_board (HorizonPost *post) {
+	return post->priv->board;
+}
+
+const gchar *
+horizon_post_set_board (HorizonPost *post, const gchar *board) {
+	return post->priv->board = g_strdup(board);
+}
+
+const gchar *
+horizon_post_get_thumb_url (HorizonPost *post) {
+	if (!post->priv->thumb_url) {
+		g_return_val_if_fail(post->priv->board, NULL);
+
+		post->priv->thumb_url = g_strdup_printf("http://thumbs.4chan.org/%s/thumb/%"
+		                                        G_GINT64_FORMAT
+		                                        "s.jpg",
+		                                        post->priv->board,
+		                                        post->priv->renamed_filename);
+	}
+
+	return post->priv->thumb_url;
+}
+
+const gchar *
+horizon_post_get_image_url (HorizonPost *post) {
+	if (!post->priv->image_url) {
+		g_return_val_if_fail(post->priv->board, NULL);
+
+		post->priv->image_url = g_strdup_printf("http://images.4chan.org/%s/src/"
+		                                        "%"G_GINT64_FORMAT
+		                                        "%s",
+		                                        post->priv->board,
+		                                        post->priv->renamed_filename,
+		                                        post->priv->ext);
+	}
+
+	return post->priv->image_url;
+}
+
+const gboolean
+horizon_post_is_gif(HorizonPost *post) {
+	return g_str_has_suffix(post->priv->ext, "gif");
+}
+
+const gboolean
+horizon_post_has_image(HorizonPost *post) {
+	return post->priv->fsize > 0;
+}
+
+const gboolean
+horizon_post_is_rendered(HorizonPost *post) {
+	return post->priv->rendered;
+}
+
+const gboolean
+horizon_post_set_rendered(HorizonPost *post, const gboolean rendered) {
+	return post->priv->rendered = rendered;
+}
+
+const gboolean
+horizon_post_is_same_post(HorizonPost *left, HorizonPost *right) {
+	HorizonPostPrivate *lpriv = left->priv;
+	HorizonPostPrivate *rpriv = right->priv;
+
+	return lpriv->post_number == rpriv->post_number &&
+		lpriv->sticky == rpriv->sticky &&
+		lpriv->closed == rpriv->closed &&
+		lpriv->is_file_deleted == rpriv->is_file_deleted;
+}
+
+const gboolean
+horizon_post_is_not_same_post(HorizonPost *left, HorizonPost *right) {
+	HorizonPostPrivate *lpriv = left->priv;
+	HorizonPostPrivate *rpriv = right->priv;
+
+	return lpriv->post_number != rpriv->post_number ||
+		lpriv->sticky != rpriv->sticky ||
+		lpriv->closed != rpriv->closed ||
+		lpriv->is_file_deleted != rpriv->is_file_deleted;
+}
