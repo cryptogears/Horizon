@@ -1,7 +1,6 @@
 #include "post_view.hpp"
 
 #include <iostream>
-#include <glibmm/convert.h>
 #include <gtkmm/viewport.h>
 #include <gtkmm/scrolledwindow.h>
 #include "horizon-resources.h"
@@ -11,12 +10,11 @@
 #include <glibmm/markup.h>
 #include <glibmm/datetime.h>
 #include <gtkmm/cssprovider.h>
-#include <libnotify/notify.h>
-#include <ratio>
+#include "html_parser.hpp"
 
 namespace Horizon {
 
-	PostView::PostView(const Glib::RefPtr<Post> &in, const bool donotify) :
+	PostView::PostView(const Glib::RefPtr<Post> &in) :
 		Gtk::Grid(),
 		comment(),
 		comment_grid(),
@@ -25,7 +23,6 @@ namespace Horizon {
 		comment_viewport(hadjust, vadjust),
 		post(in),
 		ifetcher(ImageFetcher::get()),
-		notify(donotify),
 		scaled_width(-1)
 	{
 		set_name("postview");
@@ -98,17 +95,10 @@ namespace Horizon {
 			add(*ngrid);
 		}
 
-		sax = (htmlSAXHandlerPtr) calloc(1, sizeof(xmlSAXHandler));
-		sax->startElement = &startElement;
-		sax->characters = &onCharacters;
-		sax->serror = &on_xmlError;
-		sax->initialized = XML_SAX2_MAGIC;
-
-		built_string.clear();
-		parseComment();
+		auto parser = HtmlParser::getHtmlParser();
+		comment.set_markup(parser->html_to_pango(post->get_comment()));
 
 		comment.set_name("comment");
-		comment.set_markup(built_string);
 		comment.set_selectable(true);
 		comment.set_valign(Gtk::ALIGN_START);
 		comment.set_halign(Gtk::ALIGN_START);
@@ -299,7 +289,6 @@ namespace Horizon {
 	}
 
 	PostView::~PostView() {
-		free(sax);
 	}
 
 	void PostView::refresh(const Glib::RefPtr<Post> &in) {
@@ -368,7 +357,7 @@ namespace Horizon {
 	void PostView::do_notify(const Glib::RefPtr<Gdk::Pixbuf>& pixbuf ) {
 		notify = false;
 		std::string summary = "New 4chan post";
-		std::string body = built_string;
+		std::string body; // FIXME
 		if (body.size() == 0)
 			body = "";
 		GError *error = nullptr;
@@ -515,107 +504,5 @@ namespace Horizon {
 			}
 		}
 	}
-
-	void PostView::parseComment() {
-
-		ctxt = htmlCreatePushParserCtxt(sax, this, NULL, 0, NULL,
-		                                XML_CHAR_ENCODING_UTF8);
-		if (G_UNLIKELY( ctxt == NULL )) {
-			g_error("Unable to create libxml2 HTML context!");
-		}
-
-		htmlCtxtUseOptions(ctxt, HTML_PARSE_RECOVER );
-		htmlParseChunk(ctxt, post->get_comment().c_str(), post->get_comment().size(), 1);
-		htmlCtxtReset(ctxt);
-		htmlFreeParserCtxt(ctxt);
-		ctxt = NULL;
-	}
-
-	void startElement(void* user_data,
-	                  const xmlChar* name,
-	                  const xmlChar** attrs) {
-		PostView* pv = static_cast<PostView*>(user_data);
-
-		try {
-			Glib::ustring str( reinterpret_cast<const char*>(name) );
-
-			if ( str.find("br") != Glib::ustring::npos ) {
-				//pv->comment_iter = pv->comment->insert(pv->comment_iter, "\n");
-				pv->built_string.append("\n");
-			} else {
-				if (false) {
-					std::cerr << "Ignoring tag " << name;
-					if (attrs != NULL) {
-						std::cerr << " attrs:";
-						for ( int i = 0; attrs[i] != NULL; i++) {
-							std::cerr << " " << attrs[i];
-					}
-					}
-					std::cerr << std::endl;
-				}
-			}
-		} catch (std::exception e) {
-			std::cerr << "Error startElement casting to string: " << e.what()
-			          << std::endl;
-		}
-	}
-
-	void onCharacters(void* user_data, const xmlChar* chars, int size) {
-		PostView* pv = static_cast<PostView*>(user_data);
-
-		Glib::ustring str;
-		std::string locale;
-		std::string locale_str;
-		Glib::get_charset(locale);
-		
-		try {
-			// TODO: This is way too much work; xmlChar is already in
-			// UTF-8, we should be able to stick it right in a
-			// ustring. Only problem is everytime I try it barfs.
-			locale_str = Glib::convert(std::string(reinterpret_cast<const char*>(chars), size), locale, "UTF-8");
-			str = Glib::locale_to_utf8(locale_str);
-			
-		} catch (Glib::ConvertError e) {
-			g_error("Error casting '%s' to Glib::ustring: %s", chars, e.what().c_str());
-		}
-		
-		gchar* cstr = g_markup_escape_text(static_cast<const gchar*>(str.c_str()), -1);
-		pv->built_string.append(static_cast<char*>(cstr));
-		g_free(cstr);
-		//pv->comment_iter = pv->comment->insert(pv->comment_iter, str);
-	}
-
-	void on_xmlError(void* user_data, xmlErrorPtr error) {
-		Horizon::PostView* postview = static_cast<PostView*>(user_data);
-		switch (error->code) {
-		case XML_ERR_INVALID_ENCODING:
-			std::cerr << "Warning: Invalid UTF-8 encoding. I blame moot. "
-			          << "If you're saving by original filename, its going to get"
-			          << " ugly. It can't be helped." << std::endl;
-			break;
-		case XML_ERR_NAME_REQUIRED:
-		case XML_ERR_TAG_NAME_MISMATCH:
-		case XML_ERR_ENTITYREF_SEMICOL_MISSING:
-		case XML_ERR_INVALID_DEC_CHARREF:
-		case XML_ERR_LTSLASH_REQUIRED:
-		case XML_ERR_GT_REQUIRED:
-			// Ignore
-			break;
-		default:
-			if (error->domain == XML_FROM_HTML) {
-				std::cerr << "Warning: Got unexpected libxml2 HTML error code "
-				          << error->code << ". This is probably ok : " 
-				          << error->message;
-			} else {
-				std::cerr << "Error: Got unexpected libxml2 error code "
-				          << error->code << " from domain " << error->domain
-				          << " which means: " << error->message << std::endl;
-				std::cerr << "\tPlease report this error to the developer."
-				          << std::endl;
-			}
-		}
-	}
-
-
 }
 

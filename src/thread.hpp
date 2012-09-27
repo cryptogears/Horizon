@@ -8,6 +8,7 @@
 #include <memory>
 #include <map>
 #include <random>
+#include <functional>
 #include <glibmm/dispatcher.h>
 #include <glibmm/object.h>
 #include <glibmm/private/object_p.h>
@@ -119,8 +120,14 @@ namespace Horizon {
 		   Marks changed posts (Thread lock/file deletion) as changed.
 		 */
 		void updatePosts(const std::list<Glib::RefPtr<Post> > &new_posts);
-		Glib::Mutex posts_mutex;
-		std::map<gint64, Glib::RefPtr<Post> > posts;
+		const Glib::RefPtr<Post> get_first_post() const;
+
+		/*
+		 * Performs function func on each post in the threadview.  If
+		 * Func ever returns true, this method will return
+		 * true. Otherwise, it will return false.
+		 */
+		const bool for_each_post(const std::function<bool  (const Glib::RefPtr<Post>&) >);
 
 	protected:
 		Thread(std::string url);
@@ -130,7 +137,8 @@ namespace Horizon {
 		Thread(const Thread&) = delete;
 		Thread& operator=(const Thread&) = delete;
 		
-
+		mutable Glib::Mutex posts_mutex;
+		std::map<gint64, Glib::RefPtr<Post> > posts;
 
 		Glib::TimeSpan update_interval;
 		std::default_random_engine generator;

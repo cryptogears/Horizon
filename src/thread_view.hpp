@@ -35,6 +35,8 @@ namespace Horizon {
 		double prev_upper;
 		double prev_page_size;
 
+		bool refresh_post(const Glib::RefPtr<Post> &post);
+
 		void on_updated_interval();
 		void do_close_thread();
 		void on_scrollbar_changed();

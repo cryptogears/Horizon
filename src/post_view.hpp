@@ -6,12 +6,10 @@
 #include <gtkmm/textbuffer.h>
 #include <gtkmm/texttagtable.h>
 #include <gtkmm/textview.h>
-#include <libxml/HTMLparser.h>
 #include <gtkmm/viewport.h>
 #include <gtkmm/eventbox.h>
 #include <gtkmm/scrolledwindow.h>
 #include <gtkmm/image.h>
-
 #include <giomm/dbusproxy.h>
 #include "image_fetcher.hpp"
 
@@ -19,7 +17,7 @@ namespace Horizon {
 
 	class PostView : public Gtk::Grid {
 	public:
-		PostView( const Glib::RefPtr<Post> &in, const bool notify);
+		PostView( const Glib::RefPtr<Post> &in );
 		~PostView();
 
 		void refresh( const Glib::RefPtr<Post> &in );
@@ -34,8 +32,6 @@ namespace Horizon {
 		static Glib::RefPtr<Gio::DBus::Proxy> get_dbus_proxy();
 		void do_notify(const Glib::RefPtr<Gdk::Pixbuf>& = Glib::RefPtr<Gdk::Pixbuf>());
 
-
-		void parseComment();
 		void on_thumb_ready(std::string hash);
 		void on_image_ready(std::string hash);
 		sigc::connection thumb_connection;
@@ -43,8 +39,6 @@ namespace Horizon {
 
 		bool notify;
 
-		htmlSAXHandlerPtr sax;
-		xmlParserCtxtPtr ctxt;
 
 		Glib::RefPtr<Post> post;
 		Glib::RefPtr<Gtk::Adjustment> hadjust, vadjust;
@@ -76,17 +70,7 @@ namespace Horizon {
 		Glib::RefPtr<Gtk::TextTagTable> tag_table;
 		Glib::RefPtr<Gtk::Adjustment> vadjustment;
 		*/
-		Glib::ustring built_string;
-
-		friend void startElement(void* user_data, const xmlChar* name, const xmlChar** attrs);
-		friend void onCharacters(void* user_data, const xmlChar* chars, int len);
-		friend void on_xmlError(void* user_data, xmlErrorPtr error);
 	};
-
-	void startElement(void* user_data, const xmlChar* name, const xmlChar** attrs);
-	void onCharacters(void* user_data, const xmlChar* chars, int len);
-	void on_xmlError(void* user_data, xmlErrorPtr error);
-	size_t parser_write_cb(void *ptr, size_t size, size_t nmemb, void *data);
 }
 
 #endif

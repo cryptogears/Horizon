@@ -299,16 +299,37 @@ namespace Horizon {
 
 		for ( auto iter = new_posts.begin(); iter != new_posts.end(); iter++ ) {
 			Glib::RefPtr<Post> post = *iter;
-			if ( posts.count(post->get_id()) == 0 ) {
+			auto conflicting_post = posts.find(post->get_id());
+			if ( conflicting_post == posts.end() ) {
 				posts.insert({post->get_id(), post});
 			} else {
-				auto p = posts.find(post->get_id());
-				if (p->second->is_not_same_post(post)) {
-					posts.erase(p);
+				if ( conflicting_post->second->is_not_same_post(post) ) {
+					// The new post has updated metadata (sticky, file
+					// deleted, or closed)
+					posts.erase(conflicting_post);
 					posts.insert({post->get_id(), post});
 				}
 			}
 		}
+	}
+
+	const bool Thread::for_each_post(std::function<bool(const Glib::RefPtr<Post>&) > func) {
+		Glib::Mutex::Lock lock(posts_mutex);
+		bool ret = false;
+		
+		for ( auto iter : posts ) {
+			bool thisret = func(iter.second);
+			ret = ret || thisret;
+		}
+
+		return ret;
+	}
+
+	const Glib::RefPtr<Post> Thread::get_first_post() const {
+		Glib::Mutex::Lock lock(posts_mutex);
+		
+		auto iter = posts.begin();
+		return iter->second;
 	}
 
 	const Glib::TimeSpan Thread::get_update_interval() const { 
