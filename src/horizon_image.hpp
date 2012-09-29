@@ -42,7 +42,10 @@ namespace Horizon {
 		Glib::RefPtr<Gdk::Pixbuf> scaled_image;
 		Glib::RefPtr<Gdk::PixbufAnimation> unscaled_animation;
 		Glib::RefPtr<Gdk::PixbufAnimationIter> animation_iter;
+		Glib::TimeVal animation_time;
+		void on_animation_timeout();
 		int scaled_width, scaled_height;
+		bool is_scaled;
 
 		void fetch_thumbnail();
 		void fetch_image();

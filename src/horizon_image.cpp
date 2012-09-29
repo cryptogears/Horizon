@@ -1,6 +1,7 @@
 
 #include "horizon_image.hpp"
 #include <iostream>
+#include <glibmm/main.h>
 
 namespace Horizon {
 
@@ -97,6 +98,21 @@ namespace Horizon {
 		}
 	}
 
+	void Image::on_animation_timeout() {
+		animation_time.assign_current_time();
+		if (animation_iter->advance(animation_time)) {
+			unscaled_image = animation_iter->get_pixbuf();
+			if (is_scaled) {
+				set_new_scaled_image(scaled_width, scaled_height);
+			} else {
+				image.set(unscaled_image);
+			}
+		}
+
+		Glib::signal_timeout().connect_once(sigc::mem_fun(*this, &Image::on_animation_timeout),
+		                                     animation_iter->get_delay_time());
+	}
+
 	void Image::on_image_ready(std::string hash) {
 		if ( post->get_hash().find(hash) == std::string::npos ) 
 			return;
@@ -104,7 +120,17 @@ namespace Horizon {
 			if ( ! unscaled_animation ) {
 				if (image_connection.connected())
 					image_connection.disconnect();
-				unscaled_animation = ifetcher->get_animation(hash);
+				auto animation = ifetcher->get_animation(hash);
+				if (animation->is_static_image()) {
+					unscaled_image = animation->get_static_image();
+				} else {
+					unscaled_animation = animation;
+					animation_time.assign_current_time();
+					animation_iter = unscaled_animation->get_iter(&animation_time);
+					unscaled_image = animation_iter->get_pixbuf();
+					Glib::signal_timeout().connect_once(sigc::mem_fun(*this, &Image::on_animation_timeout),
+					                                     animation_iter->get_delay_time());
+				}
 			}
 		} else {
 			if ( ! unscaled_image ) {
@@ -123,6 +149,7 @@ namespace Horizon {
 			g_error("Image_state not thumbnail, aborting.");
 			return;
 		}
+
 		Gtk::Widget* comment = grid->get_child_at(1, 0);
 		if (comment) {
 			image_state = EXPAND;
@@ -160,11 +187,6 @@ namespace Horizon {
 	}
 
 	void Image::set_new_scaled_image(const int width, const int height) {
-		if ( unscaled_animation ) { // TODO
-			image.set(unscaled_animation);
-			return;
-		}
-
 		if (unscaled_image) {
 			float scale = static_cast<float>(width) / static_cast<float>(post->get_width());
 			int new_height = static_cast<int>(scale * post->get_height());
@@ -307,19 +329,19 @@ namespace Horizon {
 		case EXPAND:
 			if ( width < post->get_width() ) {
 				if (width != scaled_width) {
-					set_new_scaled_image(width, height);
+					set_new_scaled_image(width, height);					
 				} else {
 					image.set(scaled_image);
 				}
 				used_width = scaled_width;
 				used_height = scaled_height;
+				is_scaled = true;
 			} else {
 				if (unscaled_image)
 					image.set(unscaled_image);
-				else if (unscaled_animation)
-					image.set(unscaled_animation);
 				else
 					g_error("Image in EXPAND state without unscaled image data.");
+				is_scaled = false;
 				used_width = post->get_width();
 				used_height = post->get_height();
 			}
