@@ -66,7 +66,8 @@ am_horizon_OBJECTS = main.$(OBJEXT) application.$(OBJEXT) \
 	curler.$(OBJEXT) thread.$(OBJEXT) manager.$(OBJEXT) \
 	entities.$(OBJEXT) horizon_post.$(OBJEXT) \
 	thread_view.$(OBJEXT) post_view.$(OBJEXT) \
-	image_fetcher.$(OBJEXT) html_parser.$(OBJEXT) \
+	image_fetcher.$(OBJEXT) notifier.$(OBJEXT) \
+	html_parser.$(OBJEXT) horizon_image.$(OBJEXT) \
 	horizon-resources.$(OBJEXT)
 horizon_OBJECTS = $(am_horizon_OBJECTS)
 am__DEPENDENCIES_1 =
@@ -210,7 +211,7 @@ BUILT_SOURCES = \
 	horizon-resources.h \
 	$(NULL)
 
-horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp html_parser.cpp horizon-resources.c
+horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -300,11 +301,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/curler.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/entities.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon-resources.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_image.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_post.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/html_parser.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/image_fetcher.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/manager.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/notifier.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/post_view.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/thread.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/thread_view.Po@am__quote@

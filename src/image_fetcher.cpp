@@ -72,7 +72,7 @@ namespace Horizon {
 		g_free(ptr);
 	}
 
-	std::size_t horizon_curl_writeback(char *ptr, size_t size, size_t nmemb, void *userdata) {
+	std::size_t horizon_curl_writeback(char *ptr, size_t nmemb, size_t size, void *userdata) {
 		std::size_t wrote = 0;
 		const Request* request = static_cast<Request*>(userdata);
 		std::string hash = request->hash;
@@ -508,7 +508,7 @@ namespace Horizon {
 	/* No locks should be held calling into here */
 	void ImageFetcher::on_pixbuf_ready() {
 		Glib::Mutex::Lock lock(pixbuf_mutex);
-		while (pixbuf_map.size() > 0) {
+		if (pixbuf_map.size() > 0) {
 			auto iter = pixbuf_map.begin();
 			if (iter->first->is_thumb) {
 				{
@@ -525,9 +525,9 @@ namespace Horizon {
 			}
 			delete iter->first;
 			pixbuf_map.erase(iter);
-		}
+		} else
 
-		while (pixbuf_animation_map.size() > 0) {
+		if (pixbuf_animation_map.size() > 0) {
 			auto iter = pixbuf_animation_map.begin();
 			{
 				Glib::Mutex::Lock lock(images_mutex);

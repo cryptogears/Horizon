@@ -66,7 +66,8 @@ am_horizon_OBJECTS = main.$(OBJEXT) application.$(OBJEXT) \
 	curler.$(OBJEXT) thread.$(OBJEXT) manager.$(OBJEXT) \
 	entities.$(OBJEXT) horizon_post.$(OBJEXT) \
 	thread_view.$(OBJEXT) post_view.$(OBJEXT) \
-	image_fetcher.$(OBJEXT) html_parser.$(OBJEXT) \
+	image_fetcher.$(OBJEXT) notifier.$(OBJEXT) \
+	html_parser.$(OBJEXT) horizon_image.$(OBJEXT) \
 	horizon-resources.$(OBJEXT)
 horizon_OBJECTS = $(am_horizon_OBJECTS)
 am__DEPENDENCIES_1 =
@@ -210,7 +211,7 @@ BUILT_SOURCES = \
 	horizon-resources.h \
 	$(NULL)
 
-horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp html_parser.cpp horizon-resources.c
+horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -300,11 +301,13 @@ include ./$(DEPDIR)/application.Po
 include ./$(DEPDIR)/curler.Po
 include ./$(DEPDIR)/entities.Po
 include ./$(DEPDIR)/horizon-resources.Po
+include ./$(DEPDIR)/horizon_image.Po
 include ./$(DEPDIR)/horizon_post.Po
 include ./$(DEPDIR)/html_parser.Po
 include ./$(DEPDIR)/image_fetcher.Po
 include ./$(DEPDIR)/main.Po
 include ./$(DEPDIR)/manager.Po
+include ./$(DEPDIR)/notifier.Po
 include ./$(DEPDIR)/post_view.Po
 include ./$(DEPDIR)/thread.Po
 include ./$(DEPDIR)/thread_view.Po

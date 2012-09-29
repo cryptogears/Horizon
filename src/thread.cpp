@@ -329,7 +329,10 @@ namespace Horizon {
 		Glib::Mutex::Lock lock(posts_mutex);
 		
 		auto iter = posts.begin();
-		return iter->second;
+		if (iter != posts.end())
+			return iter->second;
+		else
+			return Glib::RefPtr<Post>();
 	}
 
 	const Glib::TimeSpan Thread::get_update_interval() const { 

@@ -128,21 +128,23 @@ namespace Horizon {
 
 	void ThreadView::on_updated_interval() {
 		const Glib::RefPtr<Post> post = thread->get_first_post();
-		std::stringstream label;
+		if (post) {
+			std::stringstream label;
 
-		if ( post->get_subject().size() > 0 ) {
-			label << "<b><span color=\"#0F0C5D\">" << post->get_subject()
-			      << "</span></b>";
-		} else {
-			label << thread->number;
+			if ( post->get_subject().size() > 0 ) {
+				label << "<b><span color=\"#0F0C5D\">" << post->get_subject()
+				      << "</span></b>";
+			} else {
+				label << thread->number;
+			}
+
+			label << " - <b><span color=\"#117743\">"  << post->get_name()
+			      << "</span></b> (<small>" 
+			      << thread->get_update_interval() / 1000000 
+			      << "s</small>)";
+
+			static_cast<Gtk::Label*>(get_label_widget())->set_markup(label.str());
 		}
-
-		label << " - <b><span color=\"#117743\">"  << post->get_name()
-		      << "</span></b> (<small>" 
-		      << thread->get_update_interval() / 1000000 
-		      << "s</small>)";
-
-		static_cast<Gtk::Label*>(get_label_widget())->set_markup(label.str());
 	}
 }
 

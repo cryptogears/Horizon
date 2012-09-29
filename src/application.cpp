@@ -8,6 +8,7 @@
 #include <gtkmm/dialog.h>
 #include <gtkmm/entry.h>
 #include <gtkmm/stock.h>
+#include "notifier.hpp"
 
 extern "C" {
 #include "horizon-resources.h"
@@ -277,6 +278,8 @@ namespace Horizon {
 		gridp->set_vexpand(true);
 		gridp->set_column_homogeneous(true);
 		rows.push_back(gridp);
+
+		Notifier::init();
 	}
 
 	Glib::RefPtr<Application> Application::create(const Glib::ustring &appid) {

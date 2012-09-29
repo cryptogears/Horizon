@@ -1,6 +1,5 @@
 #include "html_parser.hpp"
 #include <iostream>
-#include <glibmm/convert.h>
 
 namespace Horizon {
 
@@ -12,7 +11,7 @@ namespace Horizon {
 
 	HtmlParser::HtmlParser()
 	{
-		sax = static_cast<htmlSAXHandlerPtr>(g_malloc0(sizeof(xmlSAXHandler)));
+		sax = g_new0(xmlSAXHandler, 1);
 		sax->startElement = &horizon_html_parser_on_start_element;
 		sax->characters = &horizon_html_parser_on_characters;
 		sax->serror = &horizon_html_parser_on_xml_error;
@@ -32,12 +31,14 @@ namespace Horizon {
 
 	Glib::ustring HtmlParser::html_to_pango(const std::string &html) {
 		built_string.clear();
+
 		xmlFreeDoc(htmlCtxtReadMemory(ctxt,
 		                              html.c_str(), 
 		                              html.size(),
 		                              NULL,
 		                              "UTF-8",
 		                              HTML_PARSE_RECOVER ));
+		                              
 		return built_string;
 	}
 
