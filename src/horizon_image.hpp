@@ -51,6 +51,8 @@ namespace Horizon {
 		void fetch_image();
 		void on_thumb_ready(std::string hash);
 		void on_image_ready(std::string hash);
+		void set_thumb_state();
+		void set_expand_state();
 		sigc::connection thumb_connection;
 		sigc::connection image_connection;
 		std::shared_ptr<ImageFetcher> ifetcher;

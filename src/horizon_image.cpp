@@ -74,6 +74,10 @@ namespace Horizon {
 			}
 		}
 
+		set_thumb_state();
+	}
+
+	void Image::set_thumb_state() {
 		try {
 			Gtk::Widget* comment = nullptr;
 			if (image_state == NONE) {
@@ -86,7 +90,8 @@ namespace Horizon {
 			}
 			if (comment != nullptr) {
 				image_state = THUMBNAIL;
-				image.set(thumbnail_image);
+				if (!unscaled_image)
+					image.set(thumbnail_image);
 				grid->attach_next_to(*comment, *this, Gtk::POS_RIGHT, 1, 1);
 				refresh_size_request();
 				show_all();
@@ -145,6 +150,10 @@ namespace Horizon {
 			return;
 		}
 
+		set_expand_state();
+	}
+
+	void Image::set_expand_state() {
 		if (image_state != THUMBNAIL) {
 			g_error("Image_state not thumbnail, aborting.");
 			return;
@@ -167,12 +176,15 @@ namespace Horizon {
 		case NONE:
 			break;
 		case THUMBNAIL:
-			fetch_image();
+			if (!unscaled_image)
+				fetch_image();
+			else
+				set_expand_state();
 			break;
 		case EXPAND:
 			// For now fall through, we don't have a 'Full' implementation
-		case FULL: 
-			fetch_thumbnail();
+		case FULL:
+			set_thumb_state();
 			break;
 		default:
 			break;
@@ -326,6 +338,12 @@ namespace Horizon {
 		case NONE:
 			break;
 		case FULL:
+		case THUMBNAIL:
+			used_width = width;
+			used_height = height;
+			if ( !unscaled_image ) {
+				break;
+			}
 		case EXPAND:
 			if ( width < post->get_width() ) {
 				if (width != scaled_width) {
@@ -345,10 +363,6 @@ namespace Horizon {
 				used_width = post->get_width();
 				used_height = post->get_height();
 			}
-		case THUMBNAIL:
-			used_width = width;
-			used_height = height;
-			break;
 		}
 		
 		if (G_UNLIKELY(used_width > width || used_height > height)) {
