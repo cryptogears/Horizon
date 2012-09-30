@@ -37,6 +37,7 @@ namespace Horizon {
 
 		bool refresh_post(const Glib::RefPtr<Post> &post);
 
+		bool on_activate_link(const Glib::ustring &link);
 		void on_updated_interval();
 		void do_close_thread();
 		void on_scrollbar_changed();

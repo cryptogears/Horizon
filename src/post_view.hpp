@@ -22,6 +22,8 @@ namespace Horizon {
 		~PostView() = default;
 
 		void refresh( const Glib::RefPtr<Post> &in );
+		sigc::signal<bool, const Glib::ustring&> signal_activate_link;
+		void add_linkback(const gint64 id);
 
 	private:
 		PostView() = delete;
@@ -30,13 +32,17 @@ namespace Horizon {
 
 		Glib::RefPtr<Post> post;
 		Glib::RefPtr<Gtk::Adjustment> hadjust, vadjust;
+		Gtk::Grid post_info_grid;
+		Gtk::Grid image_info_grid;
 		Gtk::Grid comment_grid;
 		Gtk::Label comment;
+		Gtk::Label linkbacks;
 		Gtk::Viewport comment_viewport;
 
 		std::shared_ptr<Image> image;
 
 		void set_new_scaled_image(const int width);
+		bool on_activate_link(const Glib::ustring&);
 
 		/*
 		Gtk::TextView textview;

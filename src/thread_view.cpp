@@ -9,6 +9,7 @@
 #include <giomm/file.h>
 #include <gtkmm/stock.h>
 #include "thread.hpp"
+#include "html_parser.hpp"
 
 extern "C" {
 #include "horizon-resources.h"
@@ -28,6 +29,7 @@ namespace Horizon {
 		swindow.set_name("threadview");
 		swindow.set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
 		swindow.set_vexpand(true);
+		grid.set_focus_vadjustment(vadjustment);
 
 		full_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
 
@@ -90,6 +92,8 @@ namespace Horizon {
 
 	bool ThreadView::refresh_post(const Glib::RefPtr<Post> &post) {
 		bool was_new = false;
+		auto parser = HtmlParser::getHtmlParser();
+
 		if ( post_map.count(post->get_id()) > 0 ) {
 			// This post is already in the view
 			if ( ! post->is_rendered() ) {
@@ -101,10 +105,19 @@ namespace Horizon {
 			// This is a new post
 			PostView *pv = Gtk::manage( new PostView(post) );
 			post_map.insert({post->get_id(), pv});
+			pv->signal_activate_link.connect(sigc::mem_fun(*this, &ThreadView::on_activate_link));
 			post->mark_rendered();
 			grid.add(*pv);
 			was_new = true;
 			pv->show_all();
+
+			auto links = parser->get_links(post->get_comment());
+			for ( auto link : links ) {
+				auto iter = post_map.find(link);
+				if (iter != post_map.end()) {
+					iter->second->add_linkback(post->get_id());
+				}
+			}
 		}
 
 		return was_new;
@@ -123,6 +136,21 @@ namespace Horizon {
 
 		// FIXME notification
 		thread->update_notify(was_new);
+	}
+
+	bool ThreadView::on_activate_link(const Glib::ustring &link) {
+		gint64 post_num;
+		std::stringstream s;
+		s << link;
+		s >> post_num;
+		if ( post_map.count(post_num) == 1 ) {
+			auto widget = post_map[post_num];
+			grid.set_focus_child(*widget);
+			return true;
+		} else {
+			std::cerr << "Cross-thread links not supported." << std::endl;
+			return true;
+		}
 	}
 	
 

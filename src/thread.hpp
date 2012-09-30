@@ -83,8 +83,8 @@ namespace Horizon {
 		std::string get_original_filename() const;
 		std::string get_image_ext() const;
 		std::string get_hash() const;
-		std::string get_thumb_url() const;
-		std::string get_image_url() const;
+		std::string get_thumb_url();
+		std::string get_image_url();
 		const gint get_thumb_width() const;
 		const gint get_thumb_height() const;
 		const gint get_width() const;
@@ -97,6 +97,9 @@ namespace Horizon {
 		const bool is_spoiler() const;
 		const bool is_gif() const;
 		void set_board(const std::string& board);
+		std::string get_board() const;
+		void set_thread_id(const gint64 id);
+		const gint64 get_thread_id() const;
 	};
 
 	class Thread {

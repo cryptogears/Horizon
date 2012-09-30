@@ -39,6 +39,7 @@ enum
   PROP_THUMB_URL,
   PROP_BOARD,
   PROP_RENDERED,
+  PROP_THREAD_ID,
 
   N_PROPERTIES
 };
@@ -76,7 +77,7 @@ struct _HorizonPostPrivate
 	gchar    *thumb_url;
 	gchar    *board;
 	gboolean  rendered;
-
+	gint64    thread_id;
 };
 
 static GParamSpec *obj_properties[N_PROPERTIES] = { NULL, };
@@ -188,14 +189,21 @@ horizon_post_set_property (GObject      *object,
 		case PROP_IMAGE_URL:
 			g_free(self->priv->image_url);
 			self->priv->image_url = g_value_dup_string (value);
+			break;
 		case PROP_THUMB_URL:
 			g_free(self->priv->thumb_url);
 			self->priv->thumb_url = g_value_dup_string (value);
+			break;
 		case PROP_BOARD:
 			g_free(self->priv->board);
 			self->priv->board = g_value_dup_string (value);
+			break;
 		case PROP_RENDERED:
 			self->priv->rendered = g_value_get_boolean (value);
+			break;
+		case PROP_THREAD_ID:
+			self->priv->thread_id = g_value_get_int64 (value);
+			break;
 		default:
 			/* We don't have any other property... */
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -305,7 +313,10 @@ horizon_post_get_property (GObject    *object,
 			break;
 		case PROP_RENDERED:
 			g_value_set_boolean  (value, self->priv->rendered);
-			
+			break;
+		case PROP_THREAD_ID:
+			g_value_set_int64 (value, self->priv->thread_id);
+			break;
 		default:
 			/* We don't have any other property... */
 	    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -605,6 +616,15 @@ horizon_post_class_init (HorizonPostClass *klass)
 	                        FALSE,
 	                        G_PARAM_READWRITE);
 
+  obj_properties[PROP_THREAD_ID] =
+	  g_param_spec_int64 ("thread_id", /* name */
+	                       "Parent thread id", /* nick */
+	                       "Id of the thread that contains this post", /* blurb */
+	                       1  /* minimum value */,
+	                       9999999999999 /* maximum value */,
+	                       1  /* default value */,
+	                       G_PARAM_READWRITE);
+  
   g_object_class_install_properties (gobject_class,
                                      N_PROPERTIES,
                                      obj_properties);
@@ -613,35 +633,35 @@ horizon_post_class_init (HorizonPostClass *klass)
 
 
 const gchar *
-horizon_post_get_md5 (HorizonPost *post)
+horizon_post_get_md5 (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
 
 	return post->priv->md5;
 }
 
-const gint64 horizon_post_get_fsize (HorizonPost *post)
+const gint64 horizon_post_get_fsize (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->fsize;
 }
 
-const gint64 horizon_post_get_post_number (HorizonPost *post)
+const gint64 horizon_post_get_post_number (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->post_number;
 }
 
-const gint64 horizon_post_get_time (HorizonPost *post)
+const gint64 horizon_post_get_time (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->time;
 }
 
-const gint64 horizon_post_get_renamed_filename (HorizonPost *post)
+const gint64 horizon_post_get_renamed_filename (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
@@ -649,7 +669,7 @@ const gint64 horizon_post_get_renamed_filename (HorizonPost *post)
 }
 
 const gchar *
-horizon_post_get_name (HorizonPost *post)
+horizon_post_get_name (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
 
@@ -657,7 +677,7 @@ horizon_post_get_name (HorizonPost *post)
 }
 
 const gchar *
-horizon_post_get_subject (HorizonPost *post)
+horizon_post_get_subject (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
 
@@ -665,7 +685,7 @@ horizon_post_get_subject (HorizonPost *post)
 }
 
 const gchar *
-horizon_post_get_comment (HorizonPost *post)
+horizon_post_get_comment (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
 
@@ -673,7 +693,7 @@ horizon_post_get_comment (HorizonPost *post)
 }
 
 const gchar *
-horizon_post_get_original_filename (HorizonPost *post)
+horizon_post_get_original_filename (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
 
@@ -681,73 +701,83 @@ horizon_post_get_original_filename (HorizonPost *post)
 }
 
 const gchar *
-horizon_post_get_ext (HorizonPost *post)
+horizon_post_get_ext (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), NULL);
 
 	return post->priv->ext;
 }
 
-const gint64 horizon_post_get_width (HorizonPost *post)
+const gint64 horizon_post_get_width (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->image_width;
 }
 
-const gint64 horizon_post_get_height (HorizonPost *post)
+const gint64 horizon_post_get_height (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->image_height;
 }
 
-const gint64 horizon_post_get_thumbnail_width (HorizonPost *post)
+const gint64 horizon_post_get_thumbnail_width (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->thumbnail_width;
 }
 
-const gint64 horizon_post_get_thumbnail_height (HorizonPost *post)
+const gint64 horizon_post_get_thumbnail_height (const HorizonPost *post)
 {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->thumbnail_height;
 }
 
-const gint horizon_post_get_sticky(HorizonPost *post) {
+const gint horizon_post_get_sticky(const HorizonPost *post) {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->sticky;
 }
 
-const gint horizon_post_get_closed(HorizonPost *post) {
+const gint horizon_post_get_closed(const HorizonPost *post) {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->closed;
 }
 
-const gint horizon_post_get_deleted(HorizonPost *post) {
+const gint horizon_post_get_deleted(const HorizonPost *post) {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->is_file_deleted;
 }
 
-const gint horizon_post_get_spoiler(HorizonPost *post) {
+const gint horizon_post_get_spoiler(const HorizonPost *post) {
 	g_return_val_if_fail (HORIZON_IS_POST (post), 0);
 
 	return post->priv->is_spoiler;
 }
 
 const gchar *
-horizon_post_get_board (HorizonPost *post) {
+horizon_post_get_board (const const HorizonPost *post) {
 	return post->priv->board;
 }
 
 const gchar *
 horizon_post_set_board (HorizonPost *post, const gchar *board) {
 	return post->priv->board = g_strdup(board);
+}
+
+const gint64 
+horizon_post_get_thread_id(const const HorizonPost *post) {
+	return post->priv->thread_id;
+}
+
+const gint64 
+horizon_post_set_thread_id(HorizonPost *post, const gint64 id) {
+	return post->priv->thread_id = id;
 }
 
 const gchar *
@@ -782,17 +812,17 @@ horizon_post_get_image_url (HorizonPost *post) {
 }
 
 const gboolean
-horizon_post_is_gif(HorizonPost *post) {
+horizon_post_is_gif(const HorizonPost *post) {
 	return g_str_has_suffix(post->priv->ext, "gif");
 }
 
 const gboolean
-horizon_post_has_image(HorizonPost *post) {
+horizon_post_has_image(const HorizonPost *post) {
 	return post->priv->fsize > 0;
 }
 
 const gboolean
-horizon_post_is_rendered(HorizonPost *post) {
+horizon_post_is_rendered(const HorizonPost *post) {
 	return post->priv->rendered;
 }
 
@@ -802,7 +832,7 @@ horizon_post_set_rendered(HorizonPost *post, const gboolean rendered) {
 }
 
 const gboolean
-horizon_post_is_same_post(HorizonPost *left, HorizonPost *right) {
+horizon_post_is_same_post(const HorizonPost *left, const HorizonPost *right) {
 	HorizonPostPrivate *lpriv = left->priv;
 	HorizonPostPrivate *rpriv = right->priv;
 
@@ -813,7 +843,7 @@ horizon_post_is_same_post(HorizonPost *left, HorizonPost *right) {
 }
 
 const gboolean
-horizon_post_is_not_same_post(HorizonPost *left, HorizonPost *right) {
+horizon_post_is_not_same_post(const HorizonPost *left, const HorizonPost *right) {
 	HorizonPostPrivate *lpriv = left->priv;
 	HorizonPostPrivate *rpriv = right->priv;
 

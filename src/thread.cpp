@@ -90,15 +90,27 @@ namespace Horizon {
 	}
 
 	void Post::set_board(const std::string& in) {
-		horizon_post_set_board(const_cast<HorizonPost*>(gobj()), in.c_str());
+		horizon_post_set_board(gobj(), in.c_str());
+	}
+
+	std::string Post::get_board() const {
+		return horizon_post_get_board(gobj());
+	}
+
+	const gint64 Post::get_thread_id() const {
+		return horizon_post_get_thread_id(gobj());
+	}
+
+	void Post::set_thread_id(const gint64 id) {
+		horizon_post_set_thread_id(gobj(), id);
 	}
 
 	const bool Post::is_same_post(const Glib::RefPtr<Post> &post) const {
-		return horizon_post_is_same_post(const_cast<HorizonPost*>(gobj()), post->gobj());
+		return horizon_post_is_same_post(gobj(), post->gobj());
 	}
 
 	const bool Post::is_not_same_post(const Glib::RefPtr<Post> &post) const {
-		return horizon_post_is_not_same_post(const_cast<HorizonPost*>(gobj()), post->gobj());
+		return horizon_post_is_not_same_post(gobj(), post->gobj());
 	}
 
 	void Post::update(const Post& in) {
@@ -106,7 +118,7 @@ namespace Horizon {
 	}
 
 	std::string Post::get_comment() const {
-		const gchar *comment = horizon_post_get_comment(const_cast<HorizonPost*>(gobj()));
+		const gchar *comment = horizon_post_get_comment(gobj());
 		std::stringstream out;
 
 		if (comment) {
@@ -117,7 +129,7 @@ namespace Horizon {
 	}
 
 	std::string Post::get_subject() const {
-		const gchar *subject = horizon_post_get_subject(const_cast<HorizonPost*>(gobj()));
+		const gchar *subject = horizon_post_get_subject(gobj());
 		std::stringstream out;
 
 		if (subject) {
@@ -128,7 +140,7 @@ namespace Horizon {
 	}
 		
 	Glib::ustring Post::get_time_str() const {
-		gint64 ctime = horizon_post_get_time(const_cast<HorizonPost*>(gobj()));
+		gint64 ctime = horizon_post_get_time(gobj());
 		Glib::ustring out;
 		Glib::DateTime time = Glib::DateTime::create_now_local(ctime);
 		if (G_LIKELY( ctime >= 0 )) {
@@ -139,7 +151,7 @@ namespace Horizon {
 	}
 
 	std::string Post::get_name() const {
-		const gchar* name = horizon_post_get_name(const_cast<HorizonPost*>(gobj()));
+		const gchar* name = horizon_post_get_name(gobj());
 		std::stringstream out;
 
 		if (name) {
@@ -150,7 +162,7 @@ namespace Horizon {
 	}
 
 	std::string Post::get_number() const {
-		gint64 id = horizon_post_get_post_number(const_cast<HorizonPost*>(gobj()));
+		gint64 id = horizon_post_get_post_number(gobj());
 		std::stringstream out;
 
 		if (id > 0) {
@@ -161,15 +173,15 @@ namespace Horizon {
 	}
 
 	const gint64 Post::get_id() const {
-		return horizon_post_get_post_number(const_cast<HorizonPost*>(gobj()));
+		return horizon_post_get_post_number(gobj());
 	}
 
 	const gint64 Post::get_unix_time() const {
-		return horizon_post_get_time(const_cast<HorizonPost*>(gobj()));
+		return horizon_post_get_time(gobj());
 	}
 
 	std::string Post::get_hash() const {
-		const gchar *str = horizon_post_get_md5(const_cast<HorizonPost*>(gobj()));
+		const gchar *str = horizon_post_get_md5(gobj());
 		std::stringstream out;
 
 		if (str) {
@@ -179,8 +191,8 @@ namespace Horizon {
 		return out.str();
 	}
 
-	std::string Post::get_thumb_url() const {
-		const gchar *url = horizon_post_get_thumb_url(const_cast<HorizonPost*>(gobj()));
+	std::string Post::get_thumb_url() {
+		const gchar *url = horizon_post_get_thumb_url(gobj());
 		std::stringstream out;
 
 		if (url) {
@@ -190,8 +202,8 @@ namespace Horizon {
 		return out.str();
 	}
 
-	std::string Post::get_image_url() const {
-		const gchar *url = horizon_post_get_image_url(const_cast<HorizonPost*>(gobj()));
+	std::string Post::get_image_url() {
+		const gchar *url = horizon_post_get_image_url(gobj());
 		std::stringstream out;
 		
 		if (url) {
@@ -203,7 +215,7 @@ namespace Horizon {
 
 
 	std::string Post::get_original_filename() const {
-		const gchar *filename = horizon_post_get_original_filename(const_cast<HorizonPost*>(gobj()));
+		const gchar *filename = horizon_post_get_original_filename(gobj());
 		std::stringstream out;
 
 		if (filename) {
@@ -214,7 +226,7 @@ namespace Horizon {
 	}
 
 	std::string Post::get_image_ext() const {
-		const gchar *ext = horizon_post_get_ext(const_cast<HorizonPost*>(gobj()));
+		const gchar *ext = horizon_post_get_ext(gobj());
 		std::stringstream out;
 
 		if (ext) {
@@ -225,55 +237,55 @@ namespace Horizon {
 	}
 
 	const bool Post::is_gif() const {
-		return static_cast<bool>(horizon_post_is_gif(const_cast<HorizonPost*>(gobj())));
+		return static_cast<bool>(horizon_post_is_gif(gobj()));
 	}
 
 	const gint Post::get_thumb_width() const {
-		return horizon_post_get_thumbnail_width(const_cast<HorizonPost*>(gobj()));
+		return horizon_post_get_thumbnail_width(gobj());
 	}
 
 	const gint Post::get_thumb_height() const {
-		return horizon_post_get_thumbnail_height(const_cast<HorizonPost*>(gobj()));
+		return horizon_post_get_thumbnail_height(gobj());
 	}
 
 	const gint Post::get_height() const {
-		return horizon_post_get_height(const_cast<HorizonPost*>(gobj()));
+		return horizon_post_get_height(gobj());
 	}
 
 	const gint Post::get_width() const {
-		return horizon_post_get_width(const_cast<HorizonPost*>(gobj()));
+		return horizon_post_get_width(gobj());
 	}
 
 	const std::size_t Post::get_fsize() const {
-		return static_cast<const std::size_t>(horizon_post_get_fsize(const_cast<HorizonPost*>(gobj())));
+		return static_cast<const std::size_t>(horizon_post_get_fsize(gobj()));
 	}
 
 	const bool Post::has_image() const {
-		return horizon_post_has_image(const_cast<HorizonPost*>(gobj()));
+		return horizon_post_has_image(gobj());
 	}
 
 	const bool Post::is_sticky() const {
-		return static_cast<const bool>(horizon_post_get_sticky(const_cast<HorizonPost*>(gobj())));
+		return static_cast<const bool>(horizon_post_get_sticky(gobj()));
 	}
 
 	const bool Post::is_closed() const {
-		return static_cast<const bool>(horizon_post_get_closed(const_cast<HorizonPost*>(gobj())));
+		return static_cast<const bool>(horizon_post_get_closed(gobj()));
 	}
 
 	const bool Post::is_deleted() const {
-		return static_cast<const bool>(horizon_post_get_deleted(const_cast<HorizonPost*>(gobj())));
+		return static_cast<const bool>(horizon_post_get_deleted(gobj()));
 	}
 
 	const bool Post::is_spoiler() const {
-		return static_cast<const bool>(horizon_post_get_spoiler(const_cast<HorizonPost*>(gobj())));
+		return static_cast<const bool>(horizon_post_get_spoiler(gobj()));
 	}
 
 	const bool Post::is_rendered() const {
-		return static_cast<const bool>(horizon_post_is_rendered(const_cast<HorizonPost*>(gobj())));
+		return static_cast<const bool>(horizon_post_is_rendered(gobj()));
 	}
 
 	void Post::mark_rendered() {
-		horizon_post_set_rendered(const_cast<HorizonPost*>(gobj()), true);
+		horizon_post_set_rendered(gobj(), true);
 	}
 
 	Thread::Thread(std::string url) :

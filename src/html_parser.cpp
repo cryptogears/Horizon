@@ -1,5 +1,6 @@
 #include "html_parser.hpp"
 #include <iostream>
+#include <map>
 
 namespace Horizon {
 
@@ -9,10 +10,13 @@ namespace Horizon {
 		return ptr;
 	}
 
-	HtmlParser::HtmlParser()
+	HtmlParser::HtmlParser() :
+		is_OP_link(false),
+		is_cross_thread_link(false)
 	{
 		sax = g_new0(xmlSAXHandler, 1);
 		sax->startElement = &horizon_html_parser_on_start_element;
+		sax->endElement = &horizon_html_parser_on_end_element;
 		sax->characters = &horizon_html_parser_on_characters;
 		sax->serror = &horizon_html_parser_on_xml_error;
 		sax->initialized = XML_SAX2_MAGIC;
@@ -28,8 +32,30 @@ namespace Horizon {
 		htmlFreeParserCtxt(ctxt);
 		g_free(sax);
 	}
+	
+	std::list<gint64> HtmlParser::get_links(const std::string& html) {
+		std::list<gint64> links;
+		std::size_t pos = 0;
+		std::size_t endpos = 0;
+		std::size_t diff = 0;
 
-	Glib::ustring HtmlParser::html_to_pango(const std::string &html) {
+		
+		while ( (pos = html.find("a href=", pos + 1)) != html.npos ) {
+			endpos = html.find("quotelink", pos);
+			if ( endpos != html.npos ) {
+				std::size_t p = html.find("#p", pos);
+				if ( p != html.npos  && p < endpos ) {
+					gint64 link = g_ascii_strtoll(html.substr(p+2).c_str(), nullptr, 10);
+					links.push_back(link);
+				}
+			}
+		}
+
+		return links;
+	}
+
+	Glib::ustring HtmlParser::html_to_pango(const std::string &html, const gint64 id) {
+		thread_id = id;
 		built_string.clear();
 
 		xmlFreeDoc(htmlCtxtReadMemory(ctxt,
@@ -42,27 +68,114 @@ namespace Horizon {
 		return built_string;
 	}
 
+	void horizon_html_parser_on_end_element(void* user_data,
+	                                        const xmlChar* name) {
+
+		HtmlParser *hp = static_cast<HtmlParser*>(user_data);
+		std::string sname(reinterpret_cast<const char*>(name));
+
+		if ( sname.size() == 1 &&
+		     sname.find("a") != sname.npos ) {
+			if (hp->is_OP_link) {
+				hp->built_string.append(" (OP)");
+			}
+			if (hp->is_cross_thread_link) {
+				hp->built_string.append(" (Cross-Thread)");
+			}
+			hp->built_string.append("</span></a>");
+		} else if ( sname.find("span") != sname.npos ) {
+			hp->built_string.append("</span>");
+		} else if ( sname.find("html") != sname.npos ) {
+		} else if ( sname.find("body") != sname.npos ) {
+		} else if ( sname.find("br") != sname.npos ) {
+		} else if ( sname.size() == 1 &&
+		            sname.find("p") != sname.npos ) {
+		}
+
+		else 
+			std::cerr << "End tag: " << sname << std::endl;
+	}
+
 	void horizon_html_parser_on_start_element(void* user_data,
 	                                          const xmlChar* name,
 	                                          const xmlChar** attrs) {
 		HtmlParser* hp = static_cast<HtmlParser*>(user_data);
 
 		try {
-			Glib::ustring str( reinterpret_cast<const char*>(name) );
+			Glib::ustring sname( reinterpret_cast<const char*>(name) );
+			std::map<Glib::ustring, Glib::ustring> sattrs;
+			std::stringstream stream;
 
-			if ( str.find("br") != Glib::ustring::npos ) {
-				hp->built_string.append("\n");
-			} else {
-				if (false) {
-					std::cerr << "Ignoring tag " << name;
-					if (attrs != NULL) {
-						std::cerr << " attrs:";
-						for ( int i = 0; attrs[i] != NULL; i++) {
-							std::cerr << " " << attrs[i];
+			if (attrs != nullptr) {
+				for ( int i = 0; attrs[i] != nullptr; i += 2) {
+					const Glib::ustring key(reinterpret_cast<const char*>(attrs[i]));
+					if ( attrs[i+1] != nullptr ) {
+						const Glib::ustring value(reinterpret_cast<const char*>(attrs[i+1]));
+						sattrs.insert({key, value});
+					} else {
+						sattrs.insert({key, ""});
+						break;
 					}
-					}
-					std::cerr << std::endl;
 				}
+			}
+
+			if ( sname.find("body") != sname.npos ) {
+			} else if ( sname.find("html") != sname.npos ) {
+			}  else if ( sname.size() == 1 &&
+			             sname.find("p") != sname.npos ) {
+			} else if ( sname.find("br") != Glib::ustring::npos ) {
+				hp->built_string.append("\n");
+			} else if ( sname.size() == 1 && 
+			            sname.find("a") != Glib::ustring::npos ) {
+				if (sattrs.count("class") == 1 &&
+				    sattrs["class"].find("quotelink") != Glib::ustring::npos &&
+				    sattrs.count("href") == 1) {
+					std::size_t offset = sattrs["href"].find_last_of("p") + 1;
+					Glib::ustring postnum = sattrs["href"].substr(offset);
+					stream << "<a href=\"" << postnum << "\">"
+					       << "<span color=\"#D00\">";
+					hp->built_string.append(stream.str());
+
+					gint64 link_parent_id = g_ascii_strtoll(sattrs["href"].substr(0, offset - 2).c_str(),
+					                                        nullptr,
+					                                        10);
+					gint64 link_post_id = g_ascii_strtoll(sattrs["href"].substr(offset).c_str(),
+					                                      nullptr,
+					                                      10);
+					if ( link_post_id == link_parent_id )
+						hp->is_OP_link = true;
+					else
+						hp->is_OP_link = false;
+					if ( link_parent_id == hp->thread_id )
+						hp->is_cross_thread_link = false;
+					else
+						hp->is_cross_thread_link = true;
+
+				} else {
+					std::cerr << "Start tag " << name;
+					for ( auto pair : sattrs )
+						std::cerr << " " << pair.first << "=" << pair.second;
+					std::cerr << std::endl;					
+				}
+				
+			} else if ( sname.find("span") != sname.npos ) {
+				if (sattrs.count("class") == 1 &&
+				    sattrs["class"].find("quote") != sname.npos ) {
+					stream << "<span color=\"#789922\">";
+					hp->built_string.append(stream.str());
+				} else {
+					std::cerr << "Start tag " << name;
+					for ( auto pair : sattrs )
+						std::cerr << " " << pair.first << "=" << pair.second;
+					std::cerr << std::endl;					
+				}
+			}
+
+			else {
+				std::cerr << "Start tag " << name;
+				for ( auto pair : sattrs )
+					std::cerr << " " << pair.first << "=" << pair.second;
+				std::cerr << std::endl;					
 			}
 		} catch (std::exception e) {
 			std::cerr << "Error startElement casting to string: " << e.what()

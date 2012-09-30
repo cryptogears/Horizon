@@ -111,6 +111,7 @@ namespace Horizon {
 			GObject *cpost =  json_gobject_deserialize( horizon_post_get_type(), obj );
 			Glib::RefPtr<Post> post = Glib::wrap(HORIZON_POST(cpost));
 			post->set_board(thread->board);
+			post->set_thread_id(thread->id);
 			//Post cpppost(cpost, false, thread->board);
 			//Glib::RefPtr<Post> post = Glib::RefPtr<Post>(cpppost, false);
 			posts.push_back(post);

@@ -27,41 +27,39 @@ namespace Horizon {
 		set_name("postview");
 		set_orientation(Gtk::ORIENTATION_VERTICAL);
 		
-		auto ngrid = Gtk::manage(new Gtk::Grid());
-		ngrid->set_name("posttopgrid");
-		ngrid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-		ngrid->set_column_spacing(5);
+		post_info_grid.set_name("posttopgrid");
+		post_info_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+		post_info_grid.set_column_spacing(5);
 
 		auto label = Gtk::manage(new Gtk::Label(post->get_subject()));
 		label->set_name("subject");
 		label->set_hexpand(false);
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
-		ngrid->add(*label);
+		post_info_grid.add(*label);
 
 		label = Gtk::manage(new Gtk::Label(post->get_name()));
 		label->set_name("name");
 		label->set_hexpand(false);
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
-		ngrid->add(*label);
+		post_info_grid.add(*label);
 
 		label = Gtk::manage(new Gtk::Label(post->get_time_str()));
 		label->set_name("time");
 		label->set_hexpand(false);
-		ngrid->add(*label);
+		post_info_grid.add(*label);
 
 		label = Gtk::manage(new Gtk::Label("No. " + post->get_number()));
 		label->set_hexpand(false);
 
 		label->set_justify(Gtk::JUSTIFY_LEFT);
-		ngrid->add(*label);
+		post_info_grid.add(*label);
 
-		add(*ngrid);
+		add(post_info_grid);
 		
 		// Image info
 		if ( post->has_image() ) {
-			ngrid = Gtk::manage(new Gtk::Grid());
-			ngrid->set_name("imageinfogrid");
-			ngrid->set_column_spacing(5);
+			image_info_grid.set_name("imageinfogrid");
+			image_info_grid.set_column_spacing(5);
 
 			std::string filename = post->get_original_filename() + post->get_image_ext();
 
@@ -69,7 +67,7 @@ namespace Horizon {
 			label->set_name("originalfilename");
 			label->set_hexpand(false);
 			label->set_ellipsize(Pango::ELLIPSIZE_END);
-			ngrid->add(*label);
+			image_info_grid.add(*label);
 
 			const gint64 original_id = g_ascii_strtoll(post->get_original_filename().c_str(), NULL, 10);
 			const gint64 original_time  = original_id / 1000;
@@ -78,7 +76,7 @@ namespace Horizon {
 				label = Gtk::manage(new Gtk::Label(dtime.format("%B %-e, %Y")));
 				label->set_hexpand(false);
 				label->set_name("imagenameinfo");
-				ngrid->add(*label);
+				image_info_grid.add(*label);
 			} 
 
 			std::stringstream imgdims;
@@ -90,12 +88,15 @@ namespace Horizon {
 			label->set_hexpand(false);
 			label->set_justify(Gtk::JUSTIFY_LEFT);
 			label->set_name("imagenameinfo");
-			ngrid->add(*label);
-			add(*ngrid);
+			image_info_grid.add(*label);
+			add(image_info_grid);
 		}
+		linkbacks.signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
+		linkbacks.set_justify(Gtk::JUSTIFY_LEFT);
+		linkbacks.set_halign(Gtk::ALIGN_START);
 
 		auto parser = HtmlParser::getHtmlParser();
-		comment.set_markup(parser->html_to_pango(post->get_comment()));
+		comment.set_markup(parser->html_to_pango(post->get_comment(), post->get_thread_id()));
 
 		comment.set_name("comment");
 		comment.set_selectable(true);
@@ -104,6 +105,8 @@ namespace Horizon {
 		comment.set_justify(Gtk::JUSTIFY_LEFT);
 		comment.set_line_wrap(true);
 		comment.set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+		comment.set_track_visited_links(true);
+		comment.signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
 
 		comment_grid.set_name("commentgrid");
 		comment_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
@@ -118,8 +121,32 @@ namespace Horizon {
 		}
 	}
 
+	void PostView::add_linkback(const gint64 id) {
+		std::cerr << "Adding linkback " << id << std::endl;
+		std::stringstream stream;
+
+		stream << linkbacks.get_label();
+		if (linkbacks.get_label().size() > 0)
+			stream << " ";
+		stream << "<a href=\"" << id
+		       << "\"><span color=\"#0F0C5D\"><span font_size=\"x-small\">&gt;&gt;" << id << "</span></span></a>";
+
+		linkbacks.set_markup(stream.str());
+
+		if ( linkbacks.get_parent() == nullptr ) {
+			insert_next_to(post_info_grid, Gtk::POS_BOTTOM);
+			attach_next_to(linkbacks, post_info_grid, Gtk::POS_BOTTOM, 1, 1);
+		}
+
+		linkbacks.show();
+	}
+
 	void PostView::refresh(const Glib::RefPtr<Post> &in) {
 		post = in;
+	}
+
+	bool PostView::on_activate_link(const Glib::ustring& link) {
+		return signal_activate_link(link);
 	}
 }
 
