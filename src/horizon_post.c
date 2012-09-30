@@ -761,7 +761,7 @@ const gint horizon_post_get_spoiler(const HorizonPost *post) {
 }
 
 const gchar *
-horizon_post_get_board (const const HorizonPost *post) {
+horizon_post_get_board (const HorizonPost *post) {
 	return post->priv->board;
 }
 
@@ -771,7 +771,7 @@ horizon_post_set_board (HorizonPost *post, const gchar *board) {
 }
 
 const gint64 
-horizon_post_get_thread_id(const const HorizonPost *post) {
+horizon_post_get_thread_id(const HorizonPost *post) {
 	return post->priv->thread_id;
 }
 
