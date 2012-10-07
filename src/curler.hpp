@@ -5,6 +5,8 @@
 #include <glibmm/datetime.h>
 #include <stdexcept>
 
+#include "thread_summary.hpp"
+
 namespace Horizon {
 
 	class Thread404 : public std::exception {
@@ -37,6 +39,8 @@ namespace Horizon {
 		   Downloads and parses the thread.
 		*/
 		std::list<Glib::RefPtr<Post> > pullThread(std::shared_ptr<Thread> thread);
+		std::list<Glib::RefPtr<ThreadSummary> > pullBoard(const std::string& url,
+		                                                  const std::string &board);
 
 		void thread_writeback(const void* data, gssize len);
 		Glib::Dispatcher thread_downloaded;

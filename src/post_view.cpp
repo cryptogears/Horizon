@@ -9,16 +9,20 @@
 #include <gtkmm/image.h>
 #include <glibmm/markup.h>
 #include <glibmm/datetime.h>
+#include <gtkmm/socket.h>
 #include <gtkmm/cssprovider.h>
 #include "html_parser.hpp"
 #include "horizon_image.hpp"
+#include <giomm/unixoutputstream.h>
+#include <glibmm/fileutils.h>
+#include <glibmm/spawn.h>
 
 namespace Horizon {
 
 	PostView::PostView(const Glib::RefPtr<Post> &in) :
 		Gtk::Grid(),
 		comment(),
-		comment_grid(),
+		content_grid(),
 		vadjust(Gtk::Adjustment::create(0., 0., 1., .1, 0.9, 1.)),
 		hadjust(Gtk::Adjustment::create(0., 0., 1., .1, 0.9, 1.)),
 		comment_viewport(hadjust, vadjust),
@@ -94,9 +98,8 @@ namespace Horizon {
 		linkbacks.signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
 		linkbacks.set_justify(Gtk::JUSTIFY_LEFT);
 		linkbacks.set_halign(Gtk::ALIGN_START);
-
-		auto parser = HtmlParser::getHtmlParser();
-		comment.set_markup(parser->html_to_pango(post->get_comment(), post->get_thread_id()));
+		linkbacks.set_line_wrap(true);
+		linkbacks.set_line_wrap(Pango::WRAP_WORD_CHAR);
 
 		comment.set_name("comment");
 		comment.set_selectable(true);
@@ -108,21 +111,109 @@ namespace Horizon {
 		comment.set_track_visited_links(true);
 		comment.signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
 
-		comment_grid.set_name("commentgrid");
-		comment_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-		comment_grid.add(comment);
+
+		content_grid.set_name("commentgrid");
+		content_grid.add(comment);
+
+		viewport_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
+		viewport_grid.add(content_grid);
+		viewport_grid.set_hexpand(true);
+
 		comment_viewport.set_name("commentview");
-		comment_viewport.add(comment_grid);
+		comment_viewport.add(viewport_grid);
 		comment_viewport.set_hexpand(true);
 		add(comment_viewport);
 
 		if ( post->has_image() ) {
-			image = Image::create(post, &comment_grid);
+			image = Image::create(post);
+			image->signal_state_changed.connect(sigc::mem_fun(*this, &PostView::on_image_state_changed));
+			image->set_hexpand(false);
 		}
 	}
 
+	Glib::ustring PostView::get_comment_body() const {
+		return comment.get_label();
+	}
+
+	void PostView::set_comment_grid() {
+		auto parser = HtmlParser::getHtmlParser();
+		auto strings = parser->html_to_pango(post->get_comment(), post->get_thread_id());
+		
+		comment.set_markup(strings.front());
+		if (strings.size() > 1) {
+			bool is_code = true;
+			auto iter = strings.begin();
+			iter++;
+			for ( ; iter != strings.end(); iter++) {
+				if (is_code) {
+					Gtk::Socket* socket = Gtk::manage(new Gtk::Socket());
+					socket->set_size_request(-1, 300);
+					socket->set_hexpand(true);
+					viewport_grid.add(*socket);
+					guint64 id = socket->get_id();
+					socket->signal_plug_removed().connect(sigc::bind(sigc::mem_fun(*this, &PostView::on_plug_removed),id));
+					std::string filename;
+					std::stringstream prefix;
+					prefix << "Horizon_" << post->get_id() << "_";
+					int fd = Glib::file_open_tmp(filename, prefix.str());
+					auto ostream_ptr = Gio::UnixOutputStream::create(fd, true);
+					ostream_ptr->write(*iter);
+					ostream_ptr->close();
+					std::stringstream cmdline;
+					cmdline << "gvim --servername " << id << " --socketid " << id << " " << filename;
+					Glib::spawn_command_line_async(cmdline.str());
+				} else {
+					Gtk::Label* c = Gtk::manage(new Gtk::Label());
+					c->set_markup(*iter);
+					c->set_selectable(true);
+					c->set_valign(Gtk::ALIGN_START);
+					c->set_halign(Gtk::ALIGN_START);
+					c->set_justify(Gtk::JUSTIFY_LEFT);
+					c->set_line_wrap(true);
+					c->set_line_wrap_mode(Pango::WRAP_WORD_CHAR);
+					c->set_track_visited_links(true);
+					c->signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
+					viewport_grid.add(*c);
+				}
+				is_code = !is_code;
+			}
+		}
+		viewport_grid.show_all();
+		comment.queue_resize();
+	}
+
+	bool PostView::on_plug_removed(guint64 id) {
+		std::cerr << "On_plug_removed() " << id << std::endl;
+		return true;
+	}
+
+	void PostView::on_image_state_changed(const Image::ImageState &state) {
+		switch (state) {
+		case Image::NONE:
+			if (image->get_parent() != nullptr) {
+				content_grid.remove(*image);
+			}
+			image->set_hexpand(false);
+			break;
+		case Image::THUMBNAIL:
+			content_grid.remove(comment);
+			if (image->get_parent() == nullptr) {
+				content_grid.add(*image);
+			}
+			content_grid.attach_next_to(comment, *image, Gtk::POS_RIGHT, 1, 1);
+			image->set_hexpand(false);
+			break;
+		case Image::FULL:
+		case Image::EXPAND:
+			content_grid.remove(comment);
+			content_grid.attach_next_to(comment, *image, Gtk::POS_BOTTOM, 1, 1);
+			image->set_hexpand(true);
+			break;
+		}
+		queue_resize();
+	}
+
 	void PostView::add_linkback(const gint64 id) {
-		std::cerr << "Adding linkback " << id << std::endl;
 		std::stringstream stream;
 
 		stream << linkbacks.get_label();

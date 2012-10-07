@@ -13,12 +13,14 @@ namespace Horizon {
 
 	class Image : public Gtk::Container {
 	public:
-		static std::shared_ptr<Image> create(const Glib::RefPtr<Post>&,
-		                                     Gtk::Grid*);
+		static std::shared_ptr<Image> create(const Glib::RefPtr<Post>&);
+		enum ImageState { NONE, THUMBNAIL, EXPAND, FULL };
 		~Image() = default;
 
+		sigc::signal<void, const ImageState&> signal_state_changed;
+
 	protected:
-		Image(const Glib::RefPtr<Post> &post, Gtk::Grid* parent);
+		Image(const Glib::RefPtr<Post> &post);
 
 		virtual Gtk::SizeRequestMode get_request_mode_vfunc() const;
 		virtual void get_preferred_width_vfunc(int& minimum_width, int& natural_width) const;
@@ -35,7 +37,7 @@ namespace Horizon {
 		Gtk::EventBox event_box;
 		Gtk::Image image;
 
-		enum { NONE, THUMBNAIL, EXPAND, FULL } image_state;
+		ImageState image_state;
 
 		Glib::RefPtr<Gdk::Pixbuf> thumbnail_image;
 		Glib::RefPtr<Gdk::Pixbuf> unscaled_image;

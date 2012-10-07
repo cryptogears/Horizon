@@ -5,45 +5,6 @@
 #include <glibmm/datetime.h>
 
 namespace Horizon {
-	/*
-	Post::Post(gpointer in, bool takeRef, const std::string &board_in) :
-		post(HORIZON_POST(in))
-	{
-		if (takeRef)
-			g_object_ref(post);
-		
-		if (g_object_is_floating(post))
-			g_object_ref_sink(post);
-
-		horizon_post_set_board(post, board_in.c_str());
-	}
-
-	Post::Post(HorizonPost *in, bool takeRef, const std::string &board_in) :
-		post(in)
-	{
-		if (takeRef)
-			g_object_ref(post);
-
-		if (g_object_is_floating(post))
-			g_object_ref_sink(post);
-
-		horizon_post_set_board(post, board_in.c_str());
-	}
-
-	Post::Post(const Post& in) {
-		post = in.post;
-		g_object_ref(post);
-	}
-
-	Post& Post::operator=(const Post& in) {
-		g_object_unref(post);
-		post = in.post;
-		g_object_ref(post);
-
-		return *this;
-	}
-	*/
-
 	const Glib::Class& Post_Class::init() {
 		if (!gtype_) {
 			class_init_func_ = &Post_Class::class_init_function;
@@ -293,9 +254,7 @@ namespace Horizon {
 		last_post(Glib::DateTime::create_now_utc(0)),
 		last_checked(Glib::DateTime::create_now_utc(0)),
 		is_404(false),
-		update_interval(MIN_UPDATE_INTERVAL),
-		generator(std::chrono::system_clock::now().time_since_epoch().count()),
-		random_int(0, 13 * 1000 * 1000)
+		update_interval_iter(UPDATE_INTERVALS.begin())
 	{
 		size_t res_pos = url.rfind("/res/");
 		size_t board_pos = url.rfind("/", res_pos - 1);
@@ -348,18 +307,33 @@ namespace Horizon {
 	}
 
 	const Glib::TimeSpan Thread::get_update_interval() const { 
-		return update_interval;
+		return (*update_interval_iter) * 1000 * 1000;
+	}
+
+	const bool Thread::should_notify() const {
+		Glib::Mutex::Lock lock(posts_mutex);
+		auto iter = posts.rbegin();
+		auto last = Glib::DateTime::create_now_utc(iter->second->get_unix_time());
+		iter++;
+		if ( iter != posts.rend() ) {
+			auto slast = Glib::DateTime::create_now_utc(iter->second->get_unix_time());
+			const Glib::TimeSpan diff = last.difference(slast);
+			if ( diff < 0 ) {
+				g_error("Negative TimeSpan created!");
+			}
+			return diff > NOTIFICATION_INTERVAL;
+		} 
+
+		return false;
 	}
 
 	void Thread::update_notify(bool was_new) {
 		if (G_UNLIKELY(was_new)) {
-			update_interval = MIN_UPDATE_INTERVAL;
+			update_interval_iter = UPDATE_INTERVALS.begin();
 		} else {
-			if (update_interval < MAX_UPDATE_INTERVAL) {
-				update_interval = static_cast<Glib::TimeSpan>(update_interval + random_int(generator));
-			} else { 
-				update_interval = MAX_UPDATE_INTERVAL;
-			}
+			update_interval_iter++;
+			if (update_interval_iter == UPDATE_INTERVALS.end())
+				update_interval_iter--;
 		}
 
 		signal_updated_interval();

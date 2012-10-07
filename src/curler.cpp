@@ -19,7 +19,8 @@ namespace Horizon {
 	}
 
 	Curler::Curler() :
-		last_pull(Glib::DateTime::create_now_utc(0))
+		last_pull(Glib::DateTime::create_now_utc(0)),
+		amWorking(false)
 	{
 		curl_global_init(CURL_GLOBAL_ALL);
 		curl = curl_easy_init();
@@ -42,17 +43,18 @@ namespace Horizon {
 		std::list<Glib::RefPtr<Post> > posts;
 		Glib::DateTime completed;
 
-		while ( Glib::DateTime::create_now_utc().difference(last_pull) == 0 ) {
+		while ( Glib::DateTime::create_now_utc().difference(last_pull) < G_USEC_PER_SEC ) {
 			g_usleep(G_USEC_PER_SEC);
 		}
 
 		if ( amWorking ) {
-			throw new Concurrency();
+			throw *new Concurrency();
 		}
 
 		amWorking = true;
 		threadBuffer.clear();
  
+		res = curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
 		res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
 		                       curler_thread_cb);
 		res = curl_easy_setopt(curl, CURLOPT_WRITEDATA,
@@ -74,13 +76,17 @@ namespace Horizon {
 			switch (res) {
 			case CURLE_HTTP_RETURNED_ERROR:
 				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
-				if (code == 404)
-					throw new Thread404();
-				else
-					throw new CurlException(curl_easy_strerror(res));
+				if (code == 404) {
+					amWorking = false;
+					throw *new Thread404();
+				} else {
+					amWorking = false;
+					throw *new CurlException(curl_easy_strerror(res));
+				}
 				break;
 			default:
-				throw new CurlException(curl_easy_strerror(res));
+				amWorking = false;
+				throw *new CurlException(curl_easy_strerror(res));
 				break;
 			}
 		}
@@ -119,5 +125,79 @@ namespace Horizon {
 
 		amWorking = false;
 		return posts;
+	}
+
+	std::list<Glib::RefPtr<ThreadSummary> > Curler::pullBoard(const std::string &url, const std::string &board) {
+		CURLcode res;
+		std::list<Glib::RefPtr<ThreadSummary> > summaries;
+		
+		while ( Glib::DateTime::create_now_utc().difference(last_pull) == 0 ) {
+			g_usleep(G_USEC_PER_SEC);
+		}
+
+		threadBuffer.clear();
+
+		res = curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
+		res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
+		                       curler_thread_cb);
+		res = curl_easy_setopt(curl, CURLOPT_WRITEDATA,
+		                       static_cast<void*>(this));
+		res = curl_easy_setopt(curl, CURLOPT_URL,
+		                       url.c_str());
+		res = curl_easy_setopt(curl, CURLOPT_VERBOSE,
+		                       0);
+
+		last_pull = Glib::DateTime::create_now_utc();
+		res = curl_easy_perform(curl);
+
+		if (res != CURLE_OK) {
+			long code = 0;
+			switch(res) {
+			case CURLE_HTTP_RETURNED_ERROR:
+				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+				if (code == 404) {
+					throw *new Thread404();
+				} else {
+					throw *new CurlException(curl_easy_strerror(res));
+				}
+				break;
+			default:
+				throw *new CurlException(curl_easy_strerror(res));
+				break;
+			}
+		}
+
+		if ( threadBuffer.size() == 0 ) {
+			return summaries;
+		}
+
+		GError *merror = NULL;
+		if (json_parser_load_from_data(parser, threadBuffer.c_str(), threadBuffer.size(), &merror)) {
+		} else {
+			g_error("While parsing JSON: %s", merror->message);
+		}
+
+		JsonObject *jsonobject = json_node_get_object(json_parser_get_root(parser));
+		JsonObject *threads = json_node_get_object(json_object_get_member(jsonobject, "threads"));
+		
+		GList *list = json_object_get_members(threads);
+		guint list_length = g_list_length(list);
+		GList *first = g_list_first(list);
+
+		for (int i = 0; i < list_length; i++) {
+			if (first) {
+				gpointer data = first->data;
+				first = g_list_next(first);
+				const gchar *member_name = static_cast<gchar*>(data);
+				JsonNode *object = json_object_get_member(threads, member_name);
+				GObject *csummary = json_gobject_deserialize( horizon_thread_summary_get_type(), object );
+				Glib::RefPtr<ThreadSummary> summary = Glib::wrap(HORIZON_THREAD_SUMMARY(csummary));
+				summary->set_id(member_name);
+				summary->set_board(board.c_str());
+				summaries.push_back(summary);
+			}
+		}
+		
+		    return summaries;
 	}
 }

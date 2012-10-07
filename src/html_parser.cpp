@@ -12,7 +12,8 @@ namespace Horizon {
 
 	HtmlParser::HtmlParser() :
 		is_OP_link(false),
-		is_cross_thread_link(false)
+		is_cross_thread_link(false),
+		is_code_tagged(false)
 	{
 		sax = g_new0(xmlSAXHandler, 1);
 		sax->startElement = &horizon_html_parser_on_start_element;
@@ -54,10 +55,10 @@ namespace Horizon {
 		return links;
 	}
 
-	Glib::ustring HtmlParser::html_to_pango(const std::string &html, const gint64 id) {
+	std::list<Glib::ustring> HtmlParser::html_to_pango(const std::string &html, const gint64 id) {
 		thread_id = id;
 		built_string.clear();
-
+		strings.clear();
 		xmlFreeDoc(htmlCtxtReadMemory(ctxt,
 		                              html.c_str(), 
 		                              html.size(),
@@ -65,7 +66,8 @@ namespace Horizon {
 		                              "UTF-8",
 		                              HTML_PARSE_RECOVER ));
 		                              
-		return built_string;
+		strings.push_back(built_string);
+		return strings;
 	}
 
 	void horizon_html_parser_on_end_element(void* user_data,
@@ -90,6 +92,10 @@ namespace Horizon {
 		} else if ( sname.find("br") != sname.npos ) {
 		} else if ( sname.size() == 1 &&
 		            sname.find("p") != sname.npos ) {
+		} else if ( sname.find("pre") != sname.npos ) {
+			hp->strings.push_back(hp->built_string);
+			hp->built_string.clear();
+			hp->is_code_tagged = false;
 		}
 
 		else 
@@ -121,54 +127,52 @@ namespace Horizon {
 
 			if ( sname.find("body") != sname.npos ) {
 			} else if ( sname.find("html") != sname.npos ) {
-			}  else if ( sname.size() == 1 &&
+			} else if ( sname.size() == 1 &&
 			             sname.find("p") != sname.npos ) {
 			} else if ( sname.find("br") != Glib::ustring::npos ) {
 				hp->built_string.append("\n");
 			} else if ( sname.size() == 1 && 
-			            sname.find("a") != Glib::ustring::npos ) {
-				if (sattrs.count("class") == 1 &&
-				    sattrs["class"].find("quotelink") != Glib::ustring::npos &&
-				    sattrs.count("href") == 1) {
-					std::size_t offset = sattrs["href"].find_last_of("p") + 1;
-					Glib::ustring postnum = sattrs["href"].substr(offset);
-					stream << "<a href=\"" << postnum << "\">"
-					       << "<span color=\"#D00\">";
-					hp->built_string.append(stream.str());
+			            sname.find("a") != Glib::ustring::npos &&
+			            sattrs.count("class") == 1 &&
+			            sattrs["class"].find("quotelink") != Glib::ustring::npos &&
+			            sattrs.count("href") == 1) {
+				std::size_t offset = sattrs["href"].find_last_of("p") + 1;
+				Glib::ustring postnum = sattrs["href"].substr(offset);
+				stream << "<a href=\"" << postnum << "\">"
+				       << "<span color=\"#D00\">";
+				hp->built_string.append(stream.str());
 
-					gint64 link_parent_id = g_ascii_strtoll(sattrs["href"].substr(0, offset - 2).c_str(),
-					                                        nullptr,
-					                                        10);
-					gint64 link_post_id = g_ascii_strtoll(sattrs["href"].substr(offset).c_str(),
-					                                      nullptr,
-					                                      10);
-					if ( link_post_id == link_parent_id )
-						hp->is_OP_link = true;
-					else
-						hp->is_OP_link = false;
-					if ( link_parent_id == hp->thread_id )
-						hp->is_cross_thread_link = false;
-					else
-						hp->is_cross_thread_link = true;
+				gint64 link_parent_id = g_ascii_strtoll(sattrs["href"].substr(0, offset - 2).c_str(),
+				                                        nullptr,
+				                                        10);
+				gint64 link_post_id = g_ascii_strtoll(sattrs["href"].substr(offset).c_str(),
+				                                      nullptr,
+				                                      10);
+				if ( link_post_id == link_parent_id )
+					hp->is_OP_link = true;
+				else
+					hp->is_OP_link = false;
+				if ( link_parent_id == hp->thread_id )
+					hp->is_cross_thread_link = false;
+				else
+					hp->is_cross_thread_link = true;
+			} else if (sname.find("span") != sname.npos &&
+			           sattrs.count("class") == 1 &&
+			           sattrs["class"].find("spoiler") != Glib::ustring::npos ) {
+				stream << "<span color=\"#000\" background=\"#000\">";
+				hp->built_string.append(stream.str());
 
-				} else {
-					std::cerr << "Start tag " << name;
-					for ( auto pair : sattrs )
-						std::cerr << " " << pair.first << "=" << pair.second;
-					std::cerr << std::endl;					
-				}
-				
-			} else if ( sname.find("span") != sname.npos ) {
-				if (sattrs.count("class") == 1 &&
-				    sattrs["class"].find("quote") != sname.npos ) {
-					stream << "<span color=\"#789922\">";
-					hp->built_string.append(stream.str());
-				} else {
-					std::cerr << "Start tag " << name;
-					for ( auto pair : sattrs )
-						std::cerr << " " << pair.first << "=" << pair.second;
-					std::cerr << std::endl;					
-				}
+			} else if ( sname.find("span") != sname.npos &&
+			            sattrs.count("class") == 1 &&
+			            sattrs["class"].find("quote") != sname.npos ) {
+				stream << "<span color=\"#789922\">";
+				hp->built_string.append(stream.str());
+			} else if ( sname.find("pre") != sname.npos &&
+			            sattrs.count("class") == 1 &&
+			            sattrs["class"].find("prettyprint") != Glib::ustring::npos ) {
+				hp->strings.push_back(hp->built_string);
+				hp->built_string.clear();
+				hp->is_code_tagged = true;
 			}
 
 			else {
@@ -187,9 +191,13 @@ namespace Horizon {
 	                                       const xmlChar* chars,
 	                                       int size) {
 		HtmlParser* hp = static_cast<HtmlParser*>(user_data);
-		gchar* cstr = g_markup_escape_text(reinterpret_cast<const gchar*>(chars), size);
-		hp->built_string.append(static_cast<char*>(cstr));
-		g_free(cstr);
+		if (!hp->is_code_tagged) {
+			gchar* cstr = g_markup_escape_text(reinterpret_cast<const gchar*>(chars), size);
+			hp->built_string.append(static_cast<char*>(cstr));
+			g_free(cstr);
+		} else {
+			hp->built_string.append(Glib::ustring(reinterpret_cast<const char*>(chars), size));
+		}
 	}
 
 	void horizon_html_parser_on_xml_error(void* user_data, xmlErrorPtr error) {

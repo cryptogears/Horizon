@@ -21,6 +21,159 @@
         <attribute name='action'>app.fullscreen</attribute>
         <attribute name='accel'>F11</attribute>
       </item>
+      <submenu>
+        <attribute name='label'>Boards</attribute>
+        <section>
+          <item>
+            <attribute name='label'>/a/</attribute>
+            <attribute name='action'>app.toggle_board_a</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/c/</attribute>
+            <attribute name='action'>app.toggle_board_c</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/g/</attribute>
+            <attribute name='action'>app.toggle_board_g</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/k/</attribute>
+            <attribute name='action'>app.toggle_board_k</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/m/</attribute>
+            <attribute name='action'>app.toggle_board_m</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/o/</attribute>
+            <attribute name='action'>app.toggle_board_o</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/p/</attribute>
+            <attribute name='action'>app.toggle_board_p</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/v/</attribute>
+            <attribute name='action'>app.toggle_board_v</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/vg/</attribute>
+            <attribute name='action'>app.toggle_board_vg</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/w/</attribute>
+            <attribute name='action'>app.toggle_board_w</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/cm/</attribute>
+            <attribute name='action'>app.toggle_board_cm</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/3/</attribute>
+            <attribute name='action'>app.toggle_board_3</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/adv/</attribute>
+            <attribute name='action'>app.toggle_board_adv</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/an/</attribute>
+            <attribute name='action'>app.toggle_board_an</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/cgl/</attribute>
+            <attribute name='action'>app.toggle_board_cgl</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/ck/</attribute>
+            <attribute name='action'>app.toggle_board_ck</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/co/</attribute>
+            <attribute name='action'>app.toggle_board_co</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/diy/</attribute>
+            <attribute name='action'>app.toggle_board_diy</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/fa/</attribute>
+            <attribute name='action'>app.toggle_board_fa</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/fit/</attribute>
+            <attribute name='action'>app.toggle_board_fit</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/int/</attribute>
+            <attribute name='action'>app.toggle_board_int</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/jp/</attribute>
+            <attribute name='action'>app.toggle_board_jp</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/lit/</attribute>
+            <attribute name='action'>app.toggle_board_lit</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/mlp/</attribute>
+            <attribute name='action'>app.toggle_board_mlp</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/mu/</attribute>
+            <attribute name='action'>app.toggle_board_mu</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/n/</attribute>
+            <attribute name='action'>app.toggle_board_n</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/po/</attribute>
+            <attribute name='action'>app.toggle_board_po</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/sci/</attribute>
+            <attribute name='action'>app.toggle_board_sci</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/sp/</attribute>
+            <attribute name='action'>app.toggle_board_sp</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/tg/</attribute>
+            <attribute name='action'>app.toggle_board_tg</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/toy/</attribute>
+            <attribute name='action'>app.toggle_board_toy</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/trv/</attribute>
+            <attribute name='action'>app.toggle_board_trv</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/tv/</attribute>
+            <attribute name='action'>app.toggle_board_tv</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/vp/</attribute>
+            <attribute name='action'>app.toggle_board_vp</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/wsg/</attribute>
+            <attribute name='action'>app.toggle_board_wsg</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/x/</attribute>
+            <attribute name='action'>app.toggle_board_x</attribute>
+          </item>
+          <item>
+          <attribute name='label'>/q/</attribute>
+          <attribute name='action'>app.toggle_board_q</attribute>
+          </item>
+        </section>
+      </submenu>
     </section>
   </menu>
 <interface>

@@ -11,12 +11,16 @@ horizon-resources.c: horizon.gresource.xml style.css menus.xml 4chan-icon.png
 horizon-resources.h: horizon.gresource.xml
 	glib-compile-resources --target=$@ --sourcedir=$(srcdir) --generate-header --c-name horizon $(srcdir)/horizon.gresource.xml
 
+EXTRA_DIST = com.talisein.fourchan.native.gtk.gschema.xml
+gsettings_SCHEMAS = com.talisein.fourchan.native.gtk.gschema.xml
+@GSETTINGS_RULES@
+
 BUILT_SOURCES = \
 	horizon-resources.c \
 	horizon-resources.h \
 	$(NULL)
 
-horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c
+horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c horizon_thread_summary.c thread_summary.cpp summary_cellrenderer.cpp
 
 
 

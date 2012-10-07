@@ -1,6 +1,9 @@
 #include "notifier.hpp"
 #include <iostream>
 #include <map>
+
+
+
 namespace Horizon {
 
 	std::shared_ptr<Notifier> Notifier::getNotifier() {
@@ -21,6 +24,14 @@ namespace Horizon {
 		                                 "org.freedesktop.Notifications",
 		                                 slot);
 
+		GError *error = nullptr;
+		GdkPixbuf *icon = gdk_pixbuf_new_from_resource("/com/talisein/fourchan/native/gtk/4chan-icon.png", &error);
+		if (error) {
+			g_error("Unable to create icon from resource: %s", error->message);
+		} else {
+			default_icon = Glib::wrap(icon);
+		}
+		
 	}
 
 	void Notifier::on_proxy_created(Glib::RefPtr<Gio::AsyncResult> &result) {
@@ -76,6 +87,9 @@ namespace Horizon {
 			Glib::VariantContainerBase image_data = get_variant_from_pixbuf(scaled_pixbuf);
 			hints.insert({"image-data", image_data});
 			g_object_unref(scaled_pixbuf);
+		} else {
+			Glib::VariantContainerBase image_data = get_variant_from_pixbuf(default_icon->gobj());
+			hints.insert({"image-data", image_data});
 		}
 
 		auto vresident = Glib::Variant<bool>::create(true);

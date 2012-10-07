@@ -56,7 +56,7 @@ namespace Horizon {
 		// Mutex wraps curl_queue, request_queue
 		mutable Glib::Mutex curl_data_mutex;
 		std::queue<CURL*> curl_queue;
-		std::queue<Request*> request_queue;
+		std::queue<std::shared_ptr<Request> > request_queue;
 
 		sigc::connection timeout_connection;
 		std::list<curl_socket_t> active_sockets_;
@@ -67,12 +67,12 @@ namespace Horizon {
 
 		mutable Glib::Mutex pixbuf_mutex;
 		Glib::Dispatcher signal_pixbuf_ready;
-		std::map<const Request*, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
-		std::map<const Request*, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
+		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
+		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
 		void on_pixbuf_ready();
 
-		void cleanup_failed_pixmap(const Request *request);
-		void create_pixmap(const Request* request);
+		void cleanup_failed_pixmap(std::shared_ptr<Request> request);
+		void create_pixmap(std::shared_ptr<Request> request);
 		void start_new_download(CURL *curl);
 		/* Hash to Image Pixbuf. 
 		   Expose */

@@ -19,8 +19,8 @@ namespace Horizon {
 		void notify(const gint64 id,
 		            const std::string &summary,
 		            const std::string &body,
-		            const std::string &icon_url,
-		            const Glib::RefPtr<Gdk::Pixbuf> &pixbuf);
+		            const std::string &icon_url = "",
+		            const Glib::RefPtr<Gdk::Pixbuf> &image = Glib::RefPtr<Gdk::Pixbuf>());
 
 	protected:
 		Notifier();
@@ -29,6 +29,7 @@ namespace Horizon {
 		GdkPixbuf* scale_pixbuf(const GdkPixbuf *pixbuf);
 		Glib::VariantContainerBase get_variant_from_pixbuf(GdkPixbuf *pixbuf);
 
+		Glib::RefPtr<Gdk::Pixbuf> default_icon;
 		Glib::RefPtr<Gio::DBus::Proxy> proxy;
 
 		void send_notification(Glib::VariantContainerBase notification);

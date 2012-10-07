@@ -68,7 +68,8 @@ am_horizon_OBJECTS = main.$(OBJEXT) application.$(OBJEXT) \
 	thread_view.$(OBJEXT) post_view.$(OBJEXT) \
 	image_fetcher.$(OBJEXT) notifier.$(OBJEXT) \
 	html_parser.$(OBJEXT) horizon_image.$(OBJEXT) \
-	horizon-resources.$(OBJEXT)
+	horizon-resources.$(OBJEXT) horizon_thread_summary.$(OBJEXT) \
+	thread_summary.$(OBJEXT) summary_cellrenderer.$(OBJEXT)
 horizon_OBJECTS = $(am_horizon_OBJECTS)
 am__DEPENDENCIES_1 =
 horizon_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -123,7 +124,9 @@ EGREP = /usr/bin/grep -E
 EXEEXT = 
 GLIBMM_CFLAGS = -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include  
 GLIBMM_LIBS = -lglibmm-2.4 -lgobject-2.0 -lsigc-2.0 -lglib-2.0  
+GLIB_COMPILE_SCHEMAS = glib-compile-schemas
 GREP = /usr/bin/grep
+GSETTINGS_DISABLE_SCHEMAS_COMPILE = 
 GTKMM_CFLAGS = -pthread -I/usr/include/gtkmm-3.0 -I/usr/lib64/gtkmm-3.0/include -I/usr/include/atkmm-1.6 -I/usr/include/giomm-2.4 -I/usr/lib64/giomm-2.4/include -I/usr/include/pangomm-1.4 -I/usr/lib64/pangomm-1.4/include -I/usr/include/gtk-3.0 -I/usr/include/cairomm-1.0 -I/usr/lib64/cairomm-1.0/include -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/gtk-3.0/unix-print -I/usr/include/gdkmm-3.0 -I/usr/lib64/gdkmm-3.0/include -I/usr/include/atk-1.0 -I/usr/include/glibmm-2.4 -I/usr/lib64/glibmm-2.4/include -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include -I/usr/include/sigc++-2.0 -I/usr/lib64/sigc++-2.0/include -I/usr/include/pango-1.0 -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/freetype2 -I/usr/include/libpng15 -I/usr/include/gio-unix-2.0/  
 GTKMM_LIBS = -lgtkmm-3.0 -latkmm-1.6 -lgdkmm-3.0 -lgiomm-2.4 -lpangomm-1.4 -lgtk-3 -lglibmm-2.4 -lcairomm-1.0 -lgdk-3 -latk-1.0 -lgio-2.0 -lpangocairo-1.0 -lgdk_pixbuf-2.0 -lcairo-gobject -lpango-1.0 -lcairo -lsigc-2.0 -lgobject-2.0 -lglib-2.0  
 INSTALL = /usr/bin/install -c
@@ -178,6 +181,7 @@ datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE_TARNAME}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
+gsettingsschemadir = ${datarootdir}/glib-2.0/schemas
 host_alias = 
 htmldir = ${docdir}
 includedir = ${prefix}/include
@@ -206,12 +210,14 @@ top_srcdir = ..
 # list of sources for the 'helloWorld' binary
 INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(JSON_CFLAGS) $(LIBXML_CFLAGS)
 horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS)
+EXTRA_DIST = com.talisein.fourchan.native.gtk.gschema.xml
+gsettings_SCHEMAS = com.talisein.fourchan.native.gtk.gschema.xml
 BUILT_SOURCES = \
 	horizon-resources.c \
 	horizon-resources.h \
 	$(NULL)
 
-horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c
+horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c horizon_thread_summary.c thread_summary.cpp summary_cellrenderer.cpp
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -303,13 +309,16 @@ include ./$(DEPDIR)/entities.Po
 include ./$(DEPDIR)/horizon-resources.Po
 include ./$(DEPDIR)/horizon_image.Po
 include ./$(DEPDIR)/horizon_post.Po
+include ./$(DEPDIR)/horizon_thread_summary.Po
 include ./$(DEPDIR)/html_parser.Po
 include ./$(DEPDIR)/image_fetcher.Po
 include ./$(DEPDIR)/main.Po
 include ./$(DEPDIR)/manager.Po
 include ./$(DEPDIR)/notifier.Po
 include ./$(DEPDIR)/post_view.Po
+include ./$(DEPDIR)/summary_cellrenderer.Po
 include ./$(DEPDIR)/thread.Po
+include ./$(DEPDIR)/thread_summary.Po
 include ./$(DEPDIR)/thread_view.Po
 
 .c.o:
@@ -552,6 +561,47 @@ horizon-resources.c: horizon.gresource.xml style.css menus.xml 4chan-icon.png
 
 horizon-resources.h: horizon.gresource.xml
 	glib-compile-resources --target=$@ --sourcedir=$(srcdir) --generate-header --c-name horizon $(srcdir)/horizon.gresource.xml
+
+.PHONY : uninstall-gsettings-schemas install-gsettings-schemas clean-gsettings-schemas
+
+mostlyclean-am: clean-gsettings-schemas
+
+gsettings__enum_file = $(addsuffix .enums.xml,$(gsettings_ENUM_NAMESPACE))
+
+%.gschema.valid: %.gschema.xml $(gsettings__enum_file)
+	$(AM_V_GEN) if test -f "$<"; then d=; else d="$(srcdir)/"; fi; $(GLIB_COMPILE_SCHEMAS) --strict --dry-run $(addprefix --schema-file=,$(gsettings__enum_file)) --schema-file=$${d}$< && touch $@
+
+all-am: $(gsettings_SCHEMAS:.xml=.valid)
+uninstall-am: uninstall-gsettings-schemas
+install-data-am: install-gsettings-schemas
+
+.SECONDARY: $(gsettings_SCHEMAS)
+
+install-gsettings-schemas: $(gsettings_SCHEMAS) $(gsettings__enum_file)
+	@$(NORMAL_INSTALL)
+	if test -n "$^"; then \
+		test -z "$(gsettingsschemadir)" || $(MKDIR_P) "$(DESTDIR)$(gsettingsschemadir)"; \
+		$(INSTALL_DATA) $^ "$(DESTDIR)$(gsettingsschemadir)"; \
+		test -n "$(GSETTINGS_DISABLE_SCHEMAS_COMPILE)$(DESTDIR)" || $(GLIB_COMPILE_SCHEMAS) $(gsettingsschemadir); \
+	fi
+
+uninstall-gsettings-schemas:
+	@$(NORMAL_UNINSTALL)
+	@list='$(gsettings_SCHEMAS) $(gsettings__enum_file)'; test -n "$(gsettingsschemadir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	test -n "$$files" || exit 0; \
+	echo " ( cd '$(DESTDIR)$(gsettingsschemadir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(gsettingsschemadir)" && rm -f $$files
+	test -n "$(GSETTINGS_DISABLE_SCHEMAS_COMPILE)$(DESTDIR)" || $(GLIB_COMPILE_SCHEMAS) $(gsettingsschemadir)
+
+clean-gsettings-schemas:
+	rm -f $(gsettings_SCHEMAS:.xml=.valid) $(gsettings__enum_file)
+
+ifdef gsettings_ENUM_NAMESPACE
+$(gsettings__enum_file): $(gsettings_ENUM_FILES)
+	$(AM_V_GEN) glib-mkenums --comments '<!-- @comment@ -->' --fhead "<schemalist>" --vhead "  <@type@ id='$(gsettings_ENUM_NAMESPACE).@EnumName@'>" --vprod "    <value nick='@valuenick@' value='@valuenum@'/>" --vtail "  </@type@>" --ftail "</schemalist>" $^ > $@.tmp && mv $@.tmp $@
+endif
+
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

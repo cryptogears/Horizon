@@ -131,6 +131,7 @@ namespace Horizon {
 		 * true. Otherwise, it will return false.
 		 */
 		const bool for_each_post(const std::function<bool  (const Glib::RefPtr<Post>&) >);
+		const bool should_notify() const;
 
 	protected:
 		Thread(std::string url);
@@ -143,14 +144,16 @@ namespace Horizon {
 		mutable Glib::Mutex posts_mutex;
 		std::map<gint64, Glib::RefPtr<Post> > posts;
 
-		Glib::TimeSpan update_interval;
-		std::default_random_engine generator;
-		std::uniform_int_distribution<Glib::TimeSpan> random_int;
+		std::vector<Glib::TimeSpan>::const_iterator update_interval_iter;
+		//Glib::TimeSpan update_interval;
+		//std::default_random_engine generator;
+		//std::uniform_int_distribution<Glib::TimeSpan> random_int;
 	};
 
 	const Glib::TimeSpan MIN_UPDATE_INTERVAL = 10 * 1000 * 1000;
 	const Glib::TimeSpan MAX_UPDATE_INTERVAL = 5 * 60 * 1000 * 1000;
 	const Glib::TimeSpan NOTIFICATION_INTERVAL = 5 * 60 * 1000 * 1000;
+	const std::vector<Glib::TimeSpan> UPDATE_INTERVALS = { 10, 10, 15, 18, 22, 25, 30, 45, 60, 90, 120, 180, 240, 300, 350, 450, 600 };
 
 	void wrap_init();
 		

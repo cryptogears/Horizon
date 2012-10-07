@@ -1,0 +1,124 @@
+<schemalist>
+    <schema id="com.talisein.fourchan.native.gtk" path="/com/talisein/fourchan/native/gtk/">
+      <key name="threads" type="as">
+        <default>[]</default>
+      </key>
+
+      <key name="notify-idle" type="b">
+        <default>true</default>
+      </key>
+
+	  <key name="board-a" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-c" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-g" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-k" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-m" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-o" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-p" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-v" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-vg" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-w" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-cm" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-3" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-adv" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-an" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-cgl" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-ck" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-co" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-diy" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-fa" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-fit" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-int" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-jp" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-lit" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-mlp" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-mu" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-n" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-po" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-sci" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-sp" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-tg" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-toy" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-trv" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-tv" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-vp" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-wsg" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-x" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-q" type="b">
+        <default>false</default>
+      </key>
+      
+    </schema>
+</schemalist>

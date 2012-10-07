@@ -1,22 +1,26 @@
 #ifndef HORIZON_THREADVIEW_HPP
 #define HORIZON_THREADVIEW_HPP
 
-#include <gtkmm/grid.h>
-#include <gtkmm/viewport.h>
 #include <memory>
 #include <map>
-#include "thread.hpp"
-#include "post_view.hpp"
+#include <giomm/settings.h>
+#include <gtkmm/grid.h>
+#include <gtkmm/viewport.h>
 #include <gtkmm/layout.h>
 #include <gtkmm/scrolledwindow.h>
 #include <gtkmm/frame.h>
+#include <gtkmm/switch.h>
+#include "thread.hpp"
+#include "post_view.hpp"
+#include "notifier.hpp"
 
 namespace Horizon {
 
 	class ThreadView : public Gtk::Frame {
 	public:
-		ThreadView(std::shared_ptr<Thread> t);
-		void refresh();
+		ThreadView(std::shared_ptr<Thread> t, Glib::RefPtr<Gio::Settings>);
+		// Returns true is the thread is now 404
+		bool refresh();
 		
 		sigc::signal<void, gint64> signal_closed;
 
@@ -28,8 +32,12 @@ namespace Horizon {
 		Gtk::Grid full_grid; // holds everything
 		Gtk::Grid grid; // holds actual postviews
 		Gtk::Grid control_grid;
+		Gtk::Switch notify_switch;
+		Gtk::Switch autoscroll_switch;
 
 		std::map<gint64, PostView*> post_map;
+		Glib::RefPtr<Gio::Settings> settings;
+		std::shared_ptr<Notifier> notifier;
 
 		double prev_value;
 		double prev_upper;

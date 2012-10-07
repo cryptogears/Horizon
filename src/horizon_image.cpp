@@ -5,14 +5,13 @@
 
 namespace Horizon {
 
-	std::shared_ptr<Image> Image::create(const Glib::RefPtr<Post> &post, Gtk::Grid *grid) {
-		return std::shared_ptr<Image>(new Image(post, grid));
+	std::shared_ptr<Image> Image::create(const Glib::RefPtr<Post> &post) {
+		return std::shared_ptr<Image>(new Image(post));
 	}
 	
-	Image::Image(const Glib::RefPtr<Post> &post_, Gtk::Grid* parent) :
+	Image::Image(const Glib::RefPtr<Post> &post_) :
 		Gtk::Container(),
 		post(post_),
-		grid(parent),
 		image_state(NONE),
 		scaled_width(-1),
 		scaled_height(-1),
@@ -79,28 +78,16 @@ namespace Horizon {
 
 	void Image::set_thumb_state() {
 		try {
-			Gtk::Widget* comment = nullptr;
-			if (image_state == NONE) {
-				comment = grid->get_child_at(0, 0);
-				grid->remove(*comment);
-				grid->attach(*this, 0, 0, 1, 1);
-			} else {
-				comment = grid->get_child_at(0, 1);
-				grid->remove(*comment);
-			}
-			if (comment != nullptr) {
-				image_state = THUMBNAIL;
-				if (!unscaled_image)
-					image.set(thumbnail_image);
-				grid->attach_next_to(*comment, *this, Gtk::POS_RIGHT, 1, 1);
-				refresh_size_request();
-				show_all();
-			} else {
-				g_warning("Comment not in expected location on grid!");
-			}
+			if (!unscaled_image)
+				image.set(thumbnail_image);
+			image_state = THUMBNAIL;
+			signal_state_changed(image_state);
+			refresh_size_request();
+			show_all();
 		} catch (Glib::Error e) {
 			g_warning("Error creating image from pixmap: %s", e.what().c_str());
 		}
+
 	}
 
 	void Image::on_animation_timeout() {
@@ -154,21 +141,10 @@ namespace Horizon {
 	}
 
 	void Image::set_expand_state() {
-		if (image_state != THUMBNAIL) {
-			g_error("Image_state not thumbnail, aborting.");
-			return;
-		}
-
-		Gtk::Widget* comment = grid->get_child_at(1, 0);
-		if (comment) {
-			image_state = EXPAND;
-			grid->remove(*comment);
-			grid->attach_next_to(*comment, *this, Gtk::POS_BOTTOM, 1, 1);
-			refresh_size_request();
-			show_all();
-		} else {
-			g_error("Comment label not at expected location in grid");
-		}
+		image_state = EXPAND;
+		signal_state_changed(image_state);
+		refresh_size_request();
+		show_all();
 	}
 
 	bool Image::on_image_click(GdkEventButton *btn) {
@@ -189,13 +165,15 @@ namespace Horizon {
 		default:
 			break;
 		}
-
 	}
 
 	void Image::refresh_size_request() {
 		queue_resize();
-		grid->queue_resize();
-		queue_resize();
+		auto parent = get_parent();
+		if ( parent ) {
+			parent->queue_resize();
+			queue_resize();
+		}
 	}
 
 	void Image::set_new_scaled_image(const int width, const int height) {
@@ -345,7 +323,7 @@ namespace Horizon {
 				break;
 			}
 		case EXPAND:
-			if ( width < post->get_width() ) {
+			if ( width < post->get_width() || height < post->get_height() ) {
 				if (width != scaled_width) {
 					set_new_scaled_image(width, height);					
 				} else {
@@ -366,7 +344,7 @@ namespace Horizon {
 		}
 		
 		if (G_UNLIKELY(used_width > width || used_height > height)) {
-			g_error("Horizon::Image not allocated enough space!");
+			g_warning("Horizon::Image not allocated enough space!");
 		}
 
 		event_box.size_allocate(allocation);

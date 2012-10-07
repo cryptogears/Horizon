@@ -17,9 +17,12 @@ extern "C" {
 
 namespace Horizon {
 
-	ThreadView::ThreadView(std::shared_ptr<Thread> t) :
+	ThreadView::ThreadView(std::shared_ptr<Thread> t,
+	                       Glib::RefPtr<Gio::Settings> s) :
 		thread(t),
+		settings(s),
 		Gtk::Frame(),
+		notifier(Notifier::getNotifier()),
 		swindow(),
 		vadjustment(swindow.get_vadjustment())
 	{
@@ -37,10 +40,18 @@ namespace Horizon {
 		control_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		control_grid.set_border_width(2);
 
+		Gtk::Label *notify_label = Gtk::manage(new Gtk::Label("Notify on New "));
+		control_grid.add(*notify_label);
+		control_grid.add(notify_switch);
+		Gtk::Label *autoscroll_label = Gtk::manage(new Gtk::Label("Auto-Scroll "));
+		control_grid.add(*autoscroll_label);
+		control_grid.add(autoscroll_switch);
+
 		Gtk::Button *close = Gtk::manage(new Gtk::Button(Gtk::Stock::CLOSE));
 		close->set_name("closebutton");
 		close->signal_clicked().connect( sigc::mem_fun(*this, &ThreadView::do_close_thread) );
 
+		
 		control_grid.add(*close);
 		control_grid.set_name("threadcontrolgrid");
 		full_grid.add(control_grid);
@@ -71,12 +82,9 @@ namespace Horizon {
 		                 Fly!
 		                        you fools.
 		*/
-		if ( (prev_upper != new_upper)
-		     &&
-		     ((prev_page_size + min_increment - (min_increment / 100))
-		      >= ( prev_upper - prev_value ))) {
-			if ( new_value > value )
-				;//vadjustment->set_value(new_upper - min_increment);
+		if ( prev_upper != new_upper &&
+		     autoscroll_switch.get_active() ) {
+			vadjustment->set_value(new_upper - min_increment);
 		}
 
 		prev_value = value;
@@ -110,7 +118,7 @@ namespace Horizon {
 			grid.add(*pv);
 			was_new = true;
 			pv->show_all();
-
+			pv->set_comment_grid();
 			auto links = parser->get_links(post->get_comment());
 			for ( auto link : links ) {
 				auto iter = post_map.find(link);
@@ -123,7 +131,7 @@ namespace Horizon {
 		return was_new;
 	}
 
-	void ThreadView::refresh() {
+	bool ThreadView::refresh() {
 		bool was_new = false;
 		show();
 		full_grid.show();
@@ -133,14 +141,27 @@ namespace Horizon {
 		auto functor = std::bind(std::mem_fn(&ThreadView::refresh_post),
 		                         this, std::placeholders::_1);
 		was_new = thread->for_each_post(functor);
-
-		// FIXME notification
 		thread->update_notify(was_new);
+
+		if ( was_new &&
+		     (thread->should_notify() ||
+		      notify_switch.get_active())) {
+			auto iter = post_map.rbegin();
+			
+			notifier->notify(thread->id,// id,
+			                 "New 4chan post",// summary,
+			                 iter->second->get_comment_body());// body,
+		}
+
+		return thread->is_404;
 	}
 
 	bool ThreadView::on_activate_link(const Glib::ustring &link) {
 		gint64 post_num;
 		std::stringstream s;
+		if ( link.find("http://") != link.npos ) {
+			return false;
+		}
 		s << link;
 		s >> post_num;
 		if ( post_map.count(post_num) == 1 ) {
@@ -148,7 +169,7 @@ namespace Horizon {
 			grid.set_focus_child(*widget);
 			return true;
 		} else {
-			std::cerr << "Cross-thread links not supported." << std::endl;
+			std::cerr << "Cross-thread links not yet supported." << std::endl;
 			return true;
 		}
 	}

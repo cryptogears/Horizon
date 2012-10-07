@@ -13,7 +13,7 @@ namespace Horizon {
 		static std::shared_ptr<HtmlParser> getHtmlParser();
 		~HtmlParser();
 
-		Glib::ustring html_to_pango(const std::string& html, const gint64 thread_id);
+		std::list<Glib::ustring> html_to_pango(const std::string& html, const gint64 thread_id);
 		std::list<gint64> get_links(const std::string& html);
 
 	protected:
@@ -22,11 +22,13 @@ namespace Horizon {
 	private:
 		htmlSAXHandlerPtr sax;
 		xmlParserCtxtPtr ctxt;
+		std::list<Glib::ustring> strings;
 		Glib::ustring built_string;
 		bool is_OP_link;
 		bool is_cross_thread_link;
+		bool is_code_tagged;
 		gint64 thread_id;
-
+		
 		friend void horizon_html_parser_on_end_element(void* user_data, const xmlChar* name);
 		friend void horizon_html_parser_on_start_element(void* user_data, const xmlChar* name, const xmlChar** attrs);
 		friend void horizon_html_parser_on_characters(void* user_data, const xmlChar* chars, int len);
