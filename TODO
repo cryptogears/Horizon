@@ -1,0 +1,30 @@
+o Have image_fetcher use libevent or libev. By tying it into the Glib
+  main loop we are being interrupted a lot for writebacks.
+  o Even after ImageFetcher doesn't use Glib for eventing, I suspect
+    there will still be freezes when we call show_all() on a new 500
+    post thread. There should be a way to show a couple widgets, then
+    iterate on the main loop.
+
+o Save all downloaded images to disk, like XDG_cache_dir or
+  whatever. When "save-to" is implemented, we'll just ln or cp.
+  o in the cache metadata, keep track of how often and whatnot each
+    image is posted.
+
+o Implement replying to threads
+
+o Fix the gVim bug
+
+o Make the code pretty 
+  o Application is getting beefy again, so its probably time to factor
+    out all that widget stuff.
+  o ImageFetcher is a blight. I think it would be best templated so
+    that one could easily plug in Glib/libev/libevent, as well as
+    custom writeback function/request struct.
+
+o Make the interface pretty
+
+o Think about dropping pixbuf refptrs when threads are closed.
+
+o Implement Save-thread-to target directory
+
+o Implement a slideshow mode. 
