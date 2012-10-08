@@ -1,9 +1,7 @@
-o Have image_fetcher use libevent or libev. By tying it into the Glib
-  main loop we are being interrupted a lot for writebacks.
-  o Even after ImageFetcher doesn't use Glib for eventing, I suspect
-    there will still be freezes when we call show_all() on a new 500
-    post thread. There should be a way to show a couple widgets, then
-    iterate on the main loop.
+o Even after ImageFetcher doesn't use Glib for eventing, I suspect
+  there will still be freezes when we call show_all() on a new 500
+  post thread. There should be a way to show a couple widgets, then
+  iterate on the main loop.
 
 o Save all downloaded images to disk, like XDG_cache_dir or
   whatever. When "save-to" is implemented, we'll just ln or cp.
