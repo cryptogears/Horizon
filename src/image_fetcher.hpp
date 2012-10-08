@@ -16,12 +16,12 @@
 #include <glibmm/main.h>
 #include <gdkmm/pixbufloader.h>
 #include <glibmm/dispatcher.h>
-
+#include <libev/ev++.h>
+#include <glibmm/threads.h>
 
 namespace Horizon {
 	struct Socket_Info {
-		Glib::RefPtr<Glib::IOChannel> channel;
-		sigc::connection connection;
+		std::shared_ptr<ev::io> w;
 	};
 
 	struct Request {
@@ -70,10 +70,10 @@ namespace Horizon {
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
 		void on_pixbuf_ready();
-
 		void cleanup_failed_pixmap(std::shared_ptr<Request> request);
 		void create_pixmap(std::shared_ptr<Request> request);
-		void start_new_download(CURL *curl);
+		void start_new_download();
+
 		/* Hash to Image Pixbuf. 
 		   Expose */
 		mutable Glib::Mutex images_mutex;
@@ -87,6 +87,31 @@ namespace Horizon {
 		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > thumbs;
 		std::map<std::string, Glib::RefPtr<Gdk::PixbufLoader> > thumb_streams;
 		
+		/* Curl socket eventing methods */
+		void curl_addsock(curl_socket_t s, CURL *easy, int action);
+		void curl_setsock(Socket_Info* info, curl_socket_t s, 
+		                  CURL* curl, int action);
+		void curl_remsock(Socket_Info* info, curl_socket_t s);
+		void curl_check_info();
+		bool curl_timeout_expired_cb();
+		void curl_event_cb(ev::io &w, int);
+
+		/* Libev */
+		Glib::Threads::Thread *ev_thread;
+		mutable Glib::Threads::Mutex ev_mutex;
+		ev::dynamic_loop ev_loop;
+		void             looper();
+
+		ev::async        kill_loop_w;
+		void             on_kill_loop_w(ev::async &w, int);
+
+		ev::async        queue_w;
+		void             on_queue_w(ev::async &w, int);
+
+		ev::timer        timeout_w;
+		void             on_timeout_w(ev::timer &w, int);
+
+
 		friend std::size_t horizon_curl_writeback(char *ptr, size_t size, size_t nmemb, void *userdata);
 
 		friend int curl_socket_cb(CURL *easy,      /* easy handle */   
@@ -99,18 +124,6 @@ namespace Horizon {
 		                         long timeout_ms, /* see above */
 		                         void *userp);    /* private callback
 		                                             pointer */
-
-		friend void pixbuf_ready_callback(GObject *source_object,
-		                                  GAsyncResult *res,
-		                                  gpointer user_data);
-
-		void curl_addsock(curl_socket_t s, CURL *easy, int action);
-		void curl_setsock(Socket_Info* info, curl_socket_t s, 
-		                  CURL* curl, int action);
-		void curl_remsock(Socket_Info* info, curl_socket_t s);
-		void curl_check_info();
-		bool curl_timeout_expired_cb();
-		bool curl_event_cb(Glib::IOCondition condition, curl_socket_t s);
 
 	};
 	
@@ -128,7 +141,6 @@ namespace Horizon {
 	                  void *userp);    /* private callback
 	                                      pointer */
 	
-	void pixbuf_ready_callback(GObject *, GAsyncResult *res, gpointer user_data);
 }
 
 

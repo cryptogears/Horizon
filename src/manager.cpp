@@ -253,7 +253,6 @@ namespace Horizon {
 		Glib::Threads::Mutex::Lock lock(catalog_mutex);
 		int trycount = 0;
 		if (G_UNLIKELY(catalog_thread == nullptr)) {
-			std::cerr << "Launching new catalog thread" << std::endl;
 			launch_new_thread(catalog_thread, sigc::mem_fun(*this, &Manager::catalog_loop));
 		}
 		catalog_cond.signal();
@@ -263,7 +262,6 @@ namespace Horizon {
 	bool Manager::update_threads() {
 		Glib::Threads::Mutex::Lock lock(threads_mutex);
 		if (threads_thread == nullptr) {
-			std::cerr << "Launching new threads thread" << std::endl;
 			launch_new_thread(threads_thread, sigc::mem_fun(*this, &Manager::threads_loop));
 		}
 

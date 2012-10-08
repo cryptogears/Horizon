@@ -74,7 +74,8 @@ horizon_OBJECTS = $(am_horizon_OBJECTS)
 am__DEPENDENCIES_1 =
 horizon_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I.
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -139,6 +140,8 @@ JSON_LIBS = -ljson-glib-1.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0
 KEYRING_CFLAGS = -I/usr/include/gnome-keyring-1 -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include  
 KEYRING_LIBS = -lgnome-keyring -lglib-2.0  
 LDFLAGS = 
+LIBEV_CFLAGS = -I/usr/include/libev  
+LIBEV_LIBS = -lev  
 LIBOBJS = 
 LIBS = 
 LIBXML_CFLAGS = -I/usr/include/libxml2  
@@ -208,8 +211,8 @@ top_builddir = ..
 top_srcdir = ..
 
 # list of sources for the 'helloWorld' binary
-INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(JSON_CFLAGS) $(LIBXML_CFLAGS)
-horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS)
+INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(JSON_CFLAGS) $(LIBXML_CFLAGS) $(LIBEV_CFLAGS)
+horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS) $(LIBEV_LIBS)
 EXTRA_DIST = com.talisein.fourchan.native.gtk.gschema.xml
 gsettings_SCHEMAS = com.talisein.fourchan.native.gtk.gschema.xml
 BUILT_SOURCES = \

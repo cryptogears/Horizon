@@ -51,7 +51,7 @@ POST_UNINSTALL = :
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(top_srcdir)/configure AUTHORS COPYING \
-	ChangeLog INSTALL NEWS depcomp install-sh missing
+	ChangeLog INSTALL NEWS TODO depcomp install-sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx_11.m4 \
 	$(top_srcdir)/configure.ac
@@ -165,6 +165,8 @@ JSON_LIBS = -ljson-glib-1.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0
 KEYRING_CFLAGS = -I/usr/include/gnome-keyring-1 -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include  
 KEYRING_LIBS = -lgnome-keyring -lglib-2.0  
 LDFLAGS = 
+LIBEV_CFLAGS = -I/usr/include/libev  
+LIBEV_LIBS = -lev  
 LIBOBJS = 
 LIBS = 
 LIBXML_CFLAGS = -I/usr/include/libxml2  
