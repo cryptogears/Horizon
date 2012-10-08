@@ -297,7 +297,8 @@ namespace Horizon {
 		Glib::Variant<bool> new_setting;
 		const std::string settings_key("board-" + board);
 		bool toggle_board = false;
-		if ( v.gobj() == nullptr ) {
+		const bool action_from_menu = v.gobj() == nullptr;
+		if ( action_from_menu ) {
 			// There was no input, so we toggle the old setting
 			toggle_board = !settings->get_boolean(settings_key);
 		} else {
@@ -313,6 +314,8 @@ namespace Horizon {
 				board_combobox_add_board(board, "");
 				if (board_combobox->get_active_row_number() == -1) 
 					board_combobox->set_active(0);
+				if (action_from_menu)
+					manager.update_catalogs();
 			}
 		} else {
 			if (manager.remove_catalog_board(board)) {
@@ -387,49 +390,59 @@ namespace Horizon {
 			    board.find(active_board) != board.npos) {
 				refresh_catalog_view();
 			} else {
-				for ( auto thread : manager.get_catalog(active_board) ) {
-					// Get those downloads started. This has to be
-					// done from the main thread or else the callbacks
-					// will be fucked up.
-					thread->fetch_thumb();
+				try {
+					for ( auto thread : manager.get_catalog(board) ) {
+						// Get those downloads started. This has to be
+						// done from the main thread or else the callbacks
+						// will be fucked up.
+						thread->fetch_thumb();
+					}
+				} catch (std::range_error e) {
+					;
 				}
 			}
 		}
 	}
 
 	void Application::refresh_catalog_view() {
+		if (board_combobox->get_active_row_number() == -1)
+			return;
 		const std::string active_board = get_board_from_fancy(board_combobox->get_active_text());
-		auto catalog = manager.get_catalog(active_board);
+		try {
+			auto catalog = manager.get_catalog(active_board);
 		
-		if ( model ) {
-			model->clear();
-			for ( auto thread : catalog ) {
-				thread->fetch_thumb();
+			if ( model ) {
+				model->clear();
+				for ( auto thread : catalog ) {
+					thread->fetch_thumb();
 				
-				auto iter = model->append();
-				iter->set_value(thread_summary_columns.thread_summary,
-				                thread);
-				iter->set_value(thread_summary_columns.teaser,
-				                Glib::ustring(thread->get_teaser()));
-				iter->set_value(thread_summary_columns.url,
-				                Glib::ustring(thread->get_url()));
-				if (thread->get_thumb_pixbuf())
-					iter->set_value(thread_summary_columns.thumb,
-					                thread->get_thumb_pixbuf());
-				iter->set_value(thread_summary_columns.id,
-				                thread->get_id());
-				iter->set_value(thread_summary_columns.reply_count,
-				                thread->get_reply_count());
-				iter->set_value(thread_summary_columns.image_count,
-				                thread->get_image_count());
-				iter->set_value(thread_summary_columns.ppm, 
-				                static_cast<float>(thread->get_reply_count()) /
-				                static_cast<float>(Glib::DateTime::
-				                                   create_now_utc().to_unix() -
-				                                   thread->get_unix_date()));
+					auto iter = model->append();
+					iter->set_value(thread_summary_columns.thread_summary,
+					                thread);
+					iter->set_value(thread_summary_columns.teaser,
+					                Glib::ustring(thread->get_teaser()));
+					iter->set_value(thread_summary_columns.url,
+					                Glib::ustring(thread->get_url()));
+					if (thread->get_thumb_pixbuf())
+						iter->set_value(thread_summary_columns.thumb,
+						                thread->get_thumb_pixbuf());
+					iter->set_value(thread_summary_columns.id,
+					                thread->get_id());
+					iter->set_value(thread_summary_columns.reply_count,
+					                thread->get_reply_count());
+					iter->set_value(thread_summary_columns.image_count,
+					                thread->get_image_count());
+					iter->set_value(thread_summary_columns.ppm, 
+					                static_cast<float>(thread->get_reply_count()) /
+					                static_cast<float>(Glib::DateTime::
+					                                   create_now_utc().to_unix() -
+					                                   thread->get_unix_date()));
+				}
+			} else {
+				g_error("Summary model not created");
 			}
-		} else {
-			g_error("Summary model not created");
+		} catch (std::range_error e) {
+			return;
 		}
 	}
 

@@ -85,10 +85,9 @@ namespace Horizon {
 						if (iter != catalogs.end()) {
 							// TODO We want update the summary. For now, replace
 							catalogs.erase(iter);
-							catalogs.insert({board, new_summaries});
-						} else {
-							catalogs.insert({board, new_summaries});
 						}
+						catalogs.insert({board, new_summaries});
+
 						updated_boards.insert(board);
 						is_new = true;
 					}
@@ -192,10 +191,16 @@ namespace Horizon {
 	}
 
 	bool Manager::for_each_catalog_board(std::function<bool (const std::string&)> func) const {
-		Glib::Threads::Mutex::Lock lock(catalog_mutex);
+		std::set<std::string> boards_copy;
+		{
+			Glib::Threads::Mutex::Lock lock(catalog_mutex);
+			boards_copy = boards;
+		}
+
 		bool ret = false;
-		for (auto board : boards) {
-			ret = ret || func(board);
+		for (auto board : boards_copy) {
+			bool b = func(board);
+			ret = ret || b;
 		}
 
 		return ret;
@@ -218,13 +223,13 @@ namespace Horizon {
 		}
 	}
 
-	const std::list<Glib::RefPtr<ThreadSummary> > Manager::get_catalog(const std::string &board) {
+	const std::list<Glib::RefPtr<ThreadSummary> >& Manager::get_catalog(const std::string &board) const {
 		Glib::Threads::Mutex::Lock lock(catalog_mutex);
 		auto iter = catalogs.find(board);
 		if (iter != catalogs.end()) {
 			return iter->second;
 		} else {
-			return std::list<Glib::RefPtr<ThreadSummary> >();
+			throw std::range_error("Catalog is empty");
 		}
 	}
 

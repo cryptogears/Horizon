@@ -20,7 +20,7 @@ namespace Horizon {
 		bool add_catalog_board(const std::string &board);
 		bool remove_catalog_board(const std::string &board);
 		bool for_each_catalog_board(std::function<bool (const std::string&)>) const;
-		const std::list<Glib::RefPtr<ThreadSummary> > get_catalog(const std::string& board);
+		const std::list<Glib::RefPtr<ThreadSummary> >& get_catalog(const std::string& board) const;
 		bool is_updated_catalog() const;
 		const std::string pop_updated_catalog_board();
 		Glib::Dispatcher signal_catalog_updated;
