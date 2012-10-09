@@ -203,7 +203,14 @@ namespace Horizon {
 					}
 				} else {
 					std::cerr << "Download aborted for url " << url << std::endl;
+					Glib::Mutex::Lock lock(curl_data_mutex);
+					curl_queue.push(curl);
+					queue_w.send();
 				}
+			} else {
+				Glib::Mutex::Lock lock(curl_data_mutex);
+				curl_queue.push(curl);
+				queue_w.send();
 			}
 		} // for work_list
 	}
@@ -414,7 +421,8 @@ namespace Horizon {
 	/*
 	 * Called on ev_thread
 	 */
-	void ImageFetcher::cleanup_failed_pixmap(std::shared_ptr<Request> request) {
+	void ImageFetcher::cleanup_failed_pixmap(std::shared_ptr<Request> request,
+	                                         bool is_404) {
 		const bool isThumb = request->is_thumb;
 		const bool isGif = request->ext.rfind("gif") != std::string::npos;
 		Glib::RefPtr<Gdk::PixbufLoader> loader;
@@ -461,6 +469,24 @@ namespace Horizon {
 			auto iter = image_streams.find(request->hash);
 			if ( iter != image_streams.end() ) {
 				image_streams.erase(iter);
+			}
+		}
+		
+		if (is_404) {
+			GError *error = nullptr;
+			const char* resource_404 = "/com/talisein/fourchan/native/gtk/404-Anonymous-2.png";
+			GdkPixbuf *cpixbuf_404 = gdk_pixbuf_new_from_resource(resource_404,
+			                                                      &error);
+			if (!error) {
+				auto pixbuf_404 = Glib::wrap(cpixbuf_404);
+				{
+					Glib::Mutex::Lock lock(pixbuf_mutex);
+					pixbuf_map.insert({request, pixbuf_404});
+				}
+				signal_pixbuf_ready();
+			} else {
+				g_warning("Unable to create 404 image from resource: %s",
+				          error->message);
 			}
 		}
 	}
@@ -620,10 +646,11 @@ namespace Horizon {
 	void ImageFetcher::curl_check_info() {
 		int msgs_left;
 		CURL* curl;
-		CURLcode code;
+		CURLcode res;
 		CURLMcode mcode;
 		CURLMsg* msg;
 		bool download_error = false;
+		bool download_error_404 = false;
 		std::shared_ptr<Request> *request_p;
 
 		do { 
@@ -632,11 +659,19 @@ namespace Horizon {
 				switch(msg->msg) {
 				case CURLMSG_DONE:
 					curl = msg->easy_handle;
-					code = msg->data.result;
+					res = msg->data.result;
 					curl_easy_getinfo(curl, CURLINFO_PRIVATE, reinterpret_cast<void**>(&request_p));
-					if ( G_UNLIKELY(code != CURLE_OK) ) {
-						g_warning("Error: Failed to download %s: %s\nExtended error message: %s",  (*request_p)->url.c_str(), curl_easy_strerror(code), curl_error_buffer);
+					if ( G_UNLIKELY(res != CURLE_OK) ) {
 						download_error = true;
+						long code = 0;
+						curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+						if (res  == CURLE_HTTP_RETURNED_ERROR &&
+						    code == 404) {
+							download_error_404 = true;
+						} else {
+							std::cerr << "Error: Downloading " << (*request_p)->url
+							          << " : " << curl_error_buffer << std::endl;
+						}
 					}
 
 					mcode = curl_multi_remove_handle(curlm, curl);
@@ -648,7 +683,7 @@ namespace Horizon {
 					if (G_LIKELY(!download_error)) {
 						create_pixmap(*request_p);
 					} else {
-						cleanup_failed_pixmap(*request_p);
+						cleanup_failed_pixmap(*request_p, download_error_404);
 					}
 
 					delete request_p;
@@ -657,7 +692,7 @@ namespace Horizon {
 						Glib::Mutex::Lock lock(curl_data_mutex);
 						curl_queue.push(curl);
 					}
-					start_new_download();
+					queue_w.send();
 					break;
 				case CURLMSG_NONE:
 					g_warning("Warning: Unexpected MSG_NONE from curl info read.");

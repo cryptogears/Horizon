@@ -75,7 +75,7 @@ namespace Horizon {
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
 		void on_pixbuf_ready();
-		void cleanup_failed_pixmap(std::shared_ptr<Request> request);
+		void cleanup_failed_pixmap(std::shared_ptr<Request> request, bool is_404);
 		void create_pixmap(std::shared_ptr<Request> request);
 		void start_new_download();
 
