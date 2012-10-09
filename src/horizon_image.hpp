@@ -8,19 +8,21 @@
 #include <gtkmm/grid.h>
 #include "image_fetcher.hpp"
 #include "thread.hpp"
+#include <sigc++/functors/slot.h>
 
 namespace Horizon {
 
 	class Image : public Gtk::Container {
 	public:
-		static std::shared_ptr<Image> create(const Glib::RefPtr<Post>&);
 		enum ImageState { NONE, THUMBNAIL, EXPAND, FULL };
+		static std::shared_ptr<Image> create(const Glib::RefPtr<Post>&,
+		                                     sigc::slot<void, const ImageState&>);
 		~Image() = default;
 
-		sigc::signal<void, const ImageState&> signal_state_changed;
 
 	protected:
-		Image(const Glib::RefPtr<Post> &post);
+		Image(const Glib::RefPtr<Post>&,
+		      sigc::slot<void, const Image::ImageState&>);
 
 		virtual Gtk::SizeRequestMode get_request_mode_vfunc() const;
 		virtual void get_preferred_width_vfunc(int& minimum_width, int& natural_width) const;
@@ -38,6 +40,9 @@ namespace Horizon {
 		Gtk::Image image;
 
 		ImageState image_state;
+		sigc::signal<void, const ImageState&> signal_state_changed;
+		Glib::Dispatcher state_changed_dispatcher;
+		void run_state_changed_callbacks() const;
 
 		Glib::RefPtr<Gdk::Pixbuf> thumbnail_image;
 		Glib::RefPtr<Gdk::Pixbuf> unscaled_image;

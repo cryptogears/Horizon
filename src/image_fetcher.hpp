@@ -24,7 +24,10 @@ namespace Horizon {
 		std::shared_ptr<ev::io> w;
 	};
 
+	enum FETCH_TYPE {FOURCHAN, CATALOG};
+
 	struct Request {
+		void *image_fetcher;
 		std::string hash;
 		std::string url;
 		std::string ext;
@@ -33,7 +36,8 @@ namespace Horizon {
 
 	class ImageFetcher {
 	public:
-		static std::shared_ptr<ImageFetcher> get();
+
+		static std::shared_ptr<ImageFetcher> get(FETCH_TYPE);
 		~ImageFetcher();
 
 		void download_thumb(const std::string &hash, const std::string &url);
@@ -53,6 +57,7 @@ namespace Horizon {
 		ImageFetcher();
 		CURLM *curlm;
 
+		FETCH_TYPE fetch_type_;
 		// Mutex wraps curl_queue, request_queue
 		mutable Glib::Mutex curl_data_mutex;
 		std::queue<CURL*> curl_queue;

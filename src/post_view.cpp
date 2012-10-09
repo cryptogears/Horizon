@@ -125,8 +125,8 @@ namespace Horizon {
 		add(comment_viewport);
 
 		if ( post->has_image() ) {
-			image = Image::create(post);
-			image->signal_state_changed.connect(sigc::mem_fun(*this, &PostView::on_image_state_changed));
+			auto s = sigc::mem_fun(*this, &PostView::on_image_state_changed);
+			image = Image::create(post, s);
 			image->set_hexpand(false);
 		}
 	}

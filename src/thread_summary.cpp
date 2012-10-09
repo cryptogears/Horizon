@@ -98,7 +98,7 @@ namespace Horizon {
 	}
 
 	void ThreadSummary::fetch_thumb() {
-		auto ifetcher = ImageFetcher::get();
+		auto ifetcher = ImageFetcher::get(CATALOG);
 		const std::string hash = get_hash();
 		std::stringstream url;
 		url << horizon_thread_summary_get_thumb_url(gobj());
@@ -113,7 +113,7 @@ namespace Horizon {
 
 	void ThreadSummary::on_thumb_ready(const std::string &hash) {
 		if ( hash.find(get_hash()) != hash.npos ) {
-			auto ifetcher = ImageFetcher::get();
+			auto ifetcher = ImageFetcher::get(CATALOG);
 			if ( thumb_connection.connected() )
 				thumb_connection.disconnect();
 			auto pixbuf = ifetcher->get_thumb(hash);

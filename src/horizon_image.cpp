@@ -5,17 +5,19 @@
 
 namespace Horizon {
 
-	std::shared_ptr<Image> Image::create(const Glib::RefPtr<Post> &post) {
-		return std::shared_ptr<Image>(new Image(post));
+	std::shared_ptr<Image> Image::create(const Glib::RefPtr<Post> &post,
+	                                     sigc::slot<void, const ImageState&> state_change_callback) {
+		return std::shared_ptr<Image>(new Image(post, state_change_callback));
 	}
 	
-	Image::Image(const Glib::RefPtr<Post> &post_) :
+	Image::Image(const Glib::RefPtr<Post> &post_,
+	             sigc::slot<void, const ImageState&> state_change_callback) :
 		Gtk::Container(),
 		post(post_),
 		image_state(NONE),
 		scaled_width(-1),
 		scaled_height(-1),
-		ifetcher(ImageFetcher::get())
+		ifetcher(ImageFetcher::get(FOURCHAN))
 	{
 		set_has_window(false);
 		set_redraw_on_allocate(false);
@@ -29,12 +31,20 @@ namespace Horizon {
 		event_box.set_parent(*this);
 		image.set_parent(*this);
 
+		state_changed_dispatcher.connect(sigc::mem_fun(*this,
+		                                               &Image::run_state_changed_callbacks));
+		signal_state_changed.connect(state_change_callback);
+
 		if (post->has_image()) {
 			fetch_thumbnail();
 		} else {
 			g_error("Horizon::Image created for post %d that has no image.",
 			        post->get_id()); 
 		}
+	}
+
+	void Image::run_state_changed_callbacks() const {
+		signal_state_changed(image_state);
 	}
 
 	void Image::fetch_thumbnail() {
@@ -62,8 +72,9 @@ namespace Horizon {
 	}
 
 	void Image::on_thumb_ready(std::string hash) {
-		if ( post->get_hash().find(hash) == std::string::npos )
+		if ( post->get_hash().find(hash) == std::string::npos ) {
 			return;
+		}
 		if ( !thumbnail_image ) {
 			if (thumb_connection.connected())
 				thumb_connection.disconnect();
@@ -78,12 +89,15 @@ namespace Horizon {
 
 	void Image::set_thumb_state() {
 		try {
-			if (!unscaled_image)
+			if (!image.get_pixbuf() &&
+			    thumbnail_image) {
 				image.set(thumbnail_image);
+			}
+			
 			image_state = THUMBNAIL;
-			signal_state_changed(image_state);
-			refresh_size_request();
+			state_changed_dispatcher();
 			show_all();
+			refresh_size_request();
 		} catch (Glib::Error e) {
 			g_warning("Error creating image from pixmap: %s", e.what().c_str());
 		}
@@ -142,7 +156,7 @@ namespace Horizon {
 
 	void Image::set_expand_state() {
 		image_state = EXPAND;
-		signal_state_changed(image_state);
+		state_changed_dispatcher();
 		refresh_size_request();
 		show_all();
 	}

@@ -3,18 +3,24 @@
 #include <glibmm/fileutils.h>
 
 namespace Horizon {
-	std::shared_ptr<ImageFetcher> ImageFetcher::get() {
-		static std::shared_ptr<ImageFetcher> singleton;
+	std::shared_ptr<ImageFetcher> ImageFetcher::get(FETCH_TYPE type) {
+		static std::shared_ptr<ImageFetcher> singleton_4chan;
+		static std::shared_ptr<ImageFetcher> singleton_catalog;
 		
-		if (!singleton) {
-			singleton = std::shared_ptr<ImageFetcher>(new ImageFetcher());
+		if (!singleton_4chan) {
+			singleton_4chan = std::shared_ptr<ImageFetcher>(new ImageFetcher());
+		}
+
+		if (!singleton_catalog) {
+			singleton_catalog = std::shared_ptr<ImageFetcher>(new ImageFetcher());
 		}
 		
-		if (!singleton) {
-			g_critical("Unable to create the image fetcher.");
+		switch (type) {
+		case FOURCHAN:
+			return singleton_4chan;
+		case CATALOG:
+			return singleton_catalog;
 		}
-		
-		return singleton;
 	}
 	
 	const Glib::RefPtr<Gdk::Pixbuf> ImageFetcher::get_thumb(const std::string &hash) const {
@@ -72,7 +78,7 @@ namespace Horizon {
 		std::size_t wrote = 0;
 		std::shared_ptr<Request> request = *static_cast<std::shared_ptr<Request>*>(userdata);
 		std::string hash = request->hash;
-		std::shared_ptr<ImageFetcher> ifetcher = ImageFetcher::get();
+		ImageFetcher* ifetcher = static_cast<ImageFetcher*>(request->image_fetcher);
 		Glib::RefPtr< Gdk::PixbufLoader > loader;
 		loader.reset();
 
@@ -169,6 +175,8 @@ namespace Horizon {
 				curl_easy_setopt(curl, CURLOPT_PRIVATE, static_cast<void*>(request));
 				curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
 				curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_error_buffer);
+				curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
+				curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 			
 				try {
 					// Supports "jpeg" "gif" "png"
@@ -209,6 +217,7 @@ namespace Horizon {
 		req->url = url;
 		req->is_thumb = true;
 		req->ext = ".jpg";
+		req->image_fetcher = this;
 
 		{
 			Glib::Mutex::Lock lock(curl_data_mutex);
@@ -227,6 +236,7 @@ namespace Horizon {
 		req->url = url;
 		req->is_thumb = false;
 		req->ext = ext;
+		req->image_fetcher = this;
 
 		{
 			Glib::Mutex::Lock lock(curl_data_mutex);
@@ -246,7 +256,7 @@ namespace Horizon {
 	                   void *socketp)   /* private socket pointer */
 	{
 		Socket_Info* info = static_cast<Socket_Info*>(socketp);
-		auto ifetcher = ImageFetcher::get();
+		ImageFetcher *ifetcher = static_cast<ImageFetcher*>(userp);
 		
 		if (action == CURL_POLL_REMOVE) {
 			ifetcher->curl_remsock(info, s);
@@ -264,7 +274,7 @@ namespace Horizon {
 	 * Called on ev_thread
 	 */
 	int curl_timer_cb(CURLM *multi, long timeout_ms, void *userp) {
-		auto ifetcher = ImageFetcher::get();
+		ImageFetcher *ifetcher = static_cast<ImageFetcher*>(userp);
 
 		if (ifetcher->timeout_w.is_active())
 			ifetcher->timeout_w.stop();
