@@ -20,6 +20,8 @@ namespace Horizon {
 			return singleton_4chan;
 		case CATALOG:
 			return singleton_catalog;
+		default:
+			return singleton_4chan;
 		}
 	}
 	
@@ -59,19 +61,23 @@ namespace Horizon {
 		}
 	}
 
-	const bool ImageFetcher::has_thumb(const std::string &hash) const {
+	bool ImageFetcher::has_thumb(const std::string &hash) const {
 		Glib::Mutex::Lock lock(thumbs_mutex);
 		return thumbs.count(hash) > 0;
 	}
 
-	const bool ImageFetcher::has_image(const std::string &hash) const {
+	bool ImageFetcher::has_image(const std::string &hash) const {
 		Glib::Mutex::Lock lock(images_mutex);
 		return images.count(hash) > 0;
 	}
 
-	const bool ImageFetcher::has_animation(const std::string &hash) const {
+	bool ImageFetcher::has_animation(const std::string &hash) const {
 		Glib::Mutex::Lock lock(images_mutex);
 		return animations.count(hash) > 0;
+	}
+
+	static void stream_destroy_notify(gpointer data) {
+		g_free(data);
 	}
 
 	std::size_t horizon_curl_writeback(char *ptr, size_t nmemb, size_t size, void *userdata) {
@@ -80,6 +86,8 @@ namespace Horizon {
 		std::string hash = request->hash;
 		ImageFetcher* ifetcher = static_cast<ImageFetcher*>(request->image_fetcher);
 		Glib::RefPtr< Gdk::PixbufLoader > loader;
+		Glib::RefPtr< Gio::MemoryInputStream > istream = request->istream;
+		
 		loader.reset();
 
 		if ( request->is_thumb ) {
@@ -104,18 +112,20 @@ namespace Horizon {
 			}
 		}
 
-		if (G_LIKELY(loader)) {
+		if (G_LIKELY(loader) && istream) {
 			try {
 				loader->write(reinterpret_cast<guint8*>(ptr),
 				              static_cast<gsize>(size*nmemb));
 				wrote = size * nmemb;
+				gpointer buf = g_memdup(ptr, size * nmemb);
+				istream->add_data(buf, size * nmemb, stream_destroy_notify);
 			} catch (Gdk::PixbufError e) {
 				std::cerr << "Error writing pixbuf from network: " << e.what() << std::endl;
 			} catch (Glib::FileError e) {
 				std::cerr << "Error writing pixbuf from network: " << e.what() << std::endl;
 			}
 		} else {
-			g_critical("Got an invalid loader");
+			g_critical("Got an invalid loader or stream");
 			return 0;
 		}
 
@@ -194,12 +204,14 @@ namespace Horizon {
 							thumb_streams.insert({hash, loader});
 						}
 						curl_multi_add_handle(curlm, curl);
+						running_curls.push_back(curl);
 					} else {
 						{
 							Glib::Mutex::Lock lock(images_mutex);
 							image_streams.insert({hash, loader});
 						}
 						curl_multi_add_handle(curlm, curl);
+						running_curls.push_back(curl);
 					}
 				} else {
 					std::cerr << "Download aborted for url " << url << std::endl;
@@ -218,39 +230,57 @@ namespace Horizon {
 	/*
 	 * Called from Glib main thread
 	 */
-	void ImageFetcher::download_thumb(const std::string &hash, const std::string &url) {
+	void ImageFetcher::download_thumb(const Glib::RefPtr<Post> &post) {
+		//const std::string &hash, const std::string &url) {
 		std::shared_ptr<Request> req(new Request());
-		req->hash = hash;
-		req->url = url;
+		req->hash = post->get_hash();
+		req->url = post->get_thumb_url();
 		req->is_thumb = true;
 		req->ext = ".jpg";
 		req->image_fetcher = this;
+		req->istream = Gio::MemoryInputStream::create();
+		req->post = post;
 
-		{
+		if (image_cache->has_thumb(post)) {
+			auto functor = std::bind(&ImageFetcher::on_cache_result,
+			                         this,
+			                         std::placeholders::_1,
+			                         req);
+			image_cache->get_thumb_async(post, functor);
+		} else {
 			Glib::Mutex::Lock lock(curl_data_mutex);
 			request_queue.push(req);
-		}
 
-		queue_w.send();
+			queue_w.send();
+		}
 	}
 
 	/*
 	 * Called from Glib main thread
 	 */
-	void ImageFetcher::download_image(const std::string &hash, const std::string &url, const std::string &ext) {
+	void ImageFetcher::download_image(const Glib::RefPtr<Post> &post) {
+		//const std::string &hash, const std::string &url, const std::string &ext) {
 		std::shared_ptr<Request> req(new Request());
-		req->hash = hash;
-		req->url = url;
+		req->hash = post->get_hash();
+		req->url = post->get_image_url();
 		req->is_thumb = false;
-		req->ext = ext;
+		req->ext = post->get_image_ext();
 		req->image_fetcher = this;
+		req->istream = Gio::MemoryInputStream::create();
+		req->post = post;
 
-		{
+		if (image_cache->has_image(post)) {
+			auto functor = std::bind(&ImageFetcher::on_cache_result,
+			                         this,
+			                         std::placeholders::_1,
+			                         req);
+			image_cache->get_image_async(post, functor);
+		} else {
 			Glib::Mutex::Lock lock(curl_data_mutex);
 			request_queue.push(req);
-		}
 
-		queue_w.send();
+			queue_w.send();
+		}
 	}
 
 	/*
@@ -280,7 +310,7 @@ namespace Horizon {
 	/*
 	 * Called on ev_thread
 	 */
-	int curl_timer_cb(CURLM *multi, long timeout_ms, void *userp) {
+	int curl_timer_cb(CURLM *, long timeout_ms, void *userp) {
 		ImageFetcher *ifetcher = static_cast<ImageFetcher*>(userp);
 
 		if (ifetcher->timeout_w.is_active())
@@ -424,7 +454,6 @@ namespace Horizon {
 	void ImageFetcher::cleanup_failed_pixmap(std::shared_ptr<Request> request,
 	                                         bool is_404) {
 		const bool isThumb = request->is_thumb;
-		const bool isGif = request->ext.rfind("gif") != std::string::npos;
 		Glib::RefPtr<Gdk::PixbufLoader> loader;
 		loader.reset();
 
@@ -587,6 +616,20 @@ namespace Horizon {
 			}
 		}
 
+		if ( !close_error && !get_error ) {
+			// This was good data, so save to disk.
+			if (isThumb) {
+				image_cache->write_thumb_async(request->post,
+				                               request->istream);
+			} else {
+				image_cache->write_image_async(request->post,
+				                               request->istream);
+			}
+		} else {
+			// Bad data? Close the stream.
+			request->istream->close();
+		}
+
 		if ( isThumb ) {
 			Glib::Mutex::Lock lock(thumbs_mutex);
 			auto iter = thumb_streams.find(request->hash);
@@ -601,6 +644,46 @@ namespace Horizon {
 			}
 		}
 
+	}
+
+	/* 
+	 * Called from ImageCache thread
+	 */
+	void ImageFetcher::on_cache_result(const Glib::RefPtr<Gdk::PixbufLoader>& loader,
+	                                   std::shared_ptr<Request> request) {
+		bool load_error = false;
+
+		if (loader) {
+			if ( request->ext.find(".gif") != request->ext.npos ) {
+				Glib::RefPtr<Gdk::PixbufAnimation> ani_pixbuf;
+				try {
+					ani_pixbuf = loader->get_animation();
+				} catch (Gdk::PixbufError e) {
+					load_error = true;
+					g_warning("Error loading from pixbuf: %s", e.what().c_str());
+				}
+
+				if (ani_pixbuf && !load_error) {
+					Glib::Mutex::Lock lock(pixbuf_mutex);
+					pixbuf_animation_map.insert({request, ani_pixbuf});
+					signal_pixbuf_ready();
+				}
+			} else {
+				Glib::RefPtr<Gdk::Pixbuf> pixbuf;
+				try {
+					pixbuf = loader->get_pixbuf();
+				} catch (Gdk::PixbufError e) {
+					load_error = true;
+					g_warning("Error loading from pixbuf: %s", e.what().c_str());
+				}
+				
+				if (pixbuf && !load_error) {
+					Glib::Mutex::Lock lock(pixbuf_mutex);
+					pixbuf_map.insert({request, pixbuf});
+					signal_pixbuf_ready();
+				}
+			}
+		}
 	}
 
 	/*
@@ -690,6 +773,8 @@ namespace Horizon {
 					
 					{
 						Glib::Mutex::Lock lock(curl_data_mutex);
+						auto iter = std::find(running_curls.begin(), running_curls.end(), curl);
+						running_curls.erase(iter);
 						curl_queue.push(curl);
 					}
 					queue_w.send();
@@ -701,26 +786,70 @@ namespace Horizon {
 					g_warning("Warning: Unexpected MSG_LAST from curl info read.");
 					break;
 				default:
-					g_warning("Unexpected message %s from curl info read.", msg->msg);
+					g_warning("Unexpected message %d from curl info read.", msg->msg);
 				}
 			}
 		} while(msg != NULL && msgs_left > 0);
 	}
 
-	void ImageFetcher::on_kill_loop_w(ev::async &w, int) {
+	void ImageFetcher::on_kill_loop_w(ev::async &, int) {
+		Glib::Mutex::Lock lock(curl_data_mutex);
+		for (auto curl : running_curls ) {
+			curl_multi_remove_handle(curlm, curl);
+		}
+
+		running_curls.clear();
+
 		kill_loop_w.stop();
 		queue_w.stop();
 	}
 
-	void ImageFetcher::on_timeout_w(ev::timer &w, int) {
+	void ImageFetcher::on_timeout_w(ev::timer &, int) {
 		curl_timeout_expired_cb();
 	}
 
-	void ImageFetcher::on_queue_w(ev::async &w, int) {
+	void ImageFetcher::on_queue_w(ev::async &, int) {
 		start_new_download();
 	}
 
+	std::shared_ptr<CurlEasy> CurlEasy::create() {
+		return std::shared_ptr<CurlEasy>(new CurlEasy());
+	}
+
+	CurlEasy::CurlEasy() {
+		cptr = curl_easy_init();
+	}
+
+	CurlEasy::~CurlEasy() {
+		curl_easy_cleanup(cptr);
+	}
+
+	CURL* CurlEasy::get() {
+		return cptr;
+	}
+
+	std::shared_ptr<CurlMulti> CurlMulti::create() {
+		return std::shared_ptr<CurlMulti>(new CurlMulti());
+	}
+
+	CurlMulti::CurlMulti() {
+		cptr = curl_multi_init();
+	}
+
+	CurlMulti::~CurlMulti() {
+		curl_multi_cleanup(cptr);
+	}
+
+	CURLM* CurlMulti::get() {
+		return cptr;
+	}
+	
 	ImageFetcher::ImageFetcher() :
+		image_cache(ImageCache::get()),
+		curl_error_buffer(g_new0(char, CURL_ERROR_SIZE)),
+		curl_multi(CurlMulti::create()),
+		curlm(curl_multi->get()),
+		running_handles(0),
 		ev_loop(ev::AUTO),
 		kill_loop_w(ev_loop),
 		queue_w(ev_loop),
@@ -729,17 +858,15 @@ namespace Horizon {
 		Glib::Mutex::Lock lock(curl_data_mutex);
 		signal_pixbuf_ready.connect( sigc::mem_fun(*this, &ImageFetcher::on_pixbuf_ready) );
 		
-		curl_error_buffer = static_cast<char*>(g_malloc0(CURL_ERROR_SIZE * sizeof(char)));
-		curlm = curl_multi_init();
-
 		curl_multi_setopt(curlm, CURLMOPT_SOCKETFUNCTION, &curl_socket_cb);
 		curl_multi_setopt(curlm, CURLMOPT_SOCKETDATA, this);
 		curl_multi_setopt(curlm, CURLMOPT_TIMERFUNCTION, &curl_timer_cb);
 		curl_multi_setopt(curlm, CURLMOPT_TIMERDATA, this);
 
 		for (int i = 0; i < 3; i++) {
-			CURL* curl = curl_easy_init();
-			curl_queue.push(curl);
+			auto curleasy = CurlEasy::create();
+			curl_queue.push(curleasy->get());
+			curl_easy_list.push_back(curleasy);
 		}
 
 		queue_w.set<ImageFetcher, &ImageFetcher::on_queue_w> (this);
@@ -751,19 +878,14 @@ namespace Horizon {
 		timeout_w.set<ImageFetcher, &ImageFetcher::on_timeout_w> (this);
 
 		ev_thread = Glib::Threads::Thread::create( sigc::bind(sigc::mem_fun(ev_loop, &ev::dynamic_loop::run),0) );
+		if (!ev_thread)
+			g_error("Couldn't spin up ImageFetcher thread");
 	}
 
 	ImageFetcher::~ImageFetcher() {
-		Glib::Mutex::Lock lock(curl_data_mutex);
-		while (!curl_queue.empty()) {
-			curl_easy_cleanup(curl_queue.front());
-			curl_queue.pop();
-		}
-			
-		curl_multi_cleanup(curlm);
-		g_free(curl_error_buffer);
 		kill_loop_w.send();
 		ev_thread->join();
-	}
 
+		g_free(curl_error_buffer);
+	}
 }

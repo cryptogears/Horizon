@@ -123,8 +123,6 @@ namespace Horizon {
 		double height = static_cast<double>(gdk_pixbuf_get_height(pixbuf));
 		gint new_width;
 		gint new_height;
-		bool do_unref = false;
-		double ratio = width / height;
 		if ( width > height ) {
 			height = (target_width / width) * height;
 			width = target_width;
@@ -162,7 +160,6 @@ namespace Horizon {
 		guchar         *image;
 		gboolean        has_alpha;
 		gsize           image_len;
-		GVariant       *value;
 
 		width = gdk_pixbuf_get_width(pixbuf);
 		height = gdk_pixbuf_get_height(pixbuf);
@@ -182,7 +179,7 @@ namespace Horizon {
 		auto vchannels = Glib::Variant<gint32>::create(n_channels);
 		std::vector<guchar> data;
 		data.reserve(image_len);
-		for ( int i = 0; i < image_len; i++ ) {
+		for ( gsize i = 0; i < image_len; i++ ) {
 			data.push_back(image[i]);
 		}
 

@@ -134,7 +134,7 @@ horizon_thread_summary_init (HorizonThreadSummary *self)
 static void
 horizon_thread_summary_dispose (GObject *gobject)
 {
-  HorizonThreadSummary *self = HORIZON_THREAD_SUMMARY (gobject);
+	//HorizonThreadSummary *self = HORIZON_THREAD_SUMMARY (gobject);
 
   /* 
    * In dispose, you are supposed to free all types referenced from this
@@ -257,14 +257,14 @@ horizon_thread_summary_class_init (HorizonThreadSummaryClass *klass)
   
 }
 
-const gint64
+gint64
 horizon_thread_summary_get_unix_date (const HorizonThreadSummary *ts) {
 	g_return_val_if_fail (HORIZON_IS_THREAD_SUMMARY (ts), 0);
 
 	return ts->priv->unix_date;
 }
 
-const gint64
+gint64
 horizon_thread_summary_get_id (const HorizonThreadSummary *ts) {
 	g_return_val_if_fail (HORIZON_IS_THREAD_SUMMARY (ts), 0);
 
@@ -272,7 +272,7 @@ horizon_thread_summary_get_id (const HorizonThreadSummary *ts) {
 }
 
 void
-horizon_thread_summary_set_id (HorizonThreadSummary *ts, const gint64 id) {
+horizon_thread_summary_set_id (HorizonThreadSummary *ts, gint64 id) {
 	g_return_if_fail (HORIZON_IS_THREAD_SUMMARY (ts));
 
 	ts->priv->id = id;
@@ -296,14 +296,14 @@ void horizon_thread_summary_set_id_from_string (HorizonThreadSummary *ts, const 
 	ts->priv->thumb_url = g_strdup_printf("http://catalog.neet.tv/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
 }
 
-const gint64
+gint64
 horizon_thread_summary_get_image_count (const HorizonThreadSummary *ts) {
 	g_return_val_if_fail (HORIZON_IS_THREAD_SUMMARY (ts), 0);
 
 	return ts->priv->image_count;
 }
 
-const gint64
+gint64
 horizon_thread_summary_get_reply_count (const HorizonThreadSummary *ts) {
 	g_return_val_if_fail (HORIZON_IS_THREAD_SUMMARY (ts), 0);
 
@@ -331,7 +331,7 @@ horizon_thread_summary_get_spoiler_image (const HorizonThreadSummary *ts) {
 	return ts->priv->spoiler_image;
 }
 
-const gboolean
+gboolean
 horizon_thread_summary_is_spoiler (const HorizonThreadSummary *ts) {
 	g_return_val_if_fail (HORIZON_IS_THREAD_SUMMARY (ts), 0);
 
@@ -351,6 +351,12 @@ horizon_thread_summary_set_board(HorizonThreadSummary *ts, const gchar* board) {
 	g_free(ts->priv->thumb_url);
 	ts->priv->thumb_url = g_strdup_printf("http://catalog.neet.tv/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
 
+}
+
+const gchar* horizon_thread_summary_get_board(const HorizonThreadSummary *ts) {
+	g_return_val_if_fail (HORIZON_IS_THREAD_SUMMARY (ts), NULL);
+
+	return ts->priv->board;
 }
 
 const gchar*

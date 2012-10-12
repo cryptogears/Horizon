@@ -21,15 +21,17 @@ namespace Horizon {
 
 	PostView::PostView(const Glib::RefPtr<Post> &in) :
 		Gtk::Grid(),
-		comment(),
-		content_grid(),
-		vadjust(Gtk::Adjustment::create(0., 0., 1., .1, 0.9, 1.)),
+		post(in),
 		hadjust(Gtk::Adjustment::create(0., 0., 1., .1, 0.9, 1.)),
-		comment_viewport(hadjust, vadjust),
-		post(in)
+		vadjust(Gtk::Adjustment::create(0., 0., 1., .1, 0.9, 1.)),
+		content_grid(),
+		comment(),
+		comment_viewport(hadjust, vadjust)
 	{
 		set_name("postview");
 		set_orientation(Gtk::ORIENTATION_VERTICAL);
+
+		viewport_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
 		
 		post_info_grid.set_name("posttopgrid");
 		post_info_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
@@ -58,7 +60,7 @@ namespace Horizon {
 		label->set_justify(Gtk::JUSTIFY_LEFT);
 		post_info_grid.add(*label);
 
-		add(post_info_grid);
+		viewport_grid.add(post_info_grid);
 		
 		// Image info
 		if ( post->has_image() ) {
@@ -93,7 +95,7 @@ namespace Horizon {
 			label->set_justify(Gtk::JUSTIFY_LEFT);
 			label->set_name("imagenameinfo");
 			image_info_grid.add(*label);
-			add(image_info_grid);
+			viewport_grid.add(image_info_grid);
 		}
 		linkbacks.signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
 		linkbacks.set_justify(Gtk::JUSTIFY_LEFT);
@@ -115,10 +117,9 @@ namespace Horizon {
 		content_grid.set_name("commentgrid");
 		content_grid.add(comment);
 
-		viewport_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
 		viewport_grid.add(content_grid);
 		viewport_grid.set_hexpand(true);
-
+		
 		comment_viewport.set_name("commentview");
 		comment_viewport.add(viewport_grid);
 		comment_viewport.set_hexpand(true);
@@ -132,7 +133,7 @@ namespace Horizon {
 	}
 
 	Glib::ustring PostView::get_comment_body() const {
-		return comment.get_label();
+		return comment.get_text();
 	}
 
 	void PostView::set_comment_grid() {
@@ -225,8 +226,10 @@ namespace Horizon {
 		linkbacks.set_markup(stream.str());
 
 		if ( linkbacks.get_parent() == nullptr ) {
-			insert_next_to(post_info_grid, Gtk::POS_BOTTOM);
-			attach_next_to(linkbacks, post_info_grid, Gtk::POS_BOTTOM, 1, 1);
+			viewport_grid.insert_next_to(post_info_grid, Gtk::POS_BOTTOM);
+			viewport_grid.attach_next_to(linkbacks, post_info_grid, Gtk::POS_BOTTOM, 1, 1);
+			viewport_grid.queue_resize();
+			queue_resize();
 		}
 
 		linkbacks.show();

@@ -12,7 +12,7 @@ namespace Horizon {
 
 	class Manager {
 	public:
-		Manager() = default;
+		Manager();
 		~Manager();
 
 		/* Interface for catalogs */

@@ -55,17 +55,17 @@ namespace Horizon {
 		explicit ThreadSummary(HorizonThreadSummary* castitem);
 
 	public:
-		const gint64 get_id() const;
-		const gint64 get_image_count() const;
-		const gint64 get_reply_count() const;
-		void set_id(const gint64 id);
+		gint64 get_id() const;
+		gint64 get_image_count() const;
+		gint64 get_reply_count() const;
+		void set_id(gint64 id);
 		void set_id(const gchar* sid);
 		void set_board(const gchar* board);
 		const std::string get_url() const;
 		const std::string get_teaser() const;
 		const std::string get_hash() const;
 		Glib::RefPtr<Gdk::Pixbuf> get_thumb_pixbuf();
-		const gint64 get_unix_date() const;
+		gint64 get_unix_date() const;
 
 		void fetch_thumb();
 

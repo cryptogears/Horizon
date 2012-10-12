@@ -38,8 +38,6 @@ namespace Horizon {
 		std::list<gint64> links;
 		std::size_t pos = 0;
 		std::size_t endpos = 0;
-		std::size_t diff = 0;
-
 		
 		while ( (pos = html.find("a href=", pos + 1)) != html.npos ) {
 			endpos = html.find("quotelink", pos);
@@ -200,8 +198,7 @@ namespace Horizon {
 		}
 	}
 
-	void horizon_html_parser_on_xml_error(void* user_data, xmlErrorPtr error) {
-		HtmlParser* hp = static_cast<HtmlParser*>(user_data);
+	void horizon_html_parser_on_xml_error(void*, xmlErrorPtr error) {
 		switch (error->code) {
 		case XML_ERR_INVALID_ENCODING:
 			std::cerr << "Warning: Invalid UTF-8 encoding. " 

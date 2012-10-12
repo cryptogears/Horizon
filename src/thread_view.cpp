@@ -19,12 +19,12 @@ namespace Horizon {
 
 	ThreadView::ThreadView(std::shared_ptr<Thread> t,
 	                       Glib::RefPtr<Gio::Settings> s) :
-		thread(t),
-		settings(s),
 		Gtk::Frame(),
-		notifier(Notifier::getNotifier()),
+		thread(t),
 		swindow(),
-		vadjustment(swindow.get_vadjustment())
+		vadjustment(swindow.get_vadjustment()),
+		settings(s),
+		notifier(Notifier::getNotifier())
 	{
 		set_name("frame");
 		set_shadow_type(Gtk::SHADOW_IN);
@@ -33,10 +33,17 @@ namespace Horizon {
 		swindow.set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
 		swindow.set_vexpand(true);
 		grid.set_focus_vadjustment(vadjustment);
+		grid.set_row_spacing(5);
+		grid.set_column_spacing(5);
+		grid.set_margin_right(5);
+		grid.set_margin_left(5);
+		grid.set_margin_top(5);
 
 		full_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
 
 		grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
+		grid.set_name("postview_grid");
+
 		control_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		control_grid.set_border_width(2);
 
@@ -72,7 +79,6 @@ namespace Horizon {
 		const double new_upper = vadjustment->get_upper();
 		const double page_size = vadjustment->get_page_size();
 		const double value = vadjustment->get_value();
-		const double new_value = new_upper - page_size;
 		const double min_increment = vadjustment->get_minimum_increment();
 		/* Is it magic?
 		   Is it  a demon?

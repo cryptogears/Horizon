@@ -80,6 +80,8 @@ namespace Horizon {
 		Glib::wrap_register(horizon_thread_summary_get_type(),
 		                    &Horizon::ThreadSummary_Class::wrap_new);
 		Horizon::ThreadSummary::get_type();
+		
+		Horizon::wrap_init();
 
 		settings = Gio::Settings::create("com.talisein.fourchan.native.gtk");
 
@@ -180,7 +182,7 @@ namespace Horizon {
 		auto box = dialog->get_vbox();
 		auto label = Gtk::manage(new Gtk::Label("Enter 4chan thread URL:"));
 		auto entry = Gtk::manage(new Gtk::Entry());
-		auto button = dialog->add_button(Gtk::Stock::OK, Gtk::RESPONSE_OK);
+		dialog->add_button(Gtk::Stock::OK, Gtk::RESPONSE_OK);
 		dialog->set_default_response(Gtk::RESPONSE_OK);
 		entry->set_activates_default(true);
 		box->add(*label);
@@ -209,11 +211,11 @@ namespace Horizon {
 				if ( thread_map.count( t->id ) == 0 ) {
 					auto tv = Gtk::manage(new ThreadView(t, settings));
 					tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
-					int least_elems = G_MAXINT;
+					gsize least_elems = G_MAXSIZE;
 					Gtk::Grid *insert_grid = nullptr;
 					for ( auto iter = rows.begin(); iter != rows.end(); iter++ ) {
 						Gtk::Grid *gp = *iter;
-						size_t count = gp->get_children().size();
+						std::size_t count = gp->get_children().size();
 						if ( count < least_elems ) {
 							least_elems = count;
 							insert_grid = gp;
@@ -256,8 +258,8 @@ namespace Horizon {
 	}
 
 	void Application::on_rows_changed(const std::vector<Gtk::Widget*> &widgets) {
-		int i = 0;
-		int row = 0;
+		gsize i = 0;
+		gsize row = 0;
 		while ( i < widgets.size() ) {
 			rows[row]->add(*(widgets[i]));
 			rows[row]->show();
@@ -455,7 +457,7 @@ namespace Horizon {
 				if (G_LIKELY( iter != thread_map.end() )) {
 					is_404 = iter->second->refresh();
 				} else {
-					g_warning("Thread %d not in application.thread_map", tid);
+					g_warning("Thread %" G_GINT64_FORMAT " not in application.thread_map", tid);
 				}
 
 				if (is_404) {
@@ -491,8 +493,8 @@ namespace Horizon {
 		return true;
 	}
 
-	bool Application::on_search_equal(const Glib::RefPtr<Gtk::TreeModel>& model,
-	                                  int column,
+	bool Application::on_search_equal(const Glib::RefPtr<Gtk::TreeModel>&,
+	                                  int,
 	                                  const Glib::ustring& key,
 	                                  const Gtk::TreeModel::iterator& iter) {
 		auto val = iter->get_value(thread_summary_columns.teaser);

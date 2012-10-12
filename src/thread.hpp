@@ -57,7 +57,7 @@ namespace Horizon {
 		static GType get_base_type()   G_GNUC_CONST;
 		
 		HorizonPost* gobj() {return reinterpret_cast<HorizonPost*>(gobject_);};
-		const HorizonPost* gobj() const { return reinterpret_cast<HorizonPost*>(gobject_);};
+		const HorizonPost* gobj() const { return HORIZON_POST(gobject_);};
 		HorizonPost* gobj_copy();
 
 	protected:
@@ -66,40 +66,42 @@ namespace Horizon {
 
 	public:
 
-		const bool is_same_post(const Glib::RefPtr<Post> &post) const;
-		const bool is_not_same_post(const Glib::RefPtr<Post> &post) const;
+		bool is_same_post(const Glib::RefPtr<Post> &post) const;
+		bool is_not_same_post(const Glib::RefPtr<Post> &post) const;
 
 		void update(const Post &in);
 		void mark_rendered();
-		const bool is_rendered() const;
+		bool is_rendered() const;
 
 		std::string get_comment() const;
-		const gint64 get_id() const;
-		const gint64 get_unix_time() const;
+		gint64 get_id() const;
+		gint64 get_unix_time() const;
+		gint64 get_file_size() const;
 		std::string get_subject() const;
 		Glib::ustring get_time_str() const;
 		std::string get_number() const;
 		std::string get_name() const;
+		std::string get_tripcode() const;
 		std::string get_original_filename() const;
 		std::string get_image_ext() const;
 		std::string get_hash() const;
 		std::string get_thumb_url();
 		std::string get_image_url();
-		const gint get_thumb_width() const;
-		const gint get_thumb_height() const;
-		const gint get_width() const;
-		const gint get_height() const;
-		const std::size_t get_fsize() const;
-		const bool has_image() const;
-		const bool is_sticky() const;
-		const bool is_closed() const;
-		const bool is_deleted() const;
-		const bool is_spoiler() const;
-		const bool is_gif() const;
+		gint get_thumb_width() const;
+		gint get_thumb_height() const;
+		gint get_width() const;
+		gint get_height() const;
+		std::size_t get_fsize() const;
+		bool has_image() const;
+		bool is_sticky() const;
+		bool is_closed() const;
+		bool is_deleted() const;
+		bool is_spoiler() const;
+		bool is_gif() const;
 		void set_board(const std::string& board);
 		std::string get_board() const;
 		void set_thread_id(const gint64 id);
-		const gint64 get_thread_id() const;
+		gint64 get_thread_id() const;
 	};
 
 	class Thread {
@@ -114,7 +116,7 @@ namespace Horizon {
 		Glib::DateTime last_checked;
 		Glib::DateTime last_post;
 		bool is_404;
-		const Glib::TimeSpan get_update_interval() const;
+		 Glib::TimeSpan get_update_interval() const;
 		void update_notify(bool was_new);
 
 		Glib::Dispatcher signal_updated_interval;
@@ -130,8 +132,8 @@ namespace Horizon {
 		 * Func ever returns true, this method will return
 		 * true. Otherwise, it will return false.
 		 */
-		const bool for_each_post(const std::function<bool  (const Glib::RefPtr<Post>&) >);
-		const bool should_notify() const;
+		bool for_each_post(const std::function<bool  (const Glib::RefPtr<Post>&) >);
+		bool should_notify() const;
 
 	protected:
 		Thread(std::string url);

@@ -19,8 +19,8 @@ namespace Horizon {
 	}
 
 	Curler::Curler() :
-		last_pull(Glib::DateTime::create_now_utc(0)),
-		amWorking(false)
+		amWorking(false),
+		last_pull(Glib::DateTime::create_now_utc(0))
 	{
 		curl_global_init(CURL_GLOBAL_ALL);
 		curl = curl_easy_init();
@@ -184,7 +184,7 @@ namespace Horizon {
 		guint list_length = g_list_length(list);
 		GList *first = g_list_first(list);
 
-		for (int i = 0; i < list_length; i++) {
+		for (guint i = 0; i < list_length; i++) {
 			if (first) {
 				gpointer data = first->data;
 				first = g_list_next(first);

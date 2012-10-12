@@ -112,7 +112,6 @@ namespace Horizon {
 	/* Runs in a separate thread */
 	void Manager::threads_loop() {
 		while (true) {
-			bool was_updated = false;
 			// Build a list of threads that are past due for an update
 			std::list<std::shared_ptr<Thread>> threads_to_check;
 			Glib::DateTime now = Glib::DateTime::create_now_utc();
@@ -139,7 +138,6 @@ namespace Horizon {
 						thread->last_post = Glib::DateTime::create_now_utc((*iter)->get_unix_time());
 						thread->updatePosts(posts);
 						push_updated_thread(thread->id);
-						was_updated = true;
 					}
 				} catch (Thread404 e) {
 					thread->is_404 = true;
@@ -256,7 +254,6 @@ namespace Horizon {
 
 	bool Manager::update_catalogs() {
 		Glib::Threads::Mutex::Lock lock(catalog_mutex);
-		int trycount = 0;
 		if (G_UNLIKELY(catalog_thread == nullptr)) {
 			launch_new_thread(catalog_thread, sigc::mem_fun(*this, &Manager::catalog_loop));
 		}
@@ -272,6 +269,11 @@ namespace Horizon {
 
 		threads_cond.signal();
 		return true;
+	}
+
+	Manager::Manager() :
+		catalog_thread(nullptr)
+	{
 	}
 
 	Manager::~Manager() {

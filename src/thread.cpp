@@ -8,8 +8,8 @@ namespace Horizon {
 	const Glib::Class& Post_Class::init() {
 		if (!gtype_) {
 			class_init_func_ = &Post_Class::class_init_function;
-			CppClassParent::CppObjectType::get_type();
 			register_derived_type(horizon_post_get_type());
+			CppClassParent::CppObjectType::get_type();
 		}
 		
 		return *this;
@@ -55,10 +55,16 @@ namespace Horizon {
 	}
 
 	std::string Post::get_board() const {
-		return horizon_post_get_board(gobj());
+		const gchar *board = horizon_post_get_board(gobj());
+		std::stringstream s;
+
+		if (board)
+			s << board;
+		
+		return s.str();
 	}
 
-	const gint64 Post::get_thread_id() const {
+	gint64 Post::get_thread_id() const {
 		return horizon_post_get_thread_id(gobj());
 	}
 
@@ -66,15 +72,15 @@ namespace Horizon {
 		horizon_post_set_thread_id(gobj(), id);
 	}
 
-	const bool Post::is_same_post(const Glib::RefPtr<Post> &post) const {
+	bool Post::is_same_post(const Glib::RefPtr<Post> &post) const {
 		return horizon_post_is_same_post(gobj(), post->gobj());
 	}
 
-	const bool Post::is_not_same_post(const Glib::RefPtr<Post> &post) const {
+	bool Post::is_not_same_post(const Glib::RefPtr<Post> &post) const {
 		return horizon_post_is_not_same_post(gobj(), post->gobj());
 	}
 
-	void Post::update(const Post& in) {
+	void Post::update(const Post&) {
 		g_warning("Post update not implemented");
 	}
 
@@ -122,6 +128,17 @@ namespace Horizon {
 		return out.str();
 	}
 
+	std::string Post::get_tripcode() const {
+		const gchar* trip = horizon_post_get_tripcode(gobj());
+		std::stringstream out;
+		
+		if (trip) {
+			out << trip;
+		}
+
+		return out.str();
+	}
+
 	std::string Post::get_number() const {
 		gint64 id = horizon_post_get_post_number(gobj());
 		std::stringstream out;
@@ -133,12 +150,16 @@ namespace Horizon {
 		return out.str();
 	}
 
-	const gint64 Post::get_id() const {
+	gint64 Post::get_id() const {
 		return horizon_post_get_post_number(gobj());
 	}
 
-	const gint64 Post::get_unix_time() const {
+	gint64 Post::get_unix_time() const {
 		return horizon_post_get_time(gobj());
+	}
+
+	gint64 Post::get_file_size() const {
+		return horizon_post_get_fsize(gobj());
 	}
 
 	std::string Post::get_hash() const {
@@ -147,7 +168,7 @@ namespace Horizon {
 
 		if (str) {
 			out << str;
-		} 
+		}
 
 		return out.str();
 	}
@@ -197,52 +218,52 @@ namespace Horizon {
 		return out.str();
 	}
 
-	const bool Post::is_gif() const {
+	bool Post::is_gif() const {
 		return static_cast<bool>(horizon_post_is_gif(gobj()));
 	}
 
-	const gint Post::get_thumb_width() const {
+	gint Post::get_thumb_width() const {
 		return horizon_post_get_thumbnail_width(gobj());
 	}
 
-	const gint Post::get_thumb_height() const {
+	gint Post::get_thumb_height() const {
 		return horizon_post_get_thumbnail_height(gobj());
 	}
 
-	const gint Post::get_height() const {
+	gint Post::get_height() const {
 		return horizon_post_get_height(gobj());
 	}
 
-	const gint Post::get_width() const {
+	gint Post::get_width() const {
 		return horizon_post_get_width(gobj());
 	}
 
-	const std::size_t Post::get_fsize() const {
-		return static_cast<const std::size_t>(horizon_post_get_fsize(gobj()));
+	std::size_t Post::get_fsize() const {
+		return static_cast<std::size_t>(horizon_post_get_fsize(gobj()));
 	}
 
-	const bool Post::has_image() const {
+	bool Post::has_image() const {
 		return horizon_post_has_image(gobj());
 	}
 
-	const bool Post::is_sticky() const {
-		return static_cast<const bool>(horizon_post_get_sticky(gobj()));
+	bool Post::is_sticky() const {
+		return static_cast<bool>(horizon_post_get_sticky(gobj()));
 	}
 
-	const bool Post::is_closed() const {
-		return static_cast<const bool>(horizon_post_get_closed(gobj()));
+	bool Post::is_closed() const {
+		return static_cast<bool>(horizon_post_get_closed(gobj()));
 	}
 
-	const bool Post::is_deleted() const {
-		return static_cast<const bool>(horizon_post_get_deleted(gobj()));
+	bool Post::is_deleted() const {
+		return static_cast<bool>(horizon_post_get_deleted(gobj()));
 	}
 
-	const bool Post::is_spoiler() const {
-		return static_cast<const bool>(horizon_post_get_spoiler(gobj()));
+	bool Post::is_spoiler() const {
+		return static_cast<bool>(horizon_post_get_spoiler(gobj()));
 	}
 
-	const bool Post::is_rendered() const {
-		return static_cast<const bool>(horizon_post_is_rendered(gobj()));
+	bool Post::is_rendered() const {
+		return static_cast<bool>(horizon_post_is_rendered(gobj()));
 	}
 
 	void Post::mark_rendered() {
@@ -251,8 +272,8 @@ namespace Horizon {
 
 	Thread::Thread(std::string url) :
 		full_url(url),
-		last_post(Glib::DateTime::create_now_utc(0)),
 		last_checked(Glib::DateTime::create_now_utc(0)),
+		last_post(Glib::DateTime::create_now_utc(0)),
 		is_404(false),
 		update_interval_iter(UPDATE_INTERVALS.begin())
 	{
@@ -284,7 +305,7 @@ namespace Horizon {
 		}
 	}
 
-	const bool Thread::for_each_post(std::function<bool(const Glib::RefPtr<Post>&) > func) {
+	bool Thread::for_each_post(std::function<bool(const Glib::RefPtr<Post>&) > func) {
 		Glib::Mutex::Lock lock(posts_mutex);
 		bool ret = false;
 		
@@ -306,11 +327,11 @@ namespace Horizon {
 			return Glib::RefPtr<Post>();
 	}
 
-	const Glib::TimeSpan Thread::get_update_interval() const { 
+	Glib::TimeSpan Thread::get_update_interval() const { 
 		return (*update_interval_iter) * 1000 * 1000;
 	}
 
-	const bool Thread::should_notify() const {
+	bool Thread::should_notify() const {
 		Glib::Mutex::Lock lock(posts_mutex);
 		auto iter = posts.rbegin();
 		auto last = Glib::DateTime::create_now_utc(iter->second->get_unix_time());
@@ -345,7 +366,6 @@ namespace Horizon {
 
 	void wrap_init() {
 		Glib::wrap_register(horizon_post_get_type(), &Horizon::Post_Class::wrap_new);
-		Horizon::Post::get_type();
 	}
 	
 }

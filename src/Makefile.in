@@ -69,7 +69,8 @@ am_horizon_OBJECTS = main.$(OBJEXT) application.$(OBJEXT) \
 	image_fetcher.$(OBJEXT) notifier.$(OBJEXT) \
 	html_parser.$(OBJEXT) horizon_image.$(OBJEXT) \
 	horizon-resources.$(OBJEXT) horizon_thread_summary.$(OBJEXT) \
-	thread_summary.$(OBJEXT) summary_cellrenderer.$(OBJEXT)
+	thread_summary.$(OBJEXT) summary_cellrenderer.$(OBJEXT) \
+	image_cache.$(OBJEXT)
 horizon_OBJECTS = $(am_horizon_OBJECTS)
 am__DEPENDENCIES_1 =
 horizon_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -213,6 +214,7 @@ top_srcdir = @top_srcdir@
 # list of sources for the 'helloWorld' binary
 INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(JSON_CFLAGS) $(LIBXML_CFLAGS) $(LIBEV_CFLAGS)
 horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS) $(LIBEV_LIBS)
+AM_CXXFLAGS = -Wall -Wextra -pedantic -D_FORTIFY_SOURCE=2 -ggdb -g3
 EXTRA_DIST = com.talisein.fourchan.native.gtk.gschema.xml
 gsettings_SCHEMAS = com.talisein.fourchan.native.gtk.gschema.xml
 BUILT_SOURCES = \
@@ -220,7 +222,7 @@ BUILT_SOURCES = \
 	horizon-resources.h \
 	$(NULL)
 
-horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c horizon_thread_summary.c thread_summary.cpp summary_cellrenderer.cpp
+horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c horizon_thread_summary.c thread_summary.cpp summary_cellrenderer.cpp image_cache.cpp
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -314,6 +316,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_post.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_thread_summary.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/html_parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/image_cache.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/image_fetcher.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/manager.Po@am__quote@

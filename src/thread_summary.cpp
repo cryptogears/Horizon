@@ -6,8 +6,8 @@ namespace Horizon {
 	const Glib::Class& ThreadSummary_Class::init() {
 		if (!gtype_) {
 			class_init_func_ = &ThreadSummary_Class::class_init_function;
-			CppClassParent::CppObjectType::get_type();
 			register_derived_type(horizon_thread_summary_get_type());
+			CppClassParent::CppObjectType::get_type();
 		}
 		
 		return *this;
@@ -48,11 +48,11 @@ namespace Horizon {
 	ThreadSummary::~ThreadSummary() {
 	}
 
-	const gint64 ThreadSummary::get_id() const {
+	gint64 ThreadSummary::get_id() const {
 		return horizon_thread_summary_get_id(gobj());
 	}
 
-	const gint64 ThreadSummary::get_unix_date() const {
+	gint64 ThreadSummary::get_unix_date() const {
 		return horizon_thread_summary_get_unix_date(gobj());
 	}
 
@@ -78,17 +78,20 @@ namespace Horizon {
 		return s.str();
 	}
 
-	const gint64 ThreadSummary::get_image_count() const {
+	gint64 ThreadSummary::get_image_count() const {
 		return horizon_thread_summary_get_image_count(gobj());
 	}
 
-	const gint64 ThreadSummary::get_reply_count() const {
+	gint64 ThreadSummary::get_reply_count() const {
 		return horizon_thread_summary_get_reply_count(gobj());
 	}
 
 	const std::string ThreadSummary::get_hash() const {
 		std::stringstream s;
-		s << "FAKEHASH" << horizon_thread_summary_get_unix_date(gobj());
+		s << "{FAKEHASH}" 
+		  << horizon_thread_summary_get_board(gobj())
+		  << "-" << horizon_thread_summary_get_id(gobj()) 
+		  << "-" << horizon_thread_summary_get_unix_date(gobj());
 
 		return s.str();
 	}
@@ -101,11 +104,16 @@ namespace Horizon {
 		auto ifetcher = ImageFetcher::get(CATALOG);
 		const std::string hash = get_hash();
 		std::stringstream url;
-		url << horizon_thread_summary_get_thumb_url(gobj());
 		
 		if (! ifetcher->has_thumb(hash) ) {
 			thumb_connection = ifetcher->signal_thumb_ready.connect( sigc::mem_fun(*this, &ThreadSummary::on_thumb_ready) );
-			ifetcher->download_thumb(hash, url.str());
+			HorizonPost *cpost = HORIZON_POST(g_object_new(horizon_post_get_type(),
+			                                               "md5",
+			                                               get_hash().c_str(),
+			                                               NULL));
+			horizon_post_set_thumb_url(cpost, horizon_thread_summary_get_thumb_url(gobj()));
+			auto post = Glib::wrap(cpost, true);
+			ifetcher->download_thumb(post);
 		} else {
 			on_thumb_ready(hash);
 		}

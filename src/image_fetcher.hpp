@@ -18,6 +18,7 @@
 #include <glibmm/dispatcher.h>
 #include <libev/ev++.h>
 #include <glibmm/threads.h>
+#include "image_cache.hpp"
 
 namespace Horizon {
 	struct Socket_Info {
@@ -32,6 +33,36 @@ namespace Horizon {
 		std::string url;
 		std::string ext;
 		bool is_thumb;
+		Glib::RefPtr<Gio::MemoryInputStream> istream;
+		Glib::RefPtr<Post> post;
+	};
+
+	class CurlEasy {
+	public:
+		static std::shared_ptr<CurlEasy> create();
+		~CurlEasy();
+
+		CURL* get();
+	private:
+		CurlEasy();
+		CurlEasy(const CurlEasy&) = delete;
+		CurlEasy& operator=(const CurlEasy&) = delete;
+
+		CURL* cptr;
+	};
+
+	class CurlMulti {
+	public:
+		static std::shared_ptr<CurlMulti> create();
+		~CurlMulti();
+		
+		CURLM* get();
+	private:
+		CurlMulti();
+		CurlMulti(const CurlMulti&) = delete;
+		CurlMulti& operator=(const CurlMulti&) = delete;
+
+		CURLM* cptr;
 	};
 
 	class ImageFetcher {
@@ -40,8 +71,8 @@ namespace Horizon {
 		static std::shared_ptr<ImageFetcher> get(FETCH_TYPE);
 		~ImageFetcher();
 
-		void download_thumb(const std::string &hash, const std::string &url);
-		void download_image(const std::string &hash, const std::string &url, const std::string &ext);
+		void download_thumb(const Glib::RefPtr<Post> &);
+		void download_image(const Glib::RefPtr<Post> &);
 
 		sigc::signal<void, std::string> signal_thumb_ready;
 		sigc::signal<void, std::string> signal_image_ready;
@@ -49,25 +80,34 @@ namespace Horizon {
 		const Glib::RefPtr<Gdk::Pixbuf> get_thumb(const std::string &hash) const;
 		const Glib::RefPtr<Gdk::Pixbuf> get_image(const std::string &hash) const;
 		const Glib::RefPtr<Gdk::PixbufAnimation> get_animation(const std::string &hash) const;
-		const bool has_thumb(const std::string &hash) const;
-		const bool has_image(const std::string &hash) const;
-		const bool has_animation(const std::string &hash) const;
+		bool has_thumb(const std::string &hash) const;
+		bool has_image(const std::string &hash) const;
+		bool has_animation(const std::string &hash) const;
 
 	private:
 		ImageFetcher();
-		CURLM *curlm;
+		std::shared_ptr<ImageCache> image_cache;
+
+		void on_cache_result(const Glib::RefPtr<Gdk::PixbufLoader>&,
+		                     std::shared_ptr<Request>);
+
 
 		FETCH_TYPE fetch_type_;
 		// Mutex wraps curl_queue, request_queue
 		mutable Glib::Mutex curl_data_mutex;
+		char* curl_error_buffer;
+		std::vector<std::shared_ptr<CurlEasy>> curl_easy_list;
+		std::shared_ptr<CurlMulti> curl_multi;
+		CURLM *curlm;
+
 		std::queue<CURL*> curl_queue;
 		std::queue<std::shared_ptr<Request> > request_queue;
-
+		std::list<CURL*> running_curls;
+		
 		sigc::connection timeout_connection;
 		std::list<curl_socket_t> active_sockets_;
 		std::vector<Socket_Info*> socket_info_cache_;
 		std::list<Socket_Info*> active_socket_infos_;
-		char* curl_error_buffer;
 		int running_handles;
 
 		mutable Glib::Mutex pixbuf_mutex;

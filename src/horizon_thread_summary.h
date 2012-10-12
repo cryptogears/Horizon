@@ -44,17 +44,18 @@ GType horizon_thread_summary_get_type (void);
  * Method definitions.
  */
 
-const gint64 horizon_thread_summary_get_unix_date (const HorizonThreadSummary *ts) G_GNUC_PURE;
-const gint64 horizon_thread_summary_get_id (const HorizonThreadSummary *ts) G_GNUC_PURE;
-void horizon_thread_summary_set_id (HorizonThreadSummary *ts, const gint64 id);
+gint64 horizon_thread_summary_get_unix_date (const HorizonThreadSummary *ts) G_GNUC_PURE;
+gint64 horizon_thread_summary_get_id (const HorizonThreadSummary *ts) G_GNUC_PURE;
+void horizon_thread_summary_set_id (HorizonThreadSummary *ts, gint64 id);
 void horizon_thread_summary_set_id_from_string (HorizonThreadSummary *ts, const gchar* id_str);
-const gint64 horizon_thread_summary_get_image_count (const HorizonThreadSummary *ts) G_GNUC_PURE;
-const gint64 horizon_thread_summary_get_reply_count (const HorizonThreadSummary *ts) G_GNUC_PURE;
+gint64 horizon_thread_summary_get_image_count (const HorizonThreadSummary *ts) G_GNUC_PURE;
+gint64 horizon_thread_summary_get_reply_count (const HorizonThreadSummary *ts) G_GNUC_PURE;
 const gchar* horizon_thread_summary_get_author (const HorizonThreadSummary *ts) G_GNUC_PURE;
 const gchar* horizon_thread_summary_get_teaser (const HorizonThreadSummary *ts) G_GNUC_PURE;
 const gchar* horizon_thread_summary_get_spoiler_image (const HorizonThreadSummary *ts) G_GNUC_PURE;
-const gboolean horizon_thread_summary_is_spoiler (const HorizonThreadSummary *ts) G_GNUC_PURE;
+gboolean horizon_thread_summary_is_spoiler (const HorizonThreadSummary *ts) G_GNUC_PURE;
 void horizon_thread_summary_set_board(HorizonThreadSummary *ts, const gchar* board);
+const gchar* horizon_thread_summary_get_board( const HorizonThreadSummary *ts);
 const gchar* horizon_thread_summary_get_url(const HorizonThreadSummary *ts) G_GNUC_PURE;
 const gchar* horizon_thread_summary_get_thumb_url(const HorizonThreadSummary *ts) G_GNUC_PURE;
 void horizon_thread_summary_set_thumb_pixbuf(HorizonThreadSummary *ts, GdkPixbuf* pixbuf);

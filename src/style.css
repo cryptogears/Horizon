@@ -9,7 +9,6 @@
     border-color: #B7C5D9;
     border-width: 1px;
     border-style: solid;
-
 }
 
 #imagewindow {
@@ -27,9 +26,7 @@
 #frame {
     border-width: 2px;
     border-color: #EEF2FF;
-    border-radius: 1px;
     border-style: solid;
-    
 }
 
 #threadcontrolgrid {

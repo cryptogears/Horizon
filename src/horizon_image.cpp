@@ -38,7 +38,8 @@ namespace Horizon {
 		if (post->has_image()) {
 			fetch_thumbnail();
 		} else {
-			g_error("Horizon::Image created for post %d that has no image.",
+			g_error("Horizon::Image created for post %" G_GINT64_FORMAT
+			        " that has no image.",
 			        post->get_id()); 
 		}
 	}
@@ -52,7 +53,7 @@ namespace Horizon {
 			on_thumb_ready(post->get_hash());
 		} else {
 			thumb_connection = ifetcher->signal_thumb_ready.connect(sigc::mem_fun(*this, &Image::on_thumb_ready));
-			ifetcher->download_thumb(post->get_hash(), post->get_thumb_url());
+			ifetcher->download_thumb(post);
 		}
 	}
 
@@ -65,9 +66,7 @@ namespace Horizon {
 			return;
 		} else {
 			image_connection = ifetcher->signal_image_ready.connect(sigc::mem_fun(*this, &Image::on_image_ready));
-			ifetcher->download_image(post->get_hash(),
-			                         post->get_image_url(),
-			                         post->get_image_ext());
+			ifetcher->download_image(post);
 		}
 	}
 
@@ -161,7 +160,7 @@ namespace Horizon {
 		show_all();
 	}
 
-	bool Image::on_image_click(GdkEventButton *btn) {
+	bool Image::on_image_click(GdkEventButton *) {
 		switch (image_state) {
 		case NONE:
 			break;
@@ -179,6 +178,8 @@ namespace Horizon {
 		default:
 			break;
 		}
+
+		return true;
 	}
 
 	void Image::refresh_size_request() {
@@ -365,7 +366,7 @@ namespace Horizon {
 		image.size_allocate(allocation);
 	}
 
-	void Image::forall_vfunc(gboolean include_internals, GtkCallback callback, gpointer callback_data) {
+	void Image::forall_vfunc(gboolean, GtkCallback callback, gpointer callback_data) {
 		callback(GTK_WIDGET(event_box.gobj()), callback_data);
 		callback(GTK_WIDGET(image.gobj()), callback_data);
 	}
