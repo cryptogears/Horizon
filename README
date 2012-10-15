@@ -6,7 +6,8 @@ Dependencies:
         glibmm-2.32
         gtkmm-3.4
         gnome-keyring > 3.0
-        libcurl > 7.24 (Lower versions will probably work, just modify configure.ac)
+        libcurl > 7.24 (Lower versions will probably work, just modify
+                        configure.ac)
         json-glib > 0.14
         libxml2 > 2.7.8
         libev > 4.04
