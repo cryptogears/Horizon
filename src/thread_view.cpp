@@ -66,13 +66,43 @@ namespace Horizon {
 		swindow.add(grid);
 		full_grid.add(swindow);
 		add(full_grid);
-		set_label(thread->number);
+		
+		tab_label.set_text( Glib::ustring::compose("%1", thread->number));
+		set_label(tab_label.get_text());
 
+		tab_label_grid.set_column_spacing(10);
+		tab_label_grid.show();
+		tab_label.set_valign(Gtk::ALIGN_CENTER);
+		tab_label.set_vexpand(true);
+		tab_image.set_valign(Gtk::ALIGN_CENTER);
+		
+		tab_label.show();
+		tab_label_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+		tab_label_grid.add(tab_image);
+		tab_label_grid.add(tab_label);
+		tab_label_grid.set_valign(Gtk::ALIGN_CENTER);
+
+		tab_window.set_name("tab");
+		tab_window.set_visible_window(false);
+		tab_window.add(tab_label_grid);
+		tab_window.show();
+		
 		thread->signal_updated_interval.connect( sigc::mem_fun(*this, &ThreadView::on_updated_interval ) );
 		vadjustment->signal_changed().connect( sigc::mem_fun(*this, &ThreadView::on_scrollbar_changed) );
 		prev_upper = 0.;
 		prev_page_size = 0.;
 		prev_value = 0.;
+
+		show_all();
+		
+		auto slot = sigc::mem_fun(*this, &ThreadView::refresh_tab_text);
+		tab_updates = Glib::signal_timeout().connect_seconds(sigc::bind_return(slot, true), 10);
+		signal_unshown_views.connect(sigc::mem_fun(*this, &ThreadView::on_unshown_views));
+	}
+
+	ThreadView::~ThreadView() {
+		if (tab_updates.connected())
+			tab_updates.disconnect();
 	}
 
 	void ThreadView::on_scrollbar_changed() {
@@ -123,8 +153,9 @@ namespace Horizon {
 			post->mark_rendered();
 			grid.add(*pv);
 			was_new = true;
-			pv->show_all();
-			pv->set_comment_grid();
+
+			unshown_views.push_back(pv);
+
 			auto links = parser->get_links(post->get_comment());
 			for ( auto link : links ) {
 				auto iter = post_map.find(link);
@@ -134,16 +165,26 @@ namespace Horizon {
 			}
 		}
 
+		signal_unshown_views();
+
 		return was_new;
+	}
+
+	void ThreadView::on_unshown_views() {
+		if (unshown_views.size() > 0) {
+			PostView* view = unshown_views.front();
+			view->show_all();
+			view->set_comment_grid(); // Must be done here so gVim spawns ok
+			unshown_views.pop_front();
+		} 
+
+		if (unshown_views.size() > 0) {
+			signal_unshown_views();
+		}
 	}
 
 	bool ThreadView::refresh() {
 		bool was_new = false;
-		show();
-		full_grid.show();
-		swindow.show();
-		grid.show();
-		control_grid.show_all();
 		auto functor = std::bind(std::mem_fn(&ThreadView::refresh_post),
 		                         this, std::placeholders::_1);
 		was_new = thread->for_each_post(functor);
@@ -161,7 +202,93 @@ namespace Horizon {
 			                 iter->second->get_image());
 		}
 
+		if (!tab_image.get_pixbuf())
+			refresh_tab_image();
+
+		refresh_tab_text();
+
 		return thread->is_404;
+	}
+
+	void ThreadView::refresh_tab_image() {
+		if (post_map.size() == 0)
+			return;
+		const PostView *postview = post_map.begin()->second;
+
+		if ( postview->get_image() ) {
+			auto pixbuf = postview->get_image();
+			int new_width, new_height;
+			float scale;
+			new_width = 100;
+			scale = static_cast<float>(new_width) / static_cast<float>(pixbuf->get_width());
+			new_height = static_cast<int>(scale * static_cast<float>(pixbuf->get_height()));
+			if (new_height > 100) {
+				new_height = 100;
+				scale = static_cast<float>(new_height) / static_cast<float>(pixbuf->get_height());
+				new_width = static_cast<int>(scale * static_cast<float>(pixbuf->get_width()));
+			}
+
+			tab_image.set(pixbuf->scale_simple(new_width, new_height, Gdk::INTERP_HYPER));
+			tab_image.show();
+		}
+	}
+
+	void ThreadView::refresh_tab_text() {
+		gsize posts, images;
+		posts = post_map.size();
+		images = thread->get_image_count();
+		Glib::ustring lastpost, label;
+
+		Glib::DateTime now = Glib::DateTime::create_now_utc();
+
+		auto diff = std::abs(now.difference(thread->last_post)) / 1000000;
+		if ( diff < 60 ) {
+			lastpost = Glib::ustring::compose("%1 s", diff);
+		} else {
+			diff = diff / 60; // Now in minutes
+			if ( diff < 60 ) {
+				lastpost = Glib::ustring::compose("%1 min%2",
+				                                  diff,
+				                                  diff>1?"s":"");
+			} else {
+				diff = diff / 60; // Now in hours
+				if (diff < 24) {
+					lastpost = Glib::ustring::compose("%1 hour%2",
+					                                  diff,
+					                                  diff>1?"s":"");
+				} else {
+					diff = diff / 24; // Now in days
+					if (diff < 28) {
+						lastpost = Glib::ustring::compose("%1 day%2",
+						                                  diff,
+						                                  diff>1?"s":"");
+					} else {
+						auto date = thread->last_post.to_local();
+						lastpost = date.format("%b %Y");
+					}
+				}
+			}
+		}
+
+		if (!thread->is_404) {
+			label = Glib::ustring::compose("<tt>R</tt>: <b>%1</b>\n"
+			                               "<tt>I</tt>: <b>%2</b>\n"
+			                               "\n"
+			                               "<tt>LP</tt>: %3",
+			                               posts,
+			                               images,
+			                               lastpost);
+		} else {
+			label = Glib::ustring::compose("<tt>R</tt>: <b>%1</b>\n"
+			                               "<tt>I</tt>: <b>%2</b>\n"
+			                               "<tt>LP</tt>: %3\n"
+			                               "Thread 404",
+			                               posts,
+			                               images,
+			                               lastpost);
+		}
+
+		tab_label.set_markup(label);
 	}
 
 	bool ThreadView::on_activate_link(const Glib::ustring &link) {
@@ -184,23 +311,38 @@ namespace Horizon {
 	
 
 	void ThreadView::on_updated_interval() {
+		if (!tab_image.get_pixbuf())
+			refresh_tab_image();
+
 		const Glib::RefPtr<Post> post = thread->get_first_post();
+
 		if (post) {
-			std::stringstream label;
+			Glib::ustring subject, name, interval, label_markup;
 
 			if ( post->get_subject().size() > 0 ) {
-				label << "<b><span color=\"#0F0C5D\">" << post->get_subject()
-				      << "</span></b>";
+				subject = Glib::ustring::compose("<b><span color=\"#0F0C5D\">%1</span></b>",
+				                                 post->get_subject());
 			} else {
-				label << thread->number;
+				subject = Glib::ustring::compose("%1", thread->number);
+			}
+			
+			name = Glib::ustring::compose("<b><span color=\"#117743\">%1</span></b>",
+			                              post->get_name());
+
+			if (thread->is_404) {
+				interval = "<span color=\"#F00\">404</span>";
+			} else {
+				interval = Glib::ustring::compose("%1s",
+				                                  thread->get_update_interval()
+				                                  / 1000000);
 			}
 
-			label << " - <b><span color=\"#117743\">"  << post->get_name()
-			      << "</span></b> (<small>" 
-			      << thread->get_update_interval() / 1000000 
-			      << "s</small>)";
+			label_markup = Glib::ustring::compose("%1 - %2 (<small>%3</small>)",
+			                               subject,
+			                               name,
+			                               interval);
 
-			static_cast<Gtk::Label*>(get_label_widget())->set_markup(label.str());
+			static_cast<Gtk::Label*>(get_label_widget())->set_markup(label_markup);
 		}
 	}
 }

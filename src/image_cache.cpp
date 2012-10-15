@@ -10,11 +10,17 @@ namespace Horizon {
 
 	std::shared_ptr<ImageData> ImageData::create(const guint32 version,
 	                                             const Glib::VariantContainerBase &variant) {
-		return std::shared_ptr<ImageData>(new ImageData(version, variant));
+		auto data = std::shared_ptr<ImageData>(new ImageData(version, variant));
+		if (!data)
+			g_error("Failed to create image_data.");
+		return data;
 	}
 
 	std::shared_ptr<ImageData> ImageData::create(const Glib::RefPtr<Post> &post) {
-		return std::shared_ptr<ImageData>(new ImageData(post));
+		auto data = std::shared_ptr<ImageData>(new ImageData(post));
+		if (!data)
+			g_error("Failed to create image_data.");
+		return data;
 	}
 
 	ImageData::ImageData(const guint32 version, const Glib::VariantContainerBase& variant) {
@@ -244,6 +250,10 @@ namespace Horizon {
 			} else {
 				image_data = iter->second;
 			}
+		}
+
+		if (!image_data) {
+			g_error("Failed to create image_data");
 		}
 
 		bool write_error = false;
@@ -583,8 +593,13 @@ namespace Horizon {
 		               work_list.end(),
 		               std::back_inserter(variants),
 		               [](std::pair<std::string, std::shared_ptr<ImageData> > pair) {
-			               std::shared_ptr<ImageData> data = pair.second;
-			               return data->get_variant();
+			               std::shared_ptr<ImageData> data(pair.second);
+			               if (data) {
+				               Glib::VariantContainerBase v = data->get_variant();
+				               return v;
+			               } else {
+				               throw std::range_error("Invalid pointer in work_list");
+			               }
 		               });
 
 		std::vector<GVariant*> cvariants;
@@ -707,7 +722,8 @@ namespace Horizon {
 								auto typed_cpp_child = Glib::VariantBase::cast_dynamic<Glib::VariantContainerBase>(cpp_child);
 
 								std::shared_ptr<ImageData> cp = ImageData::create(version, typed_cpp_child);
-								images.insert({cp->md5, cp});
+								if (cp)
+									images.insert({cp->md5, cp});
 
 								g_variant_unref(child);
 							}

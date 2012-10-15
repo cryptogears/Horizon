@@ -29,7 +29,6 @@ namespace Horizon {
 		GdkPixbuf* scale_pixbuf(const GdkPixbuf *pixbuf);
 		Glib::VariantContainerBase get_variant_from_pixbuf(GdkPixbuf *pixbuf);
 
-		Glib::RefPtr<Gdk::Pixbuf> default_icon;
 		Glib::RefPtr<Gio::DBus::Proxy> proxy;
 
 		void send_notification(Glib::VariantContainerBase notification);

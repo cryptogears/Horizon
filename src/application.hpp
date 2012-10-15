@@ -16,6 +16,7 @@
 #include <gtkmm/treeview.h>
 #include <gtkmm/liststore.h>
 #include <gtkmm/comboboxtext.h>
+#include <gtkmm/notebook.h>
 
 #include "manager.hpp"
 #include "thread_view.hpp"
@@ -57,8 +58,8 @@ namespace Horizon {
 		Glib::RefPtr<Gtk::ApplicationWindow> window;
 		Gtk::Grid total_grid;
 		Gtk::Grid summary_grid;
-		Gtk::Grid grid;
-		std::vector<Gtk::Grid*> rows;
+		Gtk::Notebook notebook;
+
 		Gtk::TreeView summary_view;
 		void refresh_catalog_view();
 		Glib::RefPtr<Gtk::ListStore> model;

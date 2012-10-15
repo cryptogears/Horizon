@@ -19,10 +19,13 @@ namespace Horizon {
 	class ThreadView : public Gtk::Frame {
 	public:
 		ThreadView(std::shared_ptr<Thread> t, Glib::RefPtr<Gio::Settings>);
+		~ThreadView();
 		// Returns true is the thread is now 404
 		bool refresh();
 		
 		sigc::signal<void, gint64> signal_closed;
+
+		Gtk::Widget& get_tab_label() {return tab_window;};
 
 	private:
 		std::shared_ptr<Thread> thread;
@@ -35,6 +38,16 @@ namespace Horizon {
 		Gtk::Switch notify_switch;
 		Gtk::Switch autoscroll_switch;
 
+		Gtk::EventBox tab_window;
+		Gtk::Label tab_label;
+		Gtk::Grid tab_label_grid;
+		Gtk::Image tab_image;
+		sigc::connection tab_updates;
+
+		std::deque<PostView*> unshown_views;
+		Glib::Dispatcher signal_unshown_views;
+		void on_unshown_views();
+
 		std::map<gint64, PostView*> post_map;
 		Glib::RefPtr<Gio::Settings> settings;
 		std::shared_ptr<Notifier> notifier;
@@ -44,6 +57,8 @@ namespace Horizon {
 		double prev_page_size;
 
 		bool refresh_post(const Glib::RefPtr<Post> &post);
+		void refresh_tab_image();
+		void refresh_tab_text();
 
 		bool on_activate_link(const Glib::ustring &link);
 		void on_updated_interval();

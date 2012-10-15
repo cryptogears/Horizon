@@ -118,12 +118,13 @@ namespace Horizon {
 		content_grid.add(comment);
 
 		viewport_grid.add(content_grid);
-		viewport_grid.set_hexpand(true);
+		viewport_grid.set_hexpand(false);
 		
 		comment_viewport.set_name("commentview");
 		comment_viewport.add(viewport_grid);
-		comment_viewport.set_hexpand(true);
+		comment_viewport.set_hexpand(false);
 		add(comment_viewport);
+		set_hexpand(true);
 
 		if ( post->has_image() ) {
 			auto s = sigc::mem_fun(*this, &PostView::on_image_state_changed);

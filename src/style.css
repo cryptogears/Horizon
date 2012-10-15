@@ -1,68 +1,79 @@
+@define-color light       #EEF2FF;
+@define-color dark        #D6DAF0;
+@define-color dark-border #B7C5D9;
+@define-color name        #117743;
+@define-color subject     #0F0C5D;
+@define-color image-info   #070707;
 
+* {
+    font: Arial;
+    font-size: 12;
+}
 
-#threadview > GtkViewport {
-    background-color: #EEF2FF;
+GtkNotebook, #frame, #threadview > GtkViewport {
+    background-color: @light;
+}
+
+GtkNotebook tab {
+    background-image: -gtk-gradient (linear,
+                                    0 0, 0 1,
+                                    color-stop(0, @dark),
+                                    color-stop(1, @light));
 }
 
 #commentview {
-    background-color: #D6DAF0;
-    border-color: #B7C5D9;
+    background-color: @dark;
+    border-color: @dark-border;
     border-width: 1px;
-    border-style: solid;
+    border-style: outset;
+
+    padding-bottom: 10px;
+    padding-top:    5px;
+    padding-left:   20px;
+    padding-right:  20px;
 }
 
-#imagewindow {
-    background-color: #D6DAF0;
-}    
-
-#imagewindow > * {
-    background-color: #D6DAF0;
-}    
-
-#horizonwindow {
-    background-color: #D6DAF0;
+#name {
+    color: @name;
+    font-weight: bold;
 }
+
+#subject {
+    color: @subject;
+    font-size: 14;
+    font-weight: bold;
+}
+
+#originalfilename {
+    font-size: 8;
+    color: blue
+}
+
+
+#imagenameinfo {
+    font-size: 8;
+    color: @image-info;
+}
+
+#imagewindow, #image_window *, #horizonwindow {
+    background-color: @dark;
+}    
 
 #frame {
     border-width: 2px;
-    border-color: #EEF2FF;
+    border-color: @light;
     border-style: solid;
 }
 
 #threadcontrolgrid {
     border-width: 1px;
-    border-style: solid;
-    border-color: #B7C5D9;
+    border-style: dashed;
+    border-color: @dark-border;
 }
 
-#originalfilename {
-    font: Arial 8;
-    color: blue
-}
-
-#imagenameinfo {
-    font: Arial 8;
-    color: #070707;
-}
-
-#commentgrid {
-    padding: 0px;
-    margin: 0px;
-}
 
 #comment {
-    padding: 2px;
     color: black;
-}
-
-#name {
-    color: #117743;
-    font: Arial 12 bold;
-}
-
-#subject {
-    color: #0F0C5D;
-    font: Arial 14 bold;
 }
 
 * {

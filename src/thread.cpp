@@ -275,6 +275,7 @@ namespace Horizon {
 		full_url(url),
 		last_checked(Glib::DateTime::create_now_utc(0)),
 		last_post(Glib::DateTime::create_now_utc(0)),
+		images(0),
 		is_404(false),
 		update_interval_iter(UPDATE_INTERVALS.begin())
 	{
@@ -295,6 +296,8 @@ namespace Horizon {
 			auto conflicting_post = posts.find(post->get_id());
 			if ( conflicting_post == posts.end() ) {
 				posts.insert({post->get_id(), post});
+				if (post->has_image())
+					images++;
 			} else {
 				if ( conflicting_post->second->is_not_same_post(post) ) {
 					// The new post has updated metadata (sticky, file
@@ -316,6 +319,10 @@ namespace Horizon {
 		}
 
 		return ret;
+	}
+
+	gsize Thread::get_image_count() const {
+		return images;
 	}
 
 	const Glib::RefPtr<Post> Thread::get_first_post() const {

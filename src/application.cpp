@@ -25,9 +25,7 @@ namespace Horizon {
 			window->set_title("Horizon - A Native GTK+ 4chan Viewer");
 			window->set_name("horizonwindow");
 			total_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-			grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
 			summary_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
-			grid.set_vexpand(true);
 			window->set_default_size(500, 800);
 			Gtk::ScrolledWindow* sw = Gtk::manage(new Gtk::ScrolledWindow());
 			sw->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
@@ -56,7 +54,11 @@ namespace Horizon {
 			summary_grid.attach(*board_combobox, 1, 0, 1, 1);
 			summary_grid.attach(*sw, 0, 1, 2, 1);
 			total_grid.add(summary_grid);
-			total_grid.add(grid);
+
+			notebook.set_scrollable(true);
+			notebook.popup_enable();
+
+			total_grid.add(notebook);
 			window->add(total_grid);
 
 			auto provider = Gtk::CssProvider::get_default();
@@ -82,12 +84,10 @@ namespace Horizon {
 
 	void Application::on_startup() {
 		Gtk::Application::on_startup();
-		std::cerr << "on_startup()" << std::endl;
 		Glib::set_application_name("Horizon");
 
 		Glib::wrap_register(horizon_thread_summary_get_type(),
 		                    &Horizon::ThreadSummary_Class::wrap_new);
-		Horizon::ThreadSummary::get_type();
 		Horizon::wrap_init();
 
 		GResource* resource = horizon_get_resource();
@@ -129,29 +129,19 @@ namespace Horizon {
 		opendialog->set_enabled(true);
 		add_action(opendialog);
 
-		auto addrow = Gio::SimpleAction::create("add_row");
-		addrow->signal_activate().connect( sigc::mem_fun(*this, &Application::on_add_row) );
-		addrow->set_enabled(true);
-		add_action(addrow);
-
-		auto removerow = Gio::SimpleAction::create("remove_row");
-		removerow->signal_activate().connect( sigc::mem_fun(*this, &Application::on_remove_row) );
-		removerow->set_enabled(true);
-		add_action(removerow);
-
 		auto fullscreen = Gio::SimpleAction::create("fullscreen");
 		fullscreen->signal_activate().connect( sigc::mem_fun(*this, &Application::on_fullscreen) );
 		fullscreen->set_enabled(true);
 		add_action(fullscreen);
 
 		for (auto board : CATALOG_BOARDS) {
-			std::stringstream action_name, settings_key;
-			action_name << "toggle_board_" << board;
-			settings_key << "board-" << board;
+			Glib::ustring action_name, settings_key;
+			action_name  = Glib::ustring::compose("toggle_board_%1", board);
+			settings_key = Glib::ustring::compose("board-%1", board);
 			Glib::Variant<bool> board_default;
-			settings->get_value(settings_key.str(), board_default);
+			settings->get_value(settings_key, board_default);
 
-			auto cboard_toggle = g_simple_action_new_stateful(action_name.str().c_str(),
+			auto cboard_toggle = g_simple_action_new_stateful(action_name.c_str(),
 			                                                  NULL,
 			                                                  board_default.gobj());
 			auto board_toggle = Glib::wrap(cboard_toggle);
@@ -199,96 +189,42 @@ namespace Horizon {
 		delete dialog;
 	}
 
-	void Application::on_open_thread(const Glib::VariantBase& parameter) {
-		Glib::Variant<Glib::ustring> str_variant = Glib::VariantBase::cast_dynamic< Glib::Variant<Glib::ustring> >(parameter);
-		Glib::ustring url = str_variant.get();
-
+	static bool validate_thread_url(Glib::ustring &url) {
 		if ( url.find("4chan.org") != url.npos ) {
 			if ( auto pos = url.find("https") != url.npos ) {
 				url.erase(pos + 3, 1);
 			}
-
-			if ( url.find("http://") != url.npos ) {
-				auto t = Thread::create(url);
-				if ( thread_map.count( t->id ) == 0 ) {
-					auto tv = Gtk::manage(new ThreadView(t, settings));
-					tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
-					gsize least_elems = G_MAXSIZE;
-					Gtk::Grid *insert_grid = nullptr;
-					for ( auto iter = rows.begin(); iter != rows.end(); iter++ ) {
-						Gtk::Grid *gp = *iter;
-						std::size_t count = gp->get_children().size();
-						if ( count < least_elems ) {
-							least_elems = count;
-							insert_grid = gp;
-						}
-					}
-					if ( insert_grid ) {
-						insert_grid->add(*tv);
-						insert_grid->show();
-					} else {
-						g_error ( "Didn't find a grid to insert a threadview." );
-					}
-					threads.push_back(url);
-					settings->set_string_array("threads", threads);
-					thread_map.insert({t->id, tv});
-					manager.add_thread(t);
-					manager.update_threads();
-				}
-			}
-		}
-	}
-
-	void Application::on_add_row(const Glib::VariantBase&) {
-		std::vector<Gtk::Widget*> widgets;
-		for ( auto grid_iter = rows.begin(); grid_iter != rows.end(); grid_iter++) {
-			std::vector<Gtk::Widget*> row_widgets = (*grid_iter)->get_children();
-
-			for ( auto iter = row_widgets.rbegin(); iter != row_widgets.rend(); iter++) {
-				widgets.push_back(*iter);
-				(*grid_iter)->remove(**iter);
-			}
+			
+			if (url.find("http://") != url.npos)
+				return true;
 		}
 
-		auto gridp = new Gtk::Grid();
-		gridp->set_vexpand(true);
-		grid.add(*gridp);
-		gridp->set_column_homogeneous(true);
-		rows.push_back(gridp);
-		
-		on_rows_changed(widgets);
+		return false;
 	}
 
-	void Application::on_rows_changed(const std::vector<Gtk::Widget*> &widgets) {
-		gsize i = 0;
-		gsize row = 0;
-		while ( i < widgets.size() ) {
-			rows[row]->add(*(widgets[i]));
-			rows[row]->show();
-			i++;
-			row++;
-			if ( row >= rows.size() )
-				row = 0;
-		}
-	}
-	
-	void Application::on_remove_row(const Glib::VariantBase&) {
-		if ( rows.size() > 1 ) {
-			std::vector<Gtk::Widget*> widgets;
-			for ( auto grid_iter = rows.begin(); grid_iter != rows.end(); grid_iter++) {
-				std::vector<Gtk::Widget*> row_widgets = (*grid_iter)->get_children();
-				
-				for ( auto iter = row_widgets.begin(); iter != row_widgets.end(); iter++) {
-					widgets.push_back(*iter);
-					(*grid_iter)->remove(**iter);
-				}
+	void Application::on_open_thread(const Glib::VariantBase& parameter) {
+		Glib::Variant<Glib::ustring> vurl;
+		vurl = Glib::VariantBase::cast_dynamic< Glib::Variant<Glib::ustring> >(parameter);
+		Glib::ustring url = vurl.get();
+
+		if (validate_thread_url(url)) {
+			auto t = Thread::create(url);
+
+			if ( thread_map.count( t->id ) == 0 ) {
+				auto tv = Gtk::manage(new ThreadView(t, settings));
+				tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
+
+				notebook.append_page(*tv,
+				                     tv->get_tab_label());
+				notebook.set_tab_reorderable(*tv, true);
+				notebook.set_tab_detachable(*tv, false);
+
+				threads.push_back(url);
+				settings->set_string_array("threads", threads);
+				thread_map.insert({t->id, tv});
+				manager.add_thread(t);
+				manager.update_threads();
 			}
-
-			auto grid = rows.back();
-			rows.pop_back();
-			delete grid;
-
-			on_rows_changed(widgets);
 		}
 	}
 
@@ -338,39 +274,40 @@ namespace Horizon {
 
 	bool Application::board_combobox_add_board(const std::string &board,
 	                                           const Glib::ustring &active_board) {
-		std::stringstream label;
-		label << "/" << board << "/";
-		board_combobox->append(label.str());
+		Glib::ustring label = Glib::ustring::compose("/%1/", board);
+		board_combobox->append(label);
 		if (active_board.size() > 0 &&
-		    active_board.find(label.str()) != active_board.npos)
-			board_combobox->set_active_text(label.str());
+		    active_board.find(label) != active_board.npos)
+			board_combobox->set_active_text(label);
 		return true;
 	}
 
 	void Application::on_thread_closed(const gint64 id) {
 		auto iter = thread_map.find(id);
 		if ( iter != thread_map.end() ) {
-			manager.remove_thread(id);
 
 			ThreadView *tv = iter->second;
-			auto parent = tv->get_parent();
-			parent->remove(*tv);
-			if ( parent->get_children().size() == 0)
-				parent->hide();
+			notebook.remove_page(*tv);
+
 			thread_map.erase(iter);
 			remove_thread(id);
 		}
 	}
 
+	
 	void Application::remove_thread(const gint64 id) {
+		manager.remove_thread(id);
+
 		gchar* sid = g_strdup_printf("/res/%" G_GINT64_FORMAT, id);
-		for ( auto iter = threads.begin(); iter != threads.end(); iter++) {
-			if ( g_str_has_suffix(iter->c_str(), sid) ) {
-				threads.erase(iter);
-				settings->set_string_array("threads", threads);
-				break;
-			}
-		}
+
+		std::remove_if(threads.begin(),
+		               threads.end(),
+		               [&sid](const Glib::ustring &thread) {
+			               return g_str_has_suffix(thread.c_str(), sid);
+		               });
+
+		settings->set_string_array("threads", threads);
+
 		g_free(sid);
 	}
 
@@ -500,7 +437,7 @@ namespace Horizon {
 	                                  const Glib::ustring& key,
 	                                  const Gtk::TreeModel::iterator& iter) {
 		auto val = iter->get_value(thread_summary_columns.teaser);
-		if ( val.find(key) == val.npos ) {
+		if ( val.casefold().find(key.casefold()) == val.npos ) {
 			return true;
 		} else {
 			return false;
@@ -509,25 +446,13 @@ namespace Horizon {
 
 	Application::~Application() {
 		manager_alarm.disconnect();
-
-		for ( auto iter = rows.begin(); iter != rows.end(); iter++ ) {
-			delete *iter;
-		}
-
+		summary_alarm.disconnect();
 	}
 
 
 	Application::Application(const Glib::ustring &appid) :
 		Gtk::Application(appid)
 	{
-		grid.show();
-		grid.set_row_homogeneous(true);
-		auto gridp = new Gtk::Grid();
-		grid.add(*gridp);
-		gridp->set_vexpand(true);
-		gridp->set_column_homogeneous(true);
-		rows.push_back(gridp);
-
 		Notifier::init();
 	}
 

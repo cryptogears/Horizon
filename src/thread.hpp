@@ -115,8 +115,9 @@ namespace Horizon {
 		std::string board;
 		Glib::DateTime last_checked;
 		Glib::DateTime last_post;
+		gsize images;
 		bool is_404;
-		 Glib::TimeSpan get_update_interval() const;
+		Glib::TimeSpan get_update_interval() const;
 		void update_notify(bool was_new);
 
 		Glib::Dispatcher signal_updated_interval;
@@ -134,6 +135,8 @@ namespace Horizon {
 		 */
 		bool for_each_post(const std::function<bool  (const Glib::RefPtr<Post>&) >);
 		bool should_notify() const;
+		
+		gsize get_image_count() const;
 
 	protected:
 		Thread(std::string url);
