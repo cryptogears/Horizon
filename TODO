@@ -1,16 +1,4 @@
-o Even after ImageFetcher doesn't use Glib for eventing, I suspect
-  there will still be freezes when we call show_all() on a new 500
-  post thread. There should be a way to show a couple widgets, then
-  iterate on the main loop.
-
-o Save all downloaded images to disk, like XDG_cache_dir or
-  whatever. When "save-to" is implemented, we'll just ln or cp.
-  o in the cache metadata, keep track of how often and whatnot each
-    image is posted.
-
 o Implement replying to threads
-
-o Fix the gVim bug
 
 o Make the code pretty 
   o Application is getting beefy again, so its probably time to factor
@@ -26,3 +14,9 @@ o Think about dropping pixbuf refptrs when threads are closed.
 o Implement Save-thread-to target directory
 
 o Implement a slideshow mode. 
+
+o Even after ImageFetcher doesn't use Glib for eventing, I suspect
+  there will still be freezes when we call show_all() on a new 500
+  post thread. There should be a way to show a couple widgets, then
+  iterate on the main loop.
+  o I tried using a Dispatcher but there's still a hang somewhere.xse

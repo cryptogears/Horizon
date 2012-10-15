@@ -15,7 +15,7 @@ horizon-resources.h: horizon.gresource.xml
 pngdir = $(datadir)/icons/hicolor/scalable/apps
 png_DATA = 4chan-icon.png
 
-EXTRA_DIST = com.talisein.fourchan.native.gtk.gschema.xml $(png_DATA)
+EXTRA_DIST = horizon.gresource.xml style.css menus.xml 404-Anonymous-2.png com.talisein.fourchan.native.gtk.gschema.xml $(png_DATA)
 
 gsettings_SCHEMAS = com.talisein.fourchan.native.gtk.gschema.xml
 @GSETTINGS_RULES@
@@ -25,7 +25,9 @@ BUILT_SOURCES = \
 	horizon-resources.h \
 	$(NULL)
 
-horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c horizon_thread_summary.c thread_summary.cpp summary_cellrenderer.cpp image_cache.cpp horizon_curl.cpp
+CLEANFILES = horizon-resources.c horizon-resources.h
+
+horizon_SOURCES = main.cpp application.cpp application.hpp curler.cpp curler.hpp thread.cpp thread.hpp manager.cpp manager.hpp entities.c entities.h horizon_post.c horizon_post.h thread_view.cpp thread_view.hpp post_view.cpp post_view.hpp image_fetcher.cpp image_fetcher.hpp notifier.cpp notifier.hpp html_parser.cpp html_parser.hpp horizon_image.cpp horizon_image.hpp horizon-resources.c horizon_thread_summary.c horizon_thread_summary.h thread_summary.cpp thread_summary.hpp summary_cellrenderer.cpp summary_cellrenderer.hpp image_cache.cpp image_cache.hpp horizon_curl.cpp horizon_curl.hpp
 
 UPDATE_ICON_CACHE = gtk-update-icon-cache -f -t $(datadir)/icons/hicolor || :
 

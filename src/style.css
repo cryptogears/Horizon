@@ -80,3 +80,7 @@ GtkNotebook tab {
     font: Arial 13;
 }
 
+#commentgrid {
+    padding: 0px;
+    margin: 0px;
+}

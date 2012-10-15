@@ -268,6 +268,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = src
 desktopdir = $(datadir)/applications
 desktop_DATA = horizon.desktop
+EXTRA_DIST = horizon.desktop
 UPDATE_DESKTOP = update-desktop-database $(datadir)/applications || :
 all: all-recursive
 
@@ -624,23 +625,6 @@ distcheck: dist
 	@(echo "$(distdir) archives ready for distribution: "; \
 	  list='$(DIST_ARCHIVES)'; for i in $$list; do echo $$i; done) | \
 	  sed -e 1h -e 1s/./=/g -e 1p -e 1x -e '$$p' -e '$$x'
-distuninstallcheck:
-	@test -n '$(distuninstallcheck_dir)' || { \
-	  echo 'ERROR: trying to run $@ with an empty' \
-	       '$$(distuninstallcheck_dir)' >&2; \
-	  exit 1; \
-	}; \
-	$(am__cd) '$(distuninstallcheck_dir)' || { \
-	  echo 'ERROR: cannot chdir into $(distuninstallcheck_dir)' >&2; \
-	  exit 1; \
-	}; \
-	test `$(am__distuninstallcheck_listfiles) | wc -l` -eq 0 \
-	   || { echo "ERROR: files left after uninstall:" ; \
-	        if test -n "$(DESTDIR)"; then \
-	          echo "  (check DESTDIR support)"; \
-	        fi ; \
-	        $(distuninstallcheck_listfiles) ; \
-	        exit 1; } >&2
 distcleancheck: distclean
 	@if test '$(srcdir)' = . ; then \
 	  echo "ERROR: distcleancheck can only run from a VPATH build" ; \
@@ -785,6 +769,8 @@ install-data-hook:
 	$(UPDATE_DESKTOP)
 uninstall-hook: 
 	$(UPDATE_DESKTOP)
+distuninstallcheck:
+	@:
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

@@ -1,0 +1,93 @@
+Horizon
+
+A native GTK+ browser for 4chan.
+
+Dependencies:
+        glibmm-2.32
+        gtkmm-3.4
+        gnome-keyring > 3.0
+        libcurl > 7.24 (Lower versions will probably work, just modify configure.ac)
+        json-glib > 0.14
+        libxml2 > 2.7.8
+        libev > 4.04
+
+To build it, you'll need the -devel/-dev versions of the above
+packages. There is no binary distribution yet, so you have to build
+it. :) Also, its written in C++11 so you'll need a g++ of the same age
+as the libraries.
+
+There is a buildable tarball in the github 'Downloads' area.
+
+Features:
+
+        Catalog pane on left. Choose which boards are browsible
+        through the menu.  (Worksafe boards only, since its pulled
+        from catalog.neet.tv)
+
+        You can search for any thread in the catalog by typing in the
+        entrybox next to the combobox above the catalog view. Use
+        up/down arrows to navigate through multiple matches.
+
+        If you click on the 'Threads' label above the catalog, the
+        catalog will be sorted by the number of posts in the thread
+        divided by the age of the thread. This seems to work pretty
+        well for finding active threads, at least on /a/.
+
+        Add _any_ 4chan thread through the menu, or Ctrl-t. This will
+        work for non-worksafe threads.
+
+        Click on pictures to make them big. Again to make them small.
+
+        Opened threads are remembered across invocations. So if it
+        crashes, you get the same threads you had open immediately.
+
+        Every picture is downloaded to ~/.share/local/horizon or the
+        equivalent, so be aware. I'll add a file cleanup utility
+        later.
+
+        Desktop notifications are automatically enabled for threads
+        that have been idle for more than 5 minutes. To disable this,
+        for now you have to use:
+        # gsettings set com.talisein.fourchan.native.gtk notify-idle false
+
+        You can also enable notifications for every post through the
+        toggle switch.
+
+        If the original filename was something like
+        "1333910354345.jpg", next to the original filename will be the
+        parsed UNIX date, e.g. "April 8, 2012". Now you know just how
+        much of a newfag everyone is.
+
+        In the thread tabs, the LP field tells you how long it has
+        been since the last post.
+
+        At the header of each thread is something like
+                  "<Thread Subject> - <Thread Author> (30s)"
+        The 30s tells you the present polling period horizon is using
+        for this thread. There is no way to force a refresh. There is
+        no "countdown" to refresh because I don't want one. Deal with
+        it.
+
+        Code tags on /g/ will be displayed in an embedded gVim
+        window. gVim won't know what syntax highlighting to turn on
+        automatically though, so you'll have to do that through the
+        menu. Bummer.
+
+        You can enable autoscrolling through the toggle switch. Be
+        aware that at present, expanding any picture will force a
+        scroll to the bottom in this mode.
+
+Coming soon:
+
+       Tagging images, viewing archived image metadata, replying,
+       creating threads, deleting old pictures, expand all,
+       save-to-location, thread slideshow mode, thread archiving (with
+       associated browsing mode for finding those old threads),
+       emailing moot to complain.
+
+       I'm only going to enable replying if you have a 4chan
+       pass. Since there's no ads, this seems like the best
+       compromise.
+
+
+
