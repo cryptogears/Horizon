@@ -88,8 +88,8 @@ namespace Horizon {
 			hints.insert({"image-data", image_data});
 			g_object_unref(scaled_pixbuf);
 		} else {
-			Glib::VariantContainerBase image_data = get_variant_from_pixbuf(default_icon->gobj());
-			hints.insert({"image-data", image_data});
+			//Glib::VariantContainerBase image_data = get_variant_from_pixbuf(default_icon->gobj());
+			//hints.insert({"image-data", image_data});
 		}
 
 		auto vresident = Glib::Variant<bool>::create(true);

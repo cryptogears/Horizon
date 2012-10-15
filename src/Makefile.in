@@ -15,6 +15,7 @@
 
 @SET_MAKE@
 
+
 VPATH = @srcdir@
 am__make_dryrun = \
   { \
@@ -60,7 +61,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(install_sh) -d
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)"
+am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(pngdir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_horizon_OBJECTS = main.$(OBJEXT) application.$(OBJEXT) \
 	curler.$(OBJEXT) thread.$(OBJEXT) manager.$(OBJEXT) \
@@ -70,7 +71,7 @@ am_horizon_OBJECTS = main.$(OBJEXT) application.$(OBJEXT) \
 	html_parser.$(OBJEXT) horizon_image.$(OBJEXT) \
 	horizon-resources.$(OBJEXT) horizon_thread_summary.$(OBJEXT) \
 	thread_summary.$(OBJEXT) summary_cellrenderer.$(OBJEXT) \
-	image_cache.$(OBJEXT)
+	image_cache.$(OBJEXT) horizon_curl.$(OBJEXT)
 horizon_OBJECTS = $(am_horizon_OBJECTS)
 am__DEPENDENCIES_1 =
 horizon_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -97,6 +98,34 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+    *) f=$$p;; \
+  esac;
+am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
+am__install_max = 40
+am__nobase_strip_setup = \
+  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
+am__nobase_strip = \
+  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
+am__nobase_list = $(am__nobase_strip_setup); \
+  for p in $$list; do echo "$$p $$p"; done | \
+  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
+  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
+    if (++n[$$2] == $(am__install_max)) \
+      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
+    END { for (dir in files) print dir, files[dir] }'
+am__base_list = \
+  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
+  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
+DATA = $(png_DATA)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -215,14 +244,17 @@ top_srcdir = @top_srcdir@
 INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(JSON_CFLAGS) $(LIBXML_CFLAGS) $(LIBEV_CFLAGS)
 horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS) $(LIBEV_LIBS)
 AM_CXXFLAGS = -Wall -Wextra -pedantic -D_FORTIFY_SOURCE=2 -ggdb -g3
-EXTRA_DIST = com.talisein.fourchan.native.gtk.gschema.xml
+pngdir = $(datadir)/icons/hicolor/scalable/apps
+png_DATA = 4chan-icon.png
+EXTRA_DIST = com.talisein.fourchan.native.gtk.gschema.xml $(png_DATA)
 gsettings_SCHEMAS = com.talisein.fourchan.native.gtk.gschema.xml
 BUILT_SOURCES = \
 	horizon-resources.c \
 	horizon-resources.h \
 	$(NULL)
 
-horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c horizon_thread_summary.c thread_summary.cpp summary_cellrenderer.cpp image_cache.cpp
+horizon_SOURCES = main.cpp application.cpp curler.cpp thread.cpp manager.cpp entities.c horizon_post.c thread_view.cpp post_view.cpp image_fetcher.cpp notifier.cpp html_parser.cpp horizon_image.cpp horizon-resources.c horizon_thread_summary.c thread_summary.cpp summary_cellrenderer.cpp image_cache.cpp horizon_curl.cpp
+UPDATE_ICON_CACHE = gtk-update-icon-cache -f -t $(datadir)/icons/hicolor || :
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -312,6 +344,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/curler.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/entities.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon-resources.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_curl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_image.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_post.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/horizon_thread_summary.Po@am__quote@
@@ -354,6 +387,27 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+install-pngDATA: $(png_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(png_DATA)'; test -n "$(pngdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(pngdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(pngdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pngdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pngdir)" || exit $$?; \
+	done
+
+uninstall-pngDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(png_DATA)'; test -n "$(pngdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(pngdir)'; $(am__uninstall_files_from_dir)
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -440,9 +494,9 @@ distdir: $(DISTFILES)
 check-am: all-am
 check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-am
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(PROGRAMS) $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(bindir)"; do \
+	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(pngdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: $(BUILT_SOURCES)
@@ -499,8 +553,9 @@ info: info-am
 
 info-am:
 
-install-data-am:
-
+install-data-am: install-pngDATA
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 install-dvi: install-dvi-am
 
 install-dvi-am:
@@ -544,22 +599,25 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS
-
-.MAKE: all check install install-am install-strip
+uninstall-am: uninstall-binPROGRAMS uninstall-pngDATA
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
+.MAKE: all check install install-am install-data-am install-strip \
+	uninstall-am
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-binPROGRAMS \
 	clean-generic ctags distclean distclean-compile \
 	distclean-generic distclean-tags distdir dvi dvi-am html \
 	html-am info info-am install install-am install-binPROGRAMS \
-	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
-	uninstall-am uninstall-binPROGRAMS
+	install-data install-data-am install-data-hook install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-pngDATA install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
+	ps ps-am tags uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-hook uninstall-pngDATA
 
 
 horizon-resources.c: horizon.gresource.xml style.css menus.xml 4chan-icon.png
@@ -568,6 +626,11 @@ horizon-resources.c: horizon.gresource.xml style.css menus.xml 4chan-icon.png
 horizon-resources.h: horizon.gresource.xml
 	glib-compile-resources --target=$@ --sourcedir=$(srcdir) --generate-header --c-name horizon $(srcdir)/horizon.gresource.xml
 @GSETTINGS_RULES@
+
+install-data-hook: 
+	$(UPDATE_ICON_CACHE)
+uninstall-hook: 
+	$(UPDATE_ICON_CACHE)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

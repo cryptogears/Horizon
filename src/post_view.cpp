@@ -136,6 +136,13 @@ namespace Horizon {
 		return comment.get_text();
 	}
 
+	Glib::RefPtr<Gdk::Pixbuf> PostView::get_image() const {
+		if (image)
+			return image->get_image();
+		else
+			return Glib::RefPtr<Gdk::Pixbuf>();
+	}
+
 	void PostView::set_comment_grid() {
 		auto parser = HtmlParser::getHtmlParser();
 		auto strings = parser->html_to_pango(post->get_comment(), post->get_thread_id());

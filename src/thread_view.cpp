@@ -156,7 +156,9 @@ namespace Horizon {
 			
 			notifier->notify(thread->id,// id,
 			                 "New 4chan post",// summary,
-			                 iter->second->get_comment_body());// body,
+			                 iter->second->get_comment_body(), // body,
+			                 "4chan-icon",
+			                 iter->second->get_image());
 		}
 
 		return thread->is_404;

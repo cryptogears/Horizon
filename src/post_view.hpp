@@ -27,6 +27,8 @@ namespace Horizon {
 		void set_comment_grid();
 		
 		Glib::ustring get_comment_body() const;
+		Glib::RefPtr<Gdk::Pixbuf> get_image() const;
+
 	private:
 		PostView() = delete;
 		PostView(const PostView&) = delete;

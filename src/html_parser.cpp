@@ -72,7 +72,9 @@ namespace Horizon {
 	                                        const xmlChar* name) {
 
 		HtmlParser *hp = static_cast<HtmlParser*>(user_data);
-		std::string sname(reinterpret_cast<const char*>(name));
+		std::stringstream s;
+		s << reinterpret_cast<const char*>(name);
+		std::string sname(s.str());
 
 		if ( sname.size() == 1 &&
 		     sname.find("a") != sname.npos ) {
@@ -191,10 +193,11 @@ namespace Horizon {
 		HtmlParser* hp = static_cast<HtmlParser*>(user_data);
 		if (!hp->is_code_tagged) {
 			gchar* cstr = g_markup_escape_text(reinterpret_cast<const gchar*>(chars), size);
-			hp->built_string.append(static_cast<char*>(cstr));
+			hp->built_string.append(Glib::ustring(cstr));
 			g_free(cstr);
 		} else {
-			hp->built_string.append(Glib::ustring(reinterpret_cast<const char*>(chars), size));
+			std::string str(reinterpret_cast<const char*>(chars), size);
+			hp->built_string.append(str);
 		}
 	}
 

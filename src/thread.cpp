@@ -1,4 +1,5 @@
 #include "thread.hpp"
+#include <cstdlib>
 #include <iostream>
 #include <iomanip>
 #include <chrono>
@@ -338,10 +339,7 @@ namespace Horizon {
 		iter++;
 		if ( iter != posts.rend() ) {
 			auto slast = Glib::DateTime::create_now_utc(iter->second->get_unix_time());
-			const Glib::TimeSpan diff = last.difference(slast);
-			if ( diff < 0 ) {
-				g_error("Negative TimeSpan created!");
-			}
+			const Glib::TimeSpan diff = std::abs(last.difference(slast));
 			return diff > NOTIFICATION_INTERVAL;
 		} 
 

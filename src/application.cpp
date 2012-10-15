@@ -74,14 +74,28 @@ namespace Horizon {
 		}
 	}
 
+	/* Called every time the executable is run */
 	void Application::on_activate() {
 		Gtk::Application::on_activate();
+	}
+
+
+	void Application::on_startup() {
+		Gtk::Application::on_startup();
+		std::cerr << "on_startup()" << std::endl;
+		Glib::set_application_name("Horizon");
 
 		Glib::wrap_register(horizon_thread_summary_get_type(),
 		                    &Horizon::ThreadSummary_Class::wrap_new);
 		Horizon::ThreadSummary::get_type();
-		
 		Horizon::wrap_init();
+
+		GResource* resource = horizon_get_resource();
+		g_resources_register(resource);
+
+		manager.signal_thread_updated.connect(sigc::mem_fun(*this, &Application::onUpdates));
+		manager.signal_catalog_updated.connect(sigc::mem_fun(*this, &Application::on_catalog_update));
+
 
 		settings = Gio::Settings::create("com.talisein.fourchan.native.gtk");
 
@@ -93,25 +107,13 @@ namespace Horizon {
 
 		auto threads = settings->get_string_array("threads");
 		for (auto thread : threads) {
-			std::cerr << "Opening thread " << thread << " automatically." << std::endl;
 			activate_action("open_thread", Glib::Variant<Glib::ustring>::create(thread));
 		}
-
 
 		manager_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::update_threads), 3);
 
 		summary_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::update_catalogs), 30);
 
-	}
-
-	void Application::on_startup() {
-		Gtk::Application::on_startup();
-		Glib::set_application_name("Horizon");
-		GResource* resource = horizon_get_resource();
-		g_resources_register(resource);
-
-		manager.signal_thread_updated.connect(sigc::mem_fun(*this, &Application::onUpdates));
-		manager.signal_catalog_updated.connect(sigc::mem_fun(*this, &Application::on_catalog_update));
 	}
 
 	void Application::setup_actions() {

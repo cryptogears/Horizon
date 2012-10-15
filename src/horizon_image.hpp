@@ -19,6 +19,7 @@ namespace Horizon {
 		                                     sigc::slot<void, const ImageState&>);
 		~Image() = default;
 
+		Glib::RefPtr<Gdk::Pixbuf> get_image() const;
 
 	protected:
 		Image(const Glib::RefPtr<Post>&,

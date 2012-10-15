@@ -211,6 +211,17 @@ namespace Horizon {
 		}
 	}
 
+	Glib::RefPtr<Gdk::Pixbuf> Image::get_image() const {
+		if (thumbnail_image)
+			return thumbnail_image;
+		else if (unscaled_animation)
+			return unscaled_animation->get_static_image();
+		else if (unscaled_image)
+			return unscaled_image;
+		else
+			return Glib::RefPtr<Gdk::Pixbuf>();
+	}
+
 	Gtk::SizeRequestMode Image::get_request_mode_vfunc() const {
 		return Gtk::SIZE_REQUEST_HEIGHT_FOR_WIDTH;
 	}

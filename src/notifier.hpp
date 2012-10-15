@@ -19,7 +19,7 @@ namespace Horizon {
 		void notify(const gint64 id,
 		            const std::string &summary,
 		            const std::string &body,
-		            const std::string &icon_url = "",
+		            const std::string &icon_url = "4chan-icon",
 		            const Glib::RefPtr<Gdk::Pixbuf> &image = Glib::RefPtr<Gdk::Pixbuf>());
 
 	protected:

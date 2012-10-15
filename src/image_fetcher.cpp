@@ -136,25 +136,26 @@ namespace Horizon {
 	 * Called on ev_thread
 	 */
 	void ImageFetcher::start_new_download() {
-		std::list< std::pair<CURL*, std::shared_ptr<Request>* > > work_list;
+		std::list< std::pair<std::shared_ptr<CurlEasy>,
+		                     std::shared_ptr<Request>* > > work_list;
 		{
 			Glib::Mutex::Lock lock(curl_data_mutex);
 			while ( !curl_queue.empty() ) {
 				if (request_queue.empty()) {
 					break;
 				} else {
-					CURL *curl = curl_queue.front();
+					std::shared_ptr<CurlEasy> easy = curl_queue.front();
 					curl_queue.pop();
 					std::shared_ptr<Request> *request = new std::shared_ptr<Request>();
 					*request = request_queue.front();
 					request_queue.pop();
-					work_list.push_back({curl, request});
+					work_list.push_back({easy, request});
 				}
 			}
-		}			
+		}
 
 		for (auto pair : work_list) {
-			CURL *curl = pair.first;
+			std::shared_ptr<CurlEasy> easy = pair.first;
 			std::shared_ptr<Request> *request = pair.second;
 				
 			if ((*request)->is_thumb) {
@@ -178,15 +179,14 @@ namespace Horizon {
 				loader.reset();
 				bool loader_error = false;
 
-				curl_easy_reset(curl);
-				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, horizon_curl_writeback);
-				curl_easy_setopt(curl, CURLOPT_WRITEDATA, static_cast<void*>(request));
-				curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-				curl_easy_setopt(curl, CURLOPT_PRIVATE, static_cast<void*>(request));
-				curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
-				curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_error_buffer);
-				curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
-				curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+				easy->reset();
+				easy->set_write_function(horizon_curl_writeback, static_cast<void*>(request));
+				easy->set_url(url);
+				easy->set_private(static_cast<void*>(request));
+				easy->set_fail_on_error();
+				easy->set_error_buffer(curl_error_buffer);
+				easy->set_connect_timeout(3);
+				easy->set_no_signal();
 			
 				try {
 					// Supports "jpeg" "gif" "png"
@@ -203,25 +203,23 @@ namespace Horizon {
 							Glib::Mutex::Lock lock(thumbs_mutex);
 							thumb_streams.insert({hash, loader});
 						}
-						curl_multi_add_handle(curlm, curl);
-						running_curls.push_back(curl);
+						curl_multi->add_handle(easy);
 					} else {
 						{
 							Glib::Mutex::Lock lock(images_mutex);
 							image_streams.insert({hash, loader});
 						}
-						curl_multi_add_handle(curlm, curl);
-						running_curls.push_back(curl);
+						curl_multi->add_handle(easy);
 					}
 				} else {
 					std::cerr << "Download aborted for url " << url << std::endl;
 					Glib::Mutex::Lock lock(curl_data_mutex);
-					curl_queue.push(curl);
+					curl_queue.push(easy);
 					queue_w.send();
 				}
 			} else {
 				Glib::Mutex::Lock lock(curl_data_mutex);
-				curl_queue.push(curl);
+				curl_queue.push(easy);
 				queue_w.send();
 			}
 		} // for work_list
@@ -334,10 +332,7 @@ namespace Horizon {
 	 */
 	bool ImageFetcher::curl_timeout_expired_cb() {
 		int old_handles = running_handles;
-		CURLMcode code = curl_multi_socket_action(curlm, CURL_SOCKET_TIMEOUT, 0, &running_handles);
-		if (G_UNLIKELY( code != CURLM_OK )) {
-			g_warning("Curl socket error from timeout: %s", curl_multi_strerror(code));
-		}
+		curl_multi->socket_action_timeout(&running_handles);
 
 		if ( running_handles < old_handles)
 			curl_check_info();
@@ -349,14 +344,9 @@ namespace Horizon {
 	 */
 	void ImageFetcher::curl_event_cb(ev::io &w, int) {
 		curl_socket_t s = static_cast<curl_socket_t>(w.fd);
-		CURLMcode code;
 		int old_handles = running_handles;
 
-		code = curl_multi_socket_action(curlm, s, 0, &running_handles);
-		if (G_UNLIKELY( code != CURLM_OK )) {
-			g_error("Error: Curl socket action error from event: %s",
-			        curl_multi_strerror(code));
-		}
+		curl_multi->socket_action(s, 0, &running_handles);
 
 		if ( running_handles < old_handles)
 			curl_check_info();
@@ -416,11 +406,7 @@ namespace Horizon {
 		}
 
 		curl_setsock(info, s, easy, action);
-		CURLMcode code = curl_multi_assign(curlm, s, info);
-		if (G_UNLIKELY( code != CURLM_OK )) {
-			g_error("Error: Unable to assign Socket_Info to socket : %s",
-			        curl_multi_strerror(code));
-		}
+		curl_multi->multi_assign(s, info);
 	}
 
 	/*
@@ -730,14 +716,13 @@ namespace Horizon {
 		int msgs_left;
 		CURL* curl;
 		CURLcode res;
-		CURLMcode mcode;
 		CURLMsg* msg;
 		bool download_error = false;
 		bool download_error_404 = false;
 		std::shared_ptr<Request> *request_p;
-
+		std::shared_ptr<CurlEasy> easy;
 		do { 
-			msg = curl_multi_info_read(curlm, &msgs_left);
+			msg = curl_multi->info_read(&msgs_left);
 			if (msg) {
 				switch(msg->msg) {
 				case CURLMSG_DONE:
@@ -757,12 +742,14 @@ namespace Horizon {
 						}
 					}
 
+					easy = curl_multi->remove_handle(curl);
+					/*
 					mcode = curl_multi_remove_handle(curlm, curl);
 					if (G_UNLIKELY(mcode != CURLM_OK)) {
 						g_error("While removing curl handle from multi: %s",
 						        curl_multi_strerror(mcode));
 					}
-
+					*/
 					if (G_LIKELY(!download_error)) {
 						create_pixmap(*request_p);
 					} else {
@@ -773,9 +760,7 @@ namespace Horizon {
 					
 					{
 						Glib::Mutex::Lock lock(curl_data_mutex);
-						auto iter = std::find(running_curls.begin(), running_curls.end(), curl);
-						running_curls.erase(iter);
-						curl_queue.push(curl);
+						curl_queue.push(easy);
 					}
 					queue_w.send();
 					break;
@@ -793,13 +778,6 @@ namespace Horizon {
 	}
 
 	void ImageFetcher::on_kill_loop_w(ev::async &, int) {
-		Glib::Mutex::Lock lock(curl_data_mutex);
-		for (auto curl : running_curls ) {
-			curl_multi_remove_handle(curlm, curl);
-		}
-
-		running_curls.clear();
-
 		kill_loop_w.stop();
 		queue_w.stop();
 	}
@@ -812,43 +790,10 @@ namespace Horizon {
 		start_new_download();
 	}
 
-	std::shared_ptr<CurlEasy> CurlEasy::create() {
-		return std::shared_ptr<CurlEasy>(new CurlEasy());
-	}
-
-	CurlEasy::CurlEasy() {
-		cptr = curl_easy_init();
-	}
-
-	CurlEasy::~CurlEasy() {
-		curl_easy_cleanup(cptr);
-	}
-
-	CURL* CurlEasy::get() {
-		return cptr;
-	}
-
-	std::shared_ptr<CurlMulti> CurlMulti::create() {
-		return std::shared_ptr<CurlMulti>(new CurlMulti());
-	}
-
-	CurlMulti::CurlMulti() {
-		cptr = curl_multi_init();
-	}
-
-	CurlMulti::~CurlMulti() {
-		curl_multi_cleanup(cptr);
-	}
-
-	CURLM* CurlMulti::get() {
-		return cptr;
-	}
-	
 	ImageFetcher::ImageFetcher() :
 		image_cache(ImageCache::get()),
 		curl_error_buffer(g_new0(char, CURL_ERROR_SIZE)),
 		curl_multi(CurlMulti::create()),
-		curlm(curl_multi->get()),
 		running_handles(0),
 		ev_loop(ev::AUTO),
 		kill_loop_w(ev_loop),
@@ -857,16 +802,13 @@ namespace Horizon {
 	{
 		Glib::Mutex::Lock lock(curl_data_mutex);
 		signal_pixbuf_ready.connect( sigc::mem_fun(*this, &ImageFetcher::on_pixbuf_ready) );
-		
-		curl_multi_setopt(curlm, CURLMOPT_SOCKETFUNCTION, &curl_socket_cb);
-		curl_multi_setopt(curlm, CURLMOPT_SOCKETDATA, this);
-		curl_multi_setopt(curlm, CURLMOPT_TIMERFUNCTION, &curl_timer_cb);
-		curl_multi_setopt(curlm, CURLMOPT_TIMERDATA, this);
+
+		curl_multi->set_socket_function(&curl_socket_cb, this);
+		curl_multi->set_timer_function(&curl_timer_cb, this);
 
 		for (int i = 0; i < 3; i++) {
-			auto curleasy = CurlEasy::create();
-			curl_queue.push(curleasy->get());
-			curl_easy_list.push_back(curleasy);
+			auto easy = CurlEasy::create();
+			curl_queue.push(easy);
 		}
 
 		queue_w.set<ImageFetcher, &ImageFetcher::on_queue_w> (this);

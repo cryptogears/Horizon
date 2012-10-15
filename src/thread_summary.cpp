@@ -69,7 +69,13 @@ namespace Horizon {
 	}
 
 	const std::string ThreadSummary::get_url() const {
-		return horizon_thread_summary_get_url(gobj());
+		const gchar *url = horizon_thread_summary_get_url(gobj());
+		std::stringstream s;
+
+		if (url)
+			s << static_cast<const char *>(url);
+
+		return s.str();
 	}
 
 	const std::string ThreadSummary::get_teaser() const {

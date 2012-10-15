@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=0.1a
+Name=Horizon
+GenericName=4chan Browser
+Icon=4chan-icon
+Exec=horizon
+Terminal=true
+StartupNotify=true
+Catagories=Network;WebBrowser;GTK
+Keywords=4chan
