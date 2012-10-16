@@ -82,6 +82,7 @@ namespace Horizon {
 		std::string get_number() const;
 		std::string get_name() const;
 		std::string get_tripcode() const;
+		std::string get_capcode() const;
 		std::string get_original_filename() const;
 		std::string get_image_ext() const;
 		std::string get_hash() const;

@@ -1,5 +1,5 @@
 AC_PREREQ([2.68])
-AC_INIT([horizon], [0.1], [agpotter@gmail.com])
+AC_INIT([horizon], [0.1.1], [agpotter@gmail.com])
 AC_CONFIG_SRCDIR([src/])
 AC_CONFIG_MACRO_DIR([m4/])
 

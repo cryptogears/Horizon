@@ -871,3 +871,8 @@ horizon_post_is_not_same_post(const HorizonPost *left, const HorizonPost *right)
 		lpriv->closed != rpriv->closed ||
 		lpriv->is_file_deleted != rpriv->is_file_deleted;
 }
+
+const gchar *
+horizon_post_get_capcode(const HorizonPost *post) {
+	return post->priv->capcode;
+}

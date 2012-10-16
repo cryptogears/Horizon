@@ -96,10 +96,12 @@ namespace Horizon {
 			hp->strings.push_back(hp->built_string);
 			hp->built_string.clear();
 			hp->is_code_tagged = false;
+		} else if ( sname.compare("em") == 0 ) {
+			hp->built_string.append("</i>");
 		}
 
 		else 
-			std::cerr << "End tag: " << sname << std::endl;
+			std::cerr << "Debug: Unhandled tag \"/" << sname << "\"" << std::endl;
 	}
 
 	void horizon_html_parser_on_start_element(void* user_data,
@@ -173,12 +175,33 @@ namespace Horizon {
 				hp->strings.push_back(hp->built_string);
 				hp->built_string.clear();
 				hp->is_code_tagged = true;
+			} else if ( sname.compare("a") == 0 &&
+			            sattrs.find("href") != sattrs.end() ) {
+				stream << "<a href=\"" << sattrs["href"] << "\"><span color=\"#34345C\">";
+				hp->built_string.append(stream.str());
+			} else if (sname.compare("span") == 0) {
+				stream << "<span>";
+				std::cerr << "Debug: Unhandled span attributes: ";
+				for ( auto pair : sattrs )
+					std::cerr << "\"" << pair.first << "\" = \"" << pair.second << "\" ";
+				std::cerr << std::endl;					
+				hp->built_string.append(stream.str());
+			} else if (sname.compare("em") == 0) {
+				stream << "<i>";
+				hp->built_string.append(stream.str());
 			}
 
 			else {
-				std::cerr << "Start tag " << name;
-				for ( auto pair : sattrs )
-					std::cerr << " " << pair.first << "=" << pair.second;
+				std::cerr << "Debug: Unhandled tag \"" << name << "\"";
+				if (sattrs.size() > 0) {
+					std::cerr << " with attribute";
+					if (sattrs.size() > 1)
+						std::cerr << "s";
+					std::cerr << ": ";
+					
+					for ( auto pair : sattrs )
+						std::cerr << "\"" << pair.first << "\" = \"" << pair.second << "\" ";
+				}
 				std::cerr << std::endl;					
 			}
 		} catch (std::exception e) {

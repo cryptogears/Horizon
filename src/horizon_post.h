@@ -77,4 +77,6 @@ gboolean horizon_post_set_rendered (HorizonPost *post, const gboolean rendered);
 gboolean horizon_post_is_rendered (const HorizonPost *post) G_GNUC_PURE;
 gboolean horizon_post_is_same_post (const HorizonPost *left, const HorizonPost *right) G_GNUC_PURE;
 gboolean horizon_post_is_not_same_post (const HorizonPost *left, const HorizonPost *right) G_GNUC_PURE;
+const gchar * horizon_post_get_capcode(const HorizonPost *post);
+
 #endif

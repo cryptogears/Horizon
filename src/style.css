@@ -34,9 +34,24 @@ GtkNotebook tab {
     padding-right:  20px;
 }
 
-#name {
+#name, #tripcode {
     color: @name;
+}
+
+#name, #capcode_admin, #capcode_admin_highlight, #capcode_developer, #capcode_mod {
     font-weight: bold;
+}
+
+#capcode_admin, #capcode_admin_highlight {
+    color: #F00;
+}
+
+#capcode_developer {
+    color: #0000F0
+}
+
+#capcode_mod {
+    color: #800080
 }
 
 #subject {

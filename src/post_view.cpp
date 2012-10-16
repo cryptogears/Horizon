@@ -43,11 +43,36 @@ namespace Horizon {
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
 		post_info_grid.add(*label);
 
-		label = Gtk::manage(new Gtk::Label(post->get_name()));
-		label->set_name("name");
+		Glib::ustring capcode = post->get_capcode();
+		Glib::ustring name = post->get_name();
+		Glib::ustring tripcode = post->get_tripcode();
+		if (capcode.size() > 0) {
+			capcode = Glib::ustring::compose("%1%2",
+			                                 capcode.substr(0, 1).uppercase(),
+			                                 capcode.substr(1));
+			Glib::ustring namecap = Glib::ustring::compose("%1%2 ## %3",
+			                                               name,
+			                                               tripcode,
+			                                               capcode);
+			label = Gtk::manage(new Gtk::Label(namecap));
+			label->set_name("capcode_" + post->get_capcode());
+		} else {
+			label = Gtk::manage(new Gtk::Label(name));
+			label->set_name("name");
+			label->set_ellipsize(Pango::ELLIPSIZE_END);
+		}
 		label->set_hexpand(false);
-		label->set_ellipsize(Pango::ELLIPSIZE_END);
 		post_info_grid.add(*label);
+
+		if (capcode.size() == 0 &&
+		    tripcode.size() > 0) {
+			label = Gtk::manage(new Gtk::Label(post->get_tripcode()));
+			label->set_name("tripcode");
+			label->set_hexpand(false);
+			label->set_ellipsize(Pango::ELLIPSIZE_END);
+			post_info_grid.add(*label);
+		}
+
 
 		label = Gtk::manage(new Gtk::Label(post->get_time_str()));
 		label->set_name("time");

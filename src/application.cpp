@@ -246,7 +246,15 @@ namespace Horizon {
 	}
 
 	void Application::on_fullscreen(const Glib::VariantBase&) {
+		static bool is_fullscreen = false;
 
+		if (is_fullscreen) {
+			window->unfullscreen();
+			is_fullscreen = false;
+		} else {
+			window->fullscreen();
+			is_fullscreen = true;
+		}
 	}
 
 	void Application::on_board_toggle(const Glib::VariantBase &v,

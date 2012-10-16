@@ -140,6 +140,17 @@ namespace Horizon {
 		return out.str();
 	}
 
+	std::string Post::get_capcode() const {
+		const gchar *capcode = horizon_post_get_capcode(gobj());
+		std::stringstream out;
+
+		if (capcode) {
+			out << capcode;
+		}
+
+		return out.str();
+	}
+
 	std::string Post::get_number() const {
 		gint64 id = horizon_post_get_post_number(gobj());
 		std::stringstream out;
