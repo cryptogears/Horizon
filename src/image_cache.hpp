@@ -1,6 +1,5 @@
 #ifndef IMAGE_CACHE_HPP
 #define IMAGE_CACHE_HPP
-#include <libev/ev++.h>
 #include <vector>
 #include <set>
 #include <deque>
@@ -11,6 +10,13 @@
 #include <giomm/memoryinputstream.h>
 #include <gdkmm/pixbufloader.h>
 #include "thread.hpp"
+
+#ifdef HAVE_EV___H
+#include <ev++.h>
+#else
+#include <libev/ev++.h>
+#endif
+
 
 namespace Horizon {
 

@@ -8,6 +8,7 @@
 * {
     font: Arial;
     font-size: 12;
+    color: black;
 }
 
 GtkNotebook, #frame, #threadview > GtkViewport {

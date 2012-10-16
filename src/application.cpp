@@ -96,18 +96,29 @@ namespace Horizon {
 		manager.signal_thread_updated.connect(sigc::mem_fun(*this, &Application::onUpdates));
 		manager.signal_catalog_updated.connect(sigc::mem_fun(*this, &Application::on_catalog_update));
 
+		auto schemas = Gio::Settings::list_schemas();
+		auto iter = std::find(schemas.begin(),
+		                      schemas.end(),
+		                      "com.talisein.fourchan.native.gtk");
+		if (iter != schemas.end()) {
+			GSettings* csettings = g_settings_new("com.talisein.fourchan.native.gtk");
 
-		settings = Gio::Settings::create("com.talisein.fourchan.native.gtk");
+			if (csettings)
+				settings = Glib::wrap(csettings);
+		} else {
+			std::cerr << "Error: GSettings schema not found. No actions in this session will be remembered. Did you 'make install'?" << std::endl;
+		}
 
 		board_combobox = Gtk::manage(new Gtk::ComboBoxText());
 		setup_actions();
 		setup_window();
 
 		manager.update_catalogs();
-
-		auto threads = settings->get_string_array("threads");
-		for (auto thread : threads) {
-			activate_action("open_thread", Glib::Variant<Glib::ustring>::create(thread));
+		if ( settings ) {
+			auto threads = settings->get_string_array("threads");
+			for (auto thread : threads) {
+				activate_action("open_thread", Glib::Variant<Glib::ustring>::create(thread));
+			}
 		}
 
 		manager_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::update_threads), 3);
@@ -135,11 +146,15 @@ namespace Horizon {
 		add_action(fullscreen);
 
 		for (auto board : CATALOG_BOARDS) {
-			Glib::ustring action_name, settings_key;
-			action_name  = Glib::ustring::compose("toggle_board_%1", board);
-			settings_key = Glib::ustring::compose("board-%1", board);
 			Glib::Variant<bool> board_default;
-			settings->get_value(settings_key, board_default);
+			Glib::ustring action_name = Glib::ustring::compose("toggle_board_%1", board);
+			if (settings) {
+				Glib::ustring settings_key;
+				settings_key = Glib::ustring::compose("board-%1", board);
+				settings->get_value(settings_key, board_default);
+			} else {
+				board_default = Glib::Variant<bool>::create(false);
+			}
 
 			auto cboard_toggle = g_simple_action_new_stateful(action_name.c_str(),
 			                                                  NULL,
@@ -220,7 +235,9 @@ namespace Horizon {
 				notebook.set_tab_detachable(*tv, false);
 
 				threads.push_back(url);
-				settings->set_string_array("threads", threads);
+				if (settings) {
+					settings->set_string_array("threads", threads);
+				}
 				thread_map.insert({t->id, tv});
 				manager.add_thread(t);
 				manager.update_threads();
@@ -234,20 +251,30 @@ namespace Horizon {
 
 	void Application::on_board_toggle(const Glib::VariantBase &v,
 	                                  const std::string &board) {
-		Glib::Variant<bool> new_setting;
 		const std::string settings_key("board-" + board);
-		bool toggle_board = false;
 		const bool action_from_menu = v.gobj() == nullptr;
+		bool toggle_board = false;
+		Glib::Variant<bool> new_setting;
+
 		if ( action_from_menu ) {
 			// There was no input, so we toggle the old setting
-			toggle_board = !settings->get_boolean(settings_key);
+			if (settings) {
+				toggle_board = !settings->get_boolean(settings_key);
+			} else {
+				auto lambda = [&board](const std::string &catalog_board) {
+					return (catalog_board.compare(board) == 0);
+				};
+				toggle_board = ! manager.for_each_catalog_board(lambda);
+			}
 		} else {
 			auto b = Glib::VariantBase::cast_dynamic<Glib::Variant<bool> >(v);
 			toggle_board = b.get();
 		}
 
 		new_setting = Glib::Variant<bool>::create( toggle_board );
-		settings->set_value(settings_key, new_setting);
+		if (settings) {
+			settings->set_value(settings_key, new_setting);
+		}
 
 		if (toggle_board) {
 			if (manager.add_catalog_board(board)) {
@@ -306,7 +333,9 @@ namespace Horizon {
 			               return g_str_has_suffix(thread.c_str(), sid);
 		               });
 
-		settings->set_string_array("threads", threads);
+		if (settings) {
+			settings->set_string_array("threads", threads);
+		}
 
 		g_free(sid);
 	}

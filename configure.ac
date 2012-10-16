@@ -22,7 +22,7 @@ PKG_CHECK_MODULES([KEYRING], [gnome-keyring-1 >= 3.0])
 PKG_CHECK_MODULES([CURL], [libcurl >= 7.24.0])
 PKG_CHECK_MODULES([JSON], [json-glib-1.0 >= 0.14.0])
 PKG_CHECK_MODULES([LIBXML], [libxml-2.0 >= 2.7.8])
-PKG_CHECK_MODULES([LIBEV], [libev >= 4.04])
+PKG_CHECK_MODULES([LIBEV], [libev >= 4.04], [], [AC_CHECK_HEADERS([ev++.h],[],[AC_CHECK_HEADERS([libev/ev++.h],[],AC_MSG_ERROR([libev/ev++.h not found]))]) AC_CHECK_LIB([ev],[ev_sleep],[LIBEV_LIBS=-lev],AC_MSG_ERROR([libev required]))])
 
 AC_SUBST([GLIBMM_LIBS])
 AC_SUBST([GLIBMM_CFLAGS])

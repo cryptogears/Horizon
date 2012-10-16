@@ -28,7 +28,7 @@ namespace Horizon {
 		void set_connect_timeout(long timeout);
 		void set_no_signal();
 		
-		friend CurlMulti;
+		friend class CurlMulti;
 	private:
 		CurlEasy();
 		CurlEasy(const CurlEasy&) = delete;

@@ -190,9 +190,15 @@ namespace Horizon {
 		was_new = thread->for_each_post(functor);
 		thread->update_notify(was_new);
 
+		bool should_notify = true;
+		if (settings) {
+			Glib::ustring key = "notify-idle";
+			should_notify = settings->get_boolean(key);
+		}
+
 		if ( was_new &&
-		     (thread->should_notify() ||
-		      notify_switch.get_active())) {
+		     ( (should_notify && thread->should_notify()) ||
+		       notify_switch.get_active())) {
 			auto iter = post_map.rbegin();
 			
 			notifier->notify(thread->id,// id,

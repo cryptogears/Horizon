@@ -16,10 +16,15 @@
 #include <glibmm/main.h>
 #include <gdkmm/pixbufloader.h>
 #include <glibmm/dispatcher.h>
-#include <libev/ev++.h>
 #include <glibmm/threads.h>
 #include "image_cache.hpp"
 #include "horizon_curl.hpp"
+
+#ifdef HAVE_EV___H
+#include <ev++.h>
+#else
+#include <libev/ev++.h>
+#endif
 
 namespace Horizon {
 	struct Socket_Info {
