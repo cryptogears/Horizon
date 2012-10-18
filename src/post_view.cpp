@@ -181,7 +181,7 @@ namespace Horizon {
 			for ( ; iter != strings.end(); iter++) {
 				if (is_code) {
 					Gtk::Socket* socket = Gtk::manage(new Gtk::Socket());
-					socket->set_size_request(-1, 300);
+					socket->set_size_request(800, 300);
 					socket->set_hexpand(true);
 					viewport_grid.add(*socket);
 					guint64 id = socket->get_id();
