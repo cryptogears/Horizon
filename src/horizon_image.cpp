@@ -118,15 +118,26 @@ namespace Horizon {
 		                                     animation_iter->get_delay_time());
 	}
 
+	/* TODO: have image_fetcher tell us if it is a real animation or
+	   not.
+
+	   TODO: have image_fetcher tell us if it was a 404 and handle
+	   that image here rather than there.
+	 */
 	void Image::on_image_ready(std::string hash) {
 		if ( post->get_hash().find(hash) == std::string::npos ) 
 			return;
+		if (image_connection.connected())
+			image_connection.disconnect();
 		if (post->is_gif()) {
 			if ( ! unscaled_animation ) {
-				if (image_connection.connected())
-					image_connection.disconnect();
-				auto animation = ifetcher->get_animation(hash);
-				if (animation->is_static_image()) {
+				if (ifetcher->has_animation(hash)) {
+					unscaled_animation = ifetcher->get_animation(hash);
+				} else {
+					unscaled_image = ifetcher->get_image(hash);
+				}
+				/* End 404 hack */
+				if (unscaled_animation->is_static_image()) {
 					unscaled_image = animation->get_static_image();
 				} else {
 					unscaled_animation = animation;
@@ -139,8 +150,6 @@ namespace Horizon {
 			}
 		} else {
 			if ( ! unscaled_image ) {
-				if (image_connection.connected())
-					image_connection.disconnect();
 				unscaled_image = ifetcher->get_image(hash);
 			}
 		}
@@ -160,6 +169,8 @@ namespace Horizon {
 		show_all();
 	}
 
+	/* TODO: spoiler state
+	 */
 	bool Image::on_image_click(GdkEventButton *) {
 		switch (image_state) {
 		case NONE:
