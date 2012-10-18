@@ -10,6 +10,7 @@
 #include <gtkmm/scrolledwindow.h>
 #include <gtkmm/frame.h>
 #include <gtkmm/switch.h>
+#include <gtkmm/togglebutton.h>
 #include "thread.hpp"
 #include "post_view.hpp"
 #include "notifier.hpp"
@@ -37,6 +38,7 @@ namespace Horizon {
 		Gtk::Grid control_grid;
 		Gtk::Switch notify_switch;
 		Gtk::Switch autoscroll_switch;
+		Gtk::ToggleButton expand_button;
 
 		Gtk::EventBox tab_window;
 		Gtk::Label tab_label;
@@ -64,6 +66,7 @@ namespace Horizon {
 		void on_updated_interval();
 		void do_close_thread();
 		void on_scrollbar_changed();
+		void on_expand_all();
 	};
 
 }

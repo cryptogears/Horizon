@@ -21,6 +21,8 @@ namespace Horizon {
 
 		Glib::RefPtr<Gdk::Pixbuf> get_image() const;
 
+		void set_state(const ImageState new_state);
+
 	protected:
 		Image(const Glib::RefPtr<Post>&,
 		      sigc::slot<void, const Image::ImageState&>);
@@ -59,6 +61,7 @@ namespace Horizon {
 		void fetch_image();
 		void on_thumb_ready(std::string hash);
 		void on_image_ready(std::string hash);
+		void set_none_state();
 		void set_thumb_state();
 		void set_expand_state();
 		sigc::connection thumb_connection;

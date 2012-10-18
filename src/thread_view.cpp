@@ -10,6 +10,7 @@
 #include <gtkmm/stock.h>
 #include "thread.hpp"
 #include "html_parser.hpp"
+#include "horizon_image.hpp"
 
 extern "C" {
 #include "horizon-resources.h"
@@ -23,6 +24,7 @@ namespace Horizon {
 		thread(t),
 		swindow(),
 		vadjustment(swindow.get_vadjustment()),
+		expand_button("Expand All"),
 		settings(s),
 		notifier(Notifier::getNotifier())
 	{
@@ -46,6 +48,11 @@ namespace Horizon {
 
 		control_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		control_grid.set_border_width(2);
+		control_grid.set_column_spacing(5);
+
+		expand_button.set_name("expand_all");
+		expand_button.signal_toggled().connect( sigc::mem_fun(*this, &ThreadView::on_expand_all) );
+		control_grid.add(expand_button);
 
 		Gtk::Label *notify_label = Gtk::manage(new Gtk::Label("Notify on New "));
 		control_grid.add(*notify_label);
@@ -53,6 +60,7 @@ namespace Horizon {
 		Gtk::Label *autoscroll_label = Gtk::manage(new Gtk::Label("Auto-Scroll "));
 		control_grid.add(*autoscroll_label);
 		control_grid.add(autoscroll_switch);
+
 
 		Gtk::Button *close = Gtk::manage(new Gtk::Button(Gtk::Stock::CLOSE));
 		close->set_name("closebutton");
@@ -163,6 +171,9 @@ namespace Horizon {
 					iter->second->add_linkback(post->get_id());
 				}
 			}
+
+			if (expand_button.get_active())
+				pv->set_image_state(Image::EXPAND);
 		}
 
 		signal_unshown_views();
@@ -349,6 +360,22 @@ namespace Horizon {
 			                               interval);
 
 			static_cast<Gtk::Label*>(get_label_widget())->set_markup(label_markup);
+		}
+	}
+
+	void ThreadView::on_expand_all() {
+		if (expand_button.get_active()) {
+			std::for_each(post_map.begin(),
+			              post_map.end(),
+			              [](std::pair<gint64, PostView*> pair) {
+				              pair.second->set_image_state(Image::EXPAND);
+			              });
+		} else {
+			std::for_each(post_map.begin(),
+			              post_map.end(),
+			              [](std::pair<gint64, PostView*> pair) {
+				              pair.second->set_image_state(Image::THUMBNAIL);
+			              });
 		}
 	}
 }

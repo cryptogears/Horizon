@@ -221,6 +221,11 @@ namespace Horizon {
 		return true;
 	}
 
+	void PostView::set_image_state(const Image::ImageState new_state) {
+		if (image)
+			image->set_state(new_state);
+	}
+
 	void PostView::on_image_state_changed(const Image::ImageState &state) {
 		switch (state) {
 		case Image::NONE:

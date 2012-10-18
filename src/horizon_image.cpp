@@ -177,6 +177,31 @@ namespace Horizon {
 		show_all();
 	}
 
+	void Image::set_none_state() {
+		image_state = NONE;
+		state_changed_dispatcher();
+		refresh_size_request();
+		image.hide();
+	}
+
+	void Image::set_state(const ImageState new_state) {
+		switch (new_state) {
+		case NONE:
+			set_none_state();
+			break;
+		case THUMBNAIL:
+			set_thumb_state();
+			break;
+		case EXPAND:
+		case FULL:
+			if (!unscaled_image)
+				fetch_image();
+			else
+				set_expand_state();
+			break;
+		}
+	}
+
 	/* TODO: spoiler state
 	 */
 	bool Image::on_image_click(GdkEventButton *) {
@@ -221,9 +246,12 @@ namespace Horizon {
 				new_width = static_cast<int>(scale * static_cast<float>(post->get_width()));
 			}
 
-			scaled_image = unscaled_image->scale_simple(new_width,
-			                                            new_height,
-			                                            Gdk::INTERP_BILINEAR);
+			if (new_width > 0 && new_height > 0) {
+				scaled_image = unscaled_image->scale_simple(new_width,
+				                                            new_height,
+				                                            Gdk::INTERP_BILINEAR);
+			}
+
 			image.set(scaled_image);
 			scaled_height = new_height;
 			scaled_width = new_width;
