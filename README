@@ -78,17 +78,61 @@ Features:
         aware that at present, expanding any picture will force a
         scroll to the bottom in this mode.
 
+        You can expand all images in a thread using the expand all
+        button. Unpressing the button will cause all images to be
+        thumbnails.
+
+        Autogif: Animated gifs are downloaded and displayed as
+        thumbnails by default. One day I will add a GSetting key for
+        this behavior.
+
 Coming soon:
 
        Tagging images, viewing archived image metadata, replying,
-       creating threads, deleting old pictures, expand all,
-       save-to-location, thread slideshow mode, thread archiving (with
-       associated browsing mode for finding those old threads),
-       emailing moot to complain.
+       creating threads, deleting old pictures, save-to-location,
+       thread slideshow mode, thread archiving (with associated
+       browsing mode for finding those old threads), emailing moot to
+       complain.
 
        I'm only going to enable replying if you have a 4chan
        pass. Since there's no ads, this seems like the best
        compromise.
 
+Bugs:
+        Images, more specifically images' uncompressed pixbufs, are
+        never expunged from memory right now. Browsing for 12 hours
+        will use like 9 gigs of memory. Its an easy fix (now that
+        images are cached to disk) but I haven't gotten to it yet.
 
+        If you double click thread images, you may trigger 2 downloads
+        of the same image. Its an easy fix but I haven't gotten to it
+        yet.
 
+        If you don't have gvim installed you're not going to see
+        anything in code tags. It would be relatively bothersome to
+        fix.
+
+        All images are downloaded to disk (~/.local/share/horizon, or
+        your equivalent XDG location). Browsing /a/ for a week has
+        consumed 1G of space. But since many images are posted over
+        and over again, this is okay, right~? One day I'll add a file
+        cleanup utility. For now, just buy a bigger hard drive.
+          The catalog is pulled from catalog.neet.tv, though. And
+          their thumbnails are not named the same as 4chans [1], so I
+          have to pull their version of the thumbnail [2]. Even worse,
+          they apparently don't compress their thumbnails very
+          well. of 150 MB of thumbnails, 140 MB is due to the
+          catalog. And none of the catalog images will ever be used
+          after they drop from the catalog, even if a thread is
+          created with the same image, so its a waste [3]. Anyways,
+          4chan will have a catalog api one day, moot told me himself!
+          In the meantime I'll add an automatic cleaner for these
+          useless expired catalog images. One day.
+          [1] 4chan names their images after the UNIX timestamp +
+              milliseconds, but the catalog JSON only has the UNIX
+              timestamp, no milliseconds.
+          [2] Unless download the entire thread.json for every thread
+              in the catalog. No thanks.
+          [3] A waste except that we don't download catalog images
+              more than once even across involkations of the
+              program. Which I tend to do a lot.
