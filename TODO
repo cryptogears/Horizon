@@ -1,3 +1,5 @@
+o Don't store every pixbuf in memory forever.
+
 o Implement replying to threads
 
 o Make the code pretty 

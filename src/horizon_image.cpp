@@ -36,7 +36,12 @@ namespace Horizon {
 		signal_state_changed.connect(state_change_callback);
 
 		if (post->has_image()) {
-			fetch_thumbnail();
+			std::string ext = post->get_image_ext();
+			if (ext.compare(".gif") == 0) {
+				fetch_image();
+			} else {
+				fetch_thumbnail();
+			}
 		} else {
 			g_error("Horizon::Image created for post %" G_GINT64_FORMAT
 			        " that has no image.",
@@ -83,7 +88,8 @@ namespace Horizon {
 			}
 		}
 
-		set_thumb_state();
+		if (image_state == NONE)
+			set_thumb_state();
 	}
 
 	void Image::set_thumb_state() {
@@ -138,9 +144,8 @@ namespace Horizon {
 				}
 				/* End 404 hack */
 				if (unscaled_animation->is_static_image()) {
-					unscaled_image = animation->get_static_image();
+					unscaled_image = unscaled_animation->get_static_image();
 				} else {
-					unscaled_animation = animation;
 					animation_time.assign_current_time();
 					animation_iter = unscaled_animation->get_iter(&animation_time);
 					unscaled_image = animation_iter->get_pixbuf();
@@ -159,7 +164,10 @@ namespace Horizon {
 			return;
 		}
 
-		set_expand_state();
+		if (image_state == NONE)
+			set_thumb_state();
+		else
+			set_expand_state();
 	}
 
 	void Image::set_expand_state() {
