@@ -115,10 +115,16 @@ namespace Horizon {
 
 		manager.update_catalogs();
 		if ( settings ) {
-			auto threads = settings->get_string_array("threads");
-			for (auto thread : threads) {
-				activate_action("open_thread", Glib::Variant<Glib::ustring>::create(thread));
-			}
+			std::vector <Glib::ustring> threads = settings->get_string_array("threads");
+			auto iter_end = std::unique(threads.begin(), threads.end());
+			auto add_thread_functor = std::bind(&Application::activate_action,
+			                                    this, "open_thread",
+			                                    std::bind(&Glib::Variant<Glib::ustring>::create,
+			                                              std::placeholders::_1));
+
+			std::for_each(threads.begin(),
+			              iter_end,
+			              add_thread_functor);
 		}
 
 		manager_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::update_threads), 3);
@@ -235,9 +241,13 @@ namespace Horizon {
 				notebook.set_tab_detachable(*tv, false);
 
 				threads.push_back(url);
+				std::sort(threads.begin(),
+				          threads.end());
+
 				if (settings) {
 					settings->set_string_array("threads", threads);
 				}
+
 				thread_map.insert({t->id, tv});
 				manager.add_thread(t);
 				manager.update_threads();
@@ -317,12 +327,18 @@ namespace Horizon {
 		return true;
 	}
 
+
+	/*
+	 * Handle ThreadView closures
+	 */
 	void Application::on_thread_closed(const gint64 id) {
 		auto iter = thread_map.find(id);
 		if ( iter != thread_map.end() ) {
 
 			ThreadView *tv = iter->second;
-			notebook.remove_page(*tv);
+			int pagenum = notebook.page_num(*tv);
+			if (pagenum != -1)
+				notebook.remove_page(pagenum);
 
 			thread_map.erase(iter);
 			remove_thread(id);
@@ -330,16 +346,21 @@ namespace Horizon {
 	}
 
 	
+	/*
+	 * Removes thread from manager. This happens on 404s and
+	 * ThreadView closures.
+	 */
 	void Application::remove_thread(const gint64 id) {
 		manager.remove_thread(id);
 
 		gchar* sid = g_strdup_printf("/res/%" G_GINT64_FORMAT, id);
 
-		std::remove_if(threads.begin(),
-		               threads.end(),
-		               [&sid](const Glib::ustring &thread) {
-			               return g_str_has_suffix(thread.c_str(), sid);
-		               });
+		threads.erase(std::remove_if(threads.begin(),
+		                             threads.end(),
+		                             [&sid](const Glib::ustring &thread) {
+			                             return g_str_has_suffix(thread.c_str(), sid);
+		                             }),
+		              threads.end());
 
 		if (settings) {
 			settings->set_string_array("threads", threads);
