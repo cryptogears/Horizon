@@ -4,6 +4,7 @@
 #include <glibmm/fileutils.h>
 #include <glibmm/uriutils.h>
 #include "image_cache.hpp"
+#include "utils.hpp"
 
 
 namespace Horizon {
@@ -762,6 +763,7 @@ namespace Horizon {
 	}
 
 	ImageCache::ImageCache() :
+		ev_thread(nullptr),
 		ev_loop(ev::AUTO),
 		kill_loop_w(ev_loop),
 		write_queue_w(ev_loop),
@@ -777,9 +779,23 @@ namespace Horizon {
 		kill_loop_w.start();
 		flush_w.start();
 
-		ev_thread = Glib::Threads::Thread::create( sigc::mem_fun(*this, &ImageCache::loop) );
+		const sigc::slot<void> slot = sigc::mem_fun(*this, &ImageCache::loop);
+		int trycount = 0;
+
+		while ( ev_thread == nullptr && trycount++ < 10 ) {
+			try {
+				ev_thread = Horizon::create_named_thread("ImageCache",
+				                                         slot);
+			} catch ( Glib::Threads::ThreadError e) {
+				if (e.code() != Glib::Threads::ThreadError::AGAIN) {
+					g_error("Couldn't create ImageFetcher thread: %s",
+					        e.what().c_str());
+				}
+			}
+		}
+		
+
 		if (!ev_thread)
 			g_error ("Couldn't spin up ImageCache thread.");
 	}
-
 }

@@ -1,6 +1,7 @@
 #include "manager.hpp"
 #include <iostream>
 #include <utility>
+#include "utils.hpp"
 
 namespace Horizon {
 
@@ -59,106 +60,103 @@ namespace Horizon {
 	}
 
 	/* Runs in a separate thread */
-	void Manager::catalog_loop() {
-		while (true) {
-			bool is_new = false;
-			std::list< std::pair<std::string, std::string> > pairs;
-			{
-				Glib::Threads::Mutex::Lock lock(catalog_mutex);
-				for ( auto board : boards ) {
-					std::stringstream url;
-					url << "http://catalog.neet.tv/" << board << "/threads.json";
-					pairs.push_back({url.str(), board});
-				}
-			}
+	void Manager::check_catalogs() {
+		bool is_new = false;
+		std::vector< std::pair<std::string, std::string> > pairs;
+		{
+			Glib::Threads::Mutex::Lock lock(catalog_mutex);
+			pairs.reserve(boards.size());
+			std::transform(boards.begin(),
+			               boards.end(),
+			               std::back_inserter(pairs),
+			               [](const std::string &board) {
+				               std::stringstream url;
+				               url << "http://catalog.neet.tv/" << board << "/threads.json";
+				               return std::make_pair(url.str(), board);
+			               });
+		}
 
-			for (auto pair : pairs) {
-				std::string url = pair.first;
-				std::string board = pair.second;
-				try {
-					Glib::Threads::Mutex::Lock lock(curler_mutex);
-					std::list<Glib::RefPtr<ThreadSummary> > new_summaries = curler.pullBoard(url, board);
+		for (auto pair : pairs) {
+			std::string url = pair.first;
+			std::string board = pair.second;
+			try {
+				Glib::Threads::Mutex::Lock lock(curler_mutex);
+				std::list<Glib::RefPtr<ThreadSummary> > new_summaries = curler.pullBoard(url, board);
 
-					if (new_summaries.size() > 0) {
-						Glib::Threads::Mutex::Lock lock(catalog_mutex);
-						auto iter = catalogs.find(board);
-						if (iter != catalogs.end()) {
-							// TODO We want update the summary. For now, replace
-							catalogs.erase(iter);
-						}
-						catalogs.insert({board, new_summaries});
-
-						updated_boards.insert(board);
-						is_new = true;
+				if (new_summaries.size() > 0) {
+					Glib::Threads::Mutex::Lock lock(catalog_mutex);
+					auto iter = catalogs.find(board);
+					if (iter != catalogs.end()) {
+						// TODO We want update the summary. For now, replace
+						catalogs.erase(iter);
 					}
-				} catch (Thread404 e) {
-					std::cerr << "Got 404 while trying to pull catalog from "
-					          <<  url << std::endl;
-				} catch (CurlException e) {
-					std::cerr << "Error: While pulling the catalog for "
-					          << "/" << board << "/ :"
-					          << e.what() << std::endl;
+					catalogs.insert({board, new_summaries});
+
+					updated_boards.insert(board);
+					is_new = true;
 				}
-			} // for boards
-			if (is_new)
-				signal_catalog_updated();
-			{
-				Glib::Threads::Mutex::Lock lock(catalog_mutex);
-				catalog_cond.wait(catalog_mutex);
+			} catch (Thread404 e) {
+				std::cerr << "Got 404 while trying to pull catalog from "
+				          <<  url << std::endl;
+			} catch (CurlException e) {
+				std::cerr << "Error: While pulling the catalog for "
+				          << "/" << board << "/ :"
+				          << e.what() << std::endl;
 			}
-		} // while true
+		} // for boards
+		if (is_new)
+			signal_catalog_updated();
 	}
 
 	/* Runs in a separate thread */
-	void Manager::threads_loop() {
-		while (true) {
-			// Build a list of threads that are past due for an update
-			std::list<std::shared_ptr<Thread>> threads_to_check;
-			Glib::DateTime now = Glib::DateTime::create_now_utc();
+	void Manager::check_threads() {
+		// Build a list of threads that are past due for an update
+		std::vector<std::pair<gint64, std::shared_ptr<Thread> > > threads_to_check;
+		Glib::DateTime now = Glib::DateTime::create_now_utc();
 			
-			{
-				Glib::Threads::Mutex::Lock lock(threads_mutex);
-				for(auto iter = threads.begin(); iter != threads.end(); iter++) {
-					Glib::TimeSpan diff = now.difference(iter->second->last_checked);
-					if ( diff > iter->second->get_update_interval() && !iter->second->is_404 ) {
-						threads_to_check.push_back(iter->second);
-					}
-				}
-			}
+		{
+			Glib::Threads::Mutex::Lock lock(threads_mutex);
+			threads_to_check.reserve(threads.size());
+			std::copy_if(threads.begin(),
+			             threads.end(),
+			             std::back_inserter(threads_to_check),
+			             [&now](std::pair<gint64, std::shared_ptr<Thread> > pair) {
+				             std::shared_ptr<Thread> t = pair.second;
+				             Glib::TimeSpan diff = std::abs(now.difference(t->last_checked));
+				             return ( diff > t->get_update_interval() &&
+				                      !t->is_404 );
+			             });
+		}
 
 
-			for ( auto thread : threads_to_check ) {
-				try{
-					Glib::Threads::Mutex::Lock lock(curler_mutex);
-					std::list<Glib::RefPtr<Post> > posts = curler.pullThread(thread);
-					thread->last_checked = Glib::DateTime::create_now_utc();
+		for ( auto pair : threads_to_check ) {
+			auto thread = pair.second;
+			try{
+				Glib::Threads::Mutex::Lock lock(curler_mutex);
+				std::list<Glib::RefPtr<Post> > posts = curler.pullThread(thread);
+				thread->last_checked = Glib::DateTime::create_now_utc();
 
-					if (posts.size() > 0) {
-						auto iter = posts.rbegin();
-						thread->last_post = Glib::DateTime::create_now_utc((*iter)->get_unix_time());
-						thread->updatePosts(posts);
-						push_updated_thread(thread->id);
-					}
-				} catch (Thread404 e) {
-					thread->is_404 = true;
+				if (posts.size() > 0) {
+					auto iter = posts.rbegin();
+					thread->last_post = Glib::DateTime::create_now_utc((*iter)->get_unix_time());
+					thread->updatePosts(posts);
 					push_updated_thread(thread->id);
-					signal_thread_updated();
-					signal_404(thread->id);
-				} catch (Concurrency e) {
-					// This should be impossible since we are using the mutex.
-					g_critical("Manager's Curler is being used by more than one thread.");
-				} catch (TooFast e) {
-					g_warning("Attempted to hit the 4chan JSON API faster than once a second.");
-				} catch (CurlException e) {
-					g_warning("Got Curl error: %s", e.what());
 				}
-			} // for threads_to_check
-			signal_thread_updated();
-			{
-				Glib::Threads::Mutex::Lock lock(threads_mutex);
-				threads_cond.wait(threads_mutex);
+			} catch (Thread404 e) {
+				thread->is_404 = true;
+				push_updated_thread(thread->id);
+				signal_thread_updated();
+				signal_404(thread->id);
+			} catch (Concurrency e) {
+				// This should be impossible since we are using the mutex.
+				g_critical("Manager's Curler is being used by more than one thread.");
+			} catch (TooFast e) {
+				g_warning("Attempted to hit the 4chan JSON API faster than once a second.");
+			} catch (CurlException e) {
+				g_warning("Got Curl error: %s", e.what());
 			}
-		} // while true
+		} // for threads_to_check
+		signal_thread_updated();
 	}
 
 	/*
@@ -231,51 +229,95 @@ namespace Horizon {
 		}
 	}
 
-	static void launch_new_thread(Glib::Threads::Thread *&thread,
-	                              sigc::slot<void> slot) {
-		int trycount = 0;
-		while ( thread == nullptr ) {
-			try {
-				trycount++;
-				thread = Glib::Threads::Thread::create( slot );
-			} catch (Glib::Threads::ThreadError e) {
-				if ( e.code() == Glib::Threads::ThreadError::AGAIN ) {
-					if (trycount > 20) {
-						g_warning("Unable to create a new thread. Trycount: %d, Message: %s", trycount, e.what().c_str());
-						break;
-					}
-				} else {
-					g_warning("Unable to create a new thread. Trycount: %d Message: %s", trycount, e.what().c_str());
-					break;
-				}
-			} 
-		}
-	}
-
 	bool Manager::update_catalogs() {
-		Glib::Threads::Mutex::Lock lock(catalog_mutex);
-		if (G_UNLIKELY(catalog_thread == nullptr)) {
-			launch_new_thread(catalog_thread, sigc::mem_fun(*this, &Manager::catalog_loop));
-		}
-		catalog_cond.signal();
+		catalog_queue_w.send();
+
 		return true;
 	}
 
 	bool Manager::update_threads() {
-		Glib::Threads::Mutex::Lock lock(threads_mutex);
-		if (threads_thread == nullptr) {
-			launch_new_thread(threads_thread, sigc::mem_fun(*this, &Manager::threads_loop));
-		}
+		thread_queue_w.send();
 
-		threads_cond.signal();
 		return true;
 	}
 
+	void Manager::on_catalog_queue_w(ev::async &, int) {
+		check_catalogs();
+	}
+
+	void Manager::on_thread_queue_w(ev::async &, int) {
+		check_threads();
+	}
+
+	void Manager::on_kill_thread_w(ev::async &, int) {
+		thread_queue_w.stop();
+		kill_thread_w.stop();
+	}
+
+	void Manager::on_kill_catalog_w(ev::async &, int) {
+		catalog_queue_w.stop();
+		kill_catalog_w.stop();
+	}
+
 	Manager::Manager() :
-		catalog_thread(nullptr)
+		ev_catalog_thread(nullptr),
+		ev_thread_thread(nullptr),
+		ev_catalog_loop(ev::AUTO),
+		ev_thread_loop(ev::AUTO),
+		thread_queue_w(ev_thread_loop),
+		catalog_queue_w(ev_catalog_loop),
+		kill_thread_w(ev_thread_loop),
+		kill_catalog_w(ev_catalog_loop)
 	{
+		thread_queue_w.set<Manager, &Manager::on_thread_queue_w> (this);
+		catalog_queue_w.set<Manager, &Manager::on_catalog_queue_w> (this);
+		kill_thread_w.set<Manager, &Manager::on_kill_thread_w> (this);
+		kill_catalog_w.set<Manager, &Manager::on_kill_catalog_w> (this);
+		thread_queue_w.start();
+		catalog_queue_w.start();
+		kill_thread_w.start();
+		kill_catalog_w.start();
+
+		const sigc::slot<void> catalog_slot = sigc::bind(sigc::mem_fun(ev_catalog_loop, &ev::dynamic_loop::run), 0);
+		const sigc::slot<void> thread_slot = sigc::bind(sigc::mem_fun(ev_thread_loop, &ev::dynamic_loop::run), 0);
+		int trycount = 0;
+
+		while ( ev_catalog_thread == nullptr && trycount++ < 10 ) {
+			try {
+				ev_catalog_thread = Horizon::create_named_thread("Catalog Curler",
+				                                                 catalog_slot);
+			} catch ( Glib::Threads::ThreadError e) {
+				if (e.code() != Glib::Threads::ThreadError::AGAIN) {
+					g_error("Couldn't create ImageFetcher thread: %s",
+					        e.what().c_str());
+				}
+			}
+		}
+
+		trycount = 0;
+		while ( ev_thread_thread == nullptr && trycount++ < 10 ) {
+			try {
+				ev_thread_thread = Horizon::create_named_thread("Thread Curler",
+				                                                thread_slot);
+			} catch ( Glib::Threads::ThreadError e) {
+				if (e.code() != Glib::Threads::ThreadError::AGAIN) {
+					g_error("Couldn't create ImageFetcher thread: %s",
+					        e.what().c_str());
+				}
+			}
+		}
+
+		if (!ev_catalog_thread)
+			g_error("Couldn't spin up Catalog Thread");
+		if (!ev_thread_thread)
+			g_error("Couldn't spin up Thread Thread");
+
 	}
 
 	Manager::~Manager() {
+		kill_catalog_w.send();
+		kill_thread_w.send();
+		ev_catalog_thread->join();
+		ev_thread_thread->join();
 	}
 }

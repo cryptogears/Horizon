@@ -8,6 +8,12 @@
 #include "curler.hpp"
 #include "thread_summary.hpp"
 
+#ifdef HAVE_EV___H
+#include <ev++.h>
+#else
+#include <libev/ev++.h>
+#endif
+
 namespace Horizon {
 
 	class Manager {
@@ -36,31 +42,41 @@ namespace Horizon {
 		Glib::Dispatcher signal_thread_updated;
 
 	private:
-		/* Threaded Loops */
-		void threads_loop() G_GNUC_NORETURN;
-		void catalog_loop() G_GNUC_NORETURN;
-
 		/* Thread variables */
 		mutable Glib::Threads::Mutex threads_mutex;
-		mutable Glib::Threads::Cond threads_cond;
-		Glib::Threads::Thread *threads_thread;
 		std::map<gint64, std::shared_ptr<Thread>> threads;
 		std::set<gint64> updatedThreads;
 		void push_updated_thread(const gint64);
 		void signal_404(const gint64 id);
+		void check_threads();
+		void check_catalogs();
 
 		/* Catalog variables */
 		mutable Glib::Threads::Mutex catalog_mutex;
-		mutable Glib::Threads::Cond catalog_cond;
-		Glib::Threads::Thread *catalog_thread;
 		std::map<std::string, std::list<Glib::RefPtr<ThreadSummary> > > catalogs;
 		std::set<std::string> boards;
 		std::set<std::string> updated_boards;
 
 		/* Curler is shared by both threads */
-		Glib::Threads::Mutex curler_mutex;
+		mutable Glib::Threads::Mutex curler_mutex;
 		Curler curler;
 
+		Glib::Threads::Thread *ev_catalog_thread;
+		Glib::Threads::Thread *ev_thread_thread;
+		ev::dynamic_loop       ev_catalog_loop;
+		ev::dynamic_loop       ev_thread_loop;
+
+		ev::async               thread_queue_w;
+		void                   on_thread_queue_w(ev::async &w, int);
+
+		ev::async               catalog_queue_w;
+		void                   on_catalog_queue_w(ev::async &w, int);
+
+		ev::async               kill_thread_w;
+		void                   on_kill_thread_w(ev::async &w, int);
+
+		ev::async               kill_catalog_w;
+		void                   on_kill_catalog_w(ev::async &w, int);
 	};
 
 }

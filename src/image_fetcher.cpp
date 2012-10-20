@@ -1,6 +1,7 @@
 #include "image_fetcher.hpp"
 #include <iostream>
 #include <glibmm/fileutils.h>
+#include "utils.hpp"
 
 namespace Horizon {
 	std::shared_ptr<ImageFetcher> ImageFetcher::get(FETCH_TYPE type) {
@@ -795,6 +796,7 @@ namespace Horizon {
 		curl_error_buffer(g_new0(char, CURL_ERROR_SIZE)),
 		curl_multi(CurlMulti::create()),
 		running_handles(0),
+		ev_thread(nullptr),
 		ev_loop(ev::AUTO),
 		kill_loop_w(ev_loop),
 		queue_w(ev_loop),
@@ -819,7 +821,21 @@ namespace Horizon {
 
 		timeout_w.set<ImageFetcher, &ImageFetcher::on_timeout_w> (this);
 
-		ev_thread = Glib::Threads::Thread::create( sigc::bind(sigc::mem_fun(ev_loop, &ev::dynamic_loop::run),0) );
+		const sigc::slot<void> slot = sigc::bind(sigc::mem_fun(ev_loop, &ev::dynamic_loop::run),0);
+		int trycount = 0;
+
+		while ( ev_thread == nullptr && trycount++ < 10 ) {
+			try {
+				ev_thread = Horizon::create_named_thread("ImageFetcher",
+				                                         slot);
+			} catch ( Glib::Threads::ThreadError e) {
+				if (e.code() != Glib::Threads::ThreadError::AGAIN) {
+					g_error("Couldn't create ImageFetcher thread: %s",
+					        e.what().c_str());
+				}
+			}
+		}
+		
 		if (!ev_thread)
 			g_error("Couldn't spin up ImageFetcher thread");
 	}
