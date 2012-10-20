@@ -53,9 +53,15 @@ namespace Horizon {
 		Glib::RefPtr<Gdk::PixbufAnimation> unscaled_animation;
 		Glib::RefPtr<Gdk::PixbufAnimationIter> animation_iter;
 		Glib::TimeVal animation_time;
-		void on_animation_timeout();
+		bool on_animation_timeout();
 		int scaled_width, scaled_height;
 		bool is_scaled;
+
+		sigc::connection animation_timeout;
+		void on_image_unmap();
+		void on_image_unrealize();
+		bool on_image_draw(const Cairo::RefPtr< Cairo::Context > &cr);
+		void reset_animation_iter();
 
 		void fetch_thumbnail();
 		void fetch_image();
@@ -70,7 +76,6 @@ namespace Horizon {
 
 		void refresh_size_request();
 		void set_new_scaled_image(const int width, const int height);
-		bool on_image_draw(const Cairo::RefPtr<Cairo::Context> &ctx);
 		bool on_image_click(GdkEventButton* btn);
 		
 	};

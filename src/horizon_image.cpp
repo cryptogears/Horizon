@@ -47,6 +47,38 @@ namespace Horizon {
 			        " that has no image.",
 			        post->get_id()); 
 		}
+
+		image.signal_unmap()    .connect(sigc::mem_fun(*this, &Image::on_image_unmap));
+		image.signal_unrealize().connect(sigc::mem_fun(*this, &Image::on_image_unrealize));
+		image.signal_draw()     .connect(sigc::mem_fun(*this, &Image::on_image_draw), false);
+	}
+
+	void Image::reset_animation_iter() {
+		if ( animation_timeout.connected() )
+			animation_timeout.disconnect();
+		animation_iter.reset();
+	}
+
+	void Image::on_image_unmap() {
+		reset_animation_iter();
+	}
+
+	void Image::on_image_unrealize() {
+		reset_animation_iter();
+	}
+
+	bool Image::on_image_draw(const Cairo::RefPtr< Cairo::Context > &) {
+		if (unscaled_animation) {
+			if (!animation_iter) {
+				animation_time.assign_current_time();
+				animation_iter = unscaled_animation->get_iter(&animation_time);
+				unscaled_image = animation_iter->get_pixbuf();
+				animation_timeout = Glib::signal_timeout().connect(sigc::mem_fun(*this, &Image::on_animation_timeout),
+				                                                   animation_iter->get_delay_time());
+			}
+		}
+
+		return false;
 	}
 
 	void Image::run_state_changed_callbacks() const {
@@ -109,19 +141,24 @@ namespace Horizon {
 
 	}
 
-	void Image::on_animation_timeout() {
+	bool Image::on_animation_timeout() {
 		animation_time.assign_current_time();
-		if (animation_iter->advance(animation_time)) {
-			unscaled_image = animation_iter->get_pixbuf();
-			if (is_scaled) {
-				set_new_scaled_image(scaled_width, scaled_height);
-			} else {
-				image.set(unscaled_image);
+		if (animation_iter) {
+			if (animation_iter->advance(animation_time)) {
+				unscaled_image = animation_iter->get_pixbuf();
+				if (is_scaled) {
+					set_new_scaled_image(scaled_width, scaled_height);
+				} else {
+					image.set(unscaled_image);
+				}
+				image.queue_draw();
 			}
+		
+			animation_timeout = Glib::signal_timeout().connect(sigc::mem_fun(*this, &Image::on_animation_timeout),
+			                                                   animation_iter->get_delay_time());
 		}
-
-		Glib::signal_timeout().connect_once(sigc::mem_fun(*this, &Image::on_animation_timeout),
-		                                     animation_iter->get_delay_time());
+			
+		return false;
 	}
 
 	/* TODO: have image_fetcher tell us if it is a real animation or
@@ -146,11 +183,7 @@ namespace Horizon {
 				if (unscaled_animation->is_static_image()) {
 					unscaled_image = unscaled_animation->get_static_image();
 				} else {
-					animation_time.assign_current_time();
-					animation_iter = unscaled_animation->get_iter(&animation_time);
-					unscaled_image = animation_iter->get_pixbuf();
-					Glib::signal_timeout().connect_once(sigc::mem_fun(*this, &Image::on_animation_timeout),
-					                                     animation_iter->get_delay_time());
+					unscaled_image = unscaled_animation->get_static_image();
 				}
 			}
 		} else {

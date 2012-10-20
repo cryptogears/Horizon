@@ -62,23 +62,20 @@ namespace Horizon {
 	/* Runs in a separate thread */
 	void Manager::check_catalogs() {
 		bool is_new = false;
-		std::vector< std::pair<std::string, std::string> > pairs;
+		std::vector< std::string > work_list;
 		{
 			Glib::Threads::Mutex::Lock lock(catalog_mutex);
-			pairs.reserve(boards.size());
-			std::transform(boards.begin(),
-			               boards.end(),
-			               std::back_inserter(pairs),
-			               [](const std::string &board) {
-				               std::stringstream url;
-				               url << "http://catalog.neet.tv/" << board << "/threads.json";
-				               return std::make_pair(url.str(), board);
-			               });
+			work_list.reserve(boards.size());
+			std::copy(boards.begin(),
+			          boards.end(),
+			          std::back_inserter(work_list));
 		}
 
-		for (auto pair : pairs) {
-			std::string url = pair.first;
-			std::string board = pair.second;
+		for (auto board : work_list) {
+			std::stringstream url_stream;
+			url_stream << "http://catalog.neet.tv/" << board << "/threads.json";
+			std::string url = url_stream.str();
+
 			try {
 				Glib::Threads::Mutex::Lock lock(curler_mutex);
 				std::list<Glib::RefPtr<ThreadSummary> > new_summaries = curler.pullBoard(url, board);
