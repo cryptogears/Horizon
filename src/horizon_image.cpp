@@ -15,6 +15,7 @@ namespace Horizon {
 		Gtk::Container(),
 		post(post_),
 		image_state(NONE),
+		is_changing_state(false),
 		scaled_width(-1),
 		scaled_height(-1),
 		ifetcher(ImageFetcher::get(FOURCHAN))
@@ -197,10 +198,13 @@ namespace Horizon {
 			return;
 		}
 
+		if (is_changing_state) {
+			is_changing_state = false;
+			set_expand_state();
+		}
+
 		if (image_state == NONE)
 			set_thumb_state();
-		else
-			set_expand_state();
 	}
 
 	void Image::set_expand_state() {
@@ -227,10 +231,13 @@ namespace Horizon {
 			break;
 		case EXPAND:
 		case FULL:
-			if (!unscaled_image)
+			if (!unscaled_image) {
+				is_changing_state = true;
 				fetch_image();
-			else
+			} else {
 				set_expand_state();
+			}
+
 			break;
 		}
 	}
@@ -242,10 +249,12 @@ namespace Horizon {
 		case NONE:
 			break;
 		case THUMBNAIL:
-			if (!unscaled_image)
+			if (!unscaled_image) {
 				fetch_image();
-			else
+				is_changing_state = true;
+			} else {
 				set_expand_state();
+			}
 			break;
 		case EXPAND:
 			// For now fall through, we don't have a 'Full' implementation

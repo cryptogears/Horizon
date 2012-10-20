@@ -574,7 +574,13 @@ namespace Horizon {
 	}
 
 	void ImageCache::on_flush_w(ev::async &, int) {
+		if (!idle_w.is_active())
+			idle_w.start();
+	}
+
+	void ImageCache::on_idle_w(ev::idle &w, int) {
 		flush();
+		w.stop();
 	}
 
 	void ImageCache::flush() {
@@ -768,12 +774,14 @@ namespace Horizon {
 		kill_loop_w(ev_loop),
 		write_queue_w(ev_loop),
 		read_queue_w(ev_loop),
-		flush_w(ev_loop)
+		flush_w(ev_loop),
+		idle_w(ev_loop)
 	{
 		write_queue_w.set<ImageCache, &ImageCache::on_write_queue_w>(this);
-		read_queue_w.set<ImageCache, &ImageCache::on_read_queue_w>(this);
-		kill_loop_w.set<ImageCache, &ImageCache::on_kill_loop_w>(this);
-		flush_w.set<ImageCache, &ImageCache::on_flush_w>(this);
+		read_queue_w. set<ImageCache, &ImageCache::on_read_queue_w> (this);
+		kill_loop_w.  set<ImageCache, &ImageCache::on_kill_loop_w>  (this);
+		flush_w.      set<ImageCache, &ImageCache::on_flush_w>      (this);
+		idle_w.       set<ImageCache, &ImageCache::on_idle_w>       (this);
 		write_queue_w.start();
 		read_queue_w.start();
 		kill_loop_w.start();

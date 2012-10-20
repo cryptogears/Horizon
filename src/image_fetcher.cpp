@@ -821,6 +821,8 @@ namespace Horizon {
 
 		timeout_w.set<ImageFetcher, &ImageFetcher::on_timeout_w> (this);
 
+		ev_loop.set_io_collect_interval(0.1);
+
 		const sigc::slot<void> slot = sigc::bind(sigc::mem_fun(ev_loop, &ev::dynamic_loop::run),0);
 		int trycount = 0;
 

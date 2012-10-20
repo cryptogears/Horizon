@@ -124,6 +124,9 @@ namespace Horizon {
 
 		ev::async        flush_w;
 		void             on_flush_w(ev::async &, int);
+
+		ev::idle         idle_w;
+		void             on_idle_w(ev::idle &, int);
 	};
 
 	const std::string CACHE_FILENAME = "horizon-cache.dat";

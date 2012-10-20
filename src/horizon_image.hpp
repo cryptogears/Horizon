@@ -44,6 +44,7 @@ namespace Horizon {
 
 		ImageState image_state;
 		sigc::signal<void, const ImageState&> signal_state_changed;
+		bool is_changing_state;
 		Glib::Dispatcher state_changed_dispatcher;
 		void run_state_changed_callbacks() const;
 
