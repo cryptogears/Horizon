@@ -51,7 +51,7 @@ namespace Horizon {
 			updatedThreads.insert(id);
 	}
 
-	void Manager::signal_404(const gint64 id) {
+	void Manager::on_404(const gint64 id) {
 		Glib::Threads::Mutex::Lock lock(threads_mutex);
 
 		auto iter = threads.find(id);
@@ -125,7 +125,6 @@ namespace Horizon {
 			             });
 		}
 
-
 		for ( auto pair : threads_to_check ) {
 			auto thread = pair.second;
 			try{
@@ -142,8 +141,7 @@ namespace Horizon {
 			} catch (Thread404 e) {
 				thread->is_404 = true;
 				push_updated_thread(thread->id);
-				signal_thread_updated();
-				signal_404(thread->id);
+				on_404(thread->id);
 			} catch (Concurrency e) {
 				// This should be impossible since we are using the mutex.
 				g_critical("Manager's Curler is being used by more than one thread.");
@@ -153,6 +151,7 @@ namespace Horizon {
 				g_warning("Got Curl error: %s", e.what());
 			}
 		} // for threads_to_check
+
 		signal_thread_updated();
 	}
 

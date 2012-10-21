@@ -67,6 +67,7 @@ namespace Horizon {
 		                       static_cast<long>(thread->last_post.to_unix()) + 1);
 		res = curl_easy_setopt(curl, CURLOPT_VERBOSE,
 		                       0);
+		res = curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
 
 		last_pull = Glib::DateTime::create_now_utc();
 		res = curl_easy_perform(curl);
@@ -118,8 +119,7 @@ namespace Horizon {
 			Glib::RefPtr<Post> post = Glib::wrap(HORIZON_POST(cpost));
 			post->set_board(thread->board);
 			post->set_thread_id(thread->id);
-			//Post cpppost(cpost, false, thread->board);
-			//Glib::RefPtr<Post> post = Glib::RefPtr<Post>(cpppost, false);
+
 			posts.push_back(post);
 		}
 
@@ -138,14 +138,12 @@ namespace Horizon {
 		threadBuffer.clear();
 
 		res = curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
-		res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
-		                       curler_thread_cb);
-		res = curl_easy_setopt(curl, CURLOPT_WRITEDATA,
+		res = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curler_thread_cb);
+		res = curl_easy_setopt(curl, CURLOPT_WRITEDATA, 
 		                       static_cast<void*>(this));
-		res = curl_easy_setopt(curl, CURLOPT_URL,
-		                       url.c_str());
-		res = curl_easy_setopt(curl, CURLOPT_VERBOSE,
-		                       0);
+		res = curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+		res = curl_easy_setopt(curl, CURLOPT_VERBOSE, 0);
+		res = curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
 
 		last_pull = Glib::DateTime::create_now_utc();
 		res = curl_easy_perform(curl);

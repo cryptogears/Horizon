@@ -5,6 +5,7 @@
 #include <glib.h>
 #include <queue>
 #include <map>
+#include <functional>
 #include <glibmm/thread.h>
 #include <gdkmm/pixbuf.h>
 #include <glibmm/refptr.h>
@@ -34,13 +35,18 @@ namespace Horizon {
 	enum FETCH_TYPE {FOURCHAN, CATALOG};
 
 	struct Request {
-		void *image_fetcher;
+		Glib::RefPtr< Gdk::PixbufLoader > loader;
+		Glib::RefPtr< Gio::MemoryInputStream > istream;
+		Glib::RefPtr<Post> post;
 		std::string hash;
 		std::string url;
 		std::string ext;
 		bool is_thumb;
-		Glib::RefPtr<Gio::MemoryInputStream> istream;
-		Glib::RefPtr<Post> post;
+
+		std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_functor;
+		std::function<void (int, int, int, int)> area_updated_functor;
+		sigc::connection area_prepared_connection;
+		sigc::connection area_updated_connection;
 	};
 
 	class ImageFetcher {
@@ -50,7 +56,9 @@ namespace Horizon {
 		~ImageFetcher();
 
 		void download_thumb(const Glib::RefPtr<Post> &);
-		void download_image(const Glib::RefPtr<Post> &);
+		void download_image(const Glib::RefPtr<Post> &,
+		                    std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared = nullptr,
+		                    std::function<void (int, int, int, int)> area_updated = nullptr);
 
 		sigc::signal<void, std::string> signal_thumb_ready;
 		sigc::signal<void, std::string> signal_image_ready;
@@ -69,15 +77,14 @@ namespace Horizon {
 		void on_cache_result(const Glib::RefPtr<Gdk::PixbufLoader>&,
 		                     std::shared_ptr<Request>);
 
-		FETCH_TYPE fetch_type_;
 		// Mutex wraps curl_queue, request_queue
 		mutable Glib::Mutex curl_data_mutex;
 		char* curl_error_buffer;
-		std::shared_ptr<CurlMulti> curl_multi;
+		std::shared_ptr< CurlMulti< std::shared_ptr<Request> > > curl_multi;
 
-		std::queue<std::shared_ptr<CurlEasy> > curl_queue;
+		std::queue<std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > > curl_queue;
 		std::queue<std::shared_ptr<Request> >  request_queue;
-		
+
 		sigc::connection timeout_connection;
 		std::list<curl_socket_t> active_sockets_;
 		std::vector<Socket_Info*> socket_info_cache_;
@@ -88,7 +95,16 @@ namespace Horizon {
 		Glib::Dispatcher signal_pixbuf_ready;
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
+
+		Glib::Dispatcher signal_pixbuf_updated;
+		void on_pixbuf_updated();
+		void on_area_prepared(std::shared_ptr<Request> request);
+		void on_area_updated(int x, int y, int width, int height, std::shared_ptr<Request> request);
+		std::deque<std::function<void ()> > pixbuf_update_queue;
+
+
 		void on_pixbuf_ready();
+		void remove_pending(std::shared_ptr<Request> request);
 		void cleanup_failed_pixmap(std::shared_ptr<Request> request, bool is_404);
 		void create_pixmap(std::shared_ptr<Request> request);
 		void start_new_download();
@@ -98,13 +114,13 @@ namespace Horizon {
 		mutable Glib::Mutex images_mutex;
 		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > images;
 		std::map<std::string, Glib::RefPtr<Gdk::PixbufAnimation> > animations;
-		std::map<std::string, Glib::RefPtr<Gdk::PixbufLoader> > image_streams;
+		std::set<std::string> pending_images;
 
 		/* Hash to Thumbnail Pixbuf 
 		   Expose */
 		mutable Glib::Mutex thumbs_mutex;
 		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > thumbs;
-		std::map<std::string, Glib::RefPtr<Gdk::PixbufLoader> > thumb_streams;
+		std::set<std::string> pending_thumbs;
 		
 		/* Curl socket eventing methods */
 		void curl_addsock(curl_socket_t s, CURL *easy, int action);
@@ -131,7 +147,8 @@ namespace Horizon {
 		void             on_timeout_w(ev::timer &w, int);
 
 
-		friend std::size_t horizon_curl_writeback(char *ptr, size_t size, size_t nmemb, void *userdata);
+		std::size_t curl_writeback(const std::string &str_buf,
+		                           std::shared_ptr<Request> request);
 
 		friend int curl_socket_cb(CURL *easy,      /* easy handle */   
 		                          curl_socket_t s, /* socket */   
@@ -145,9 +162,6 @@ namespace Horizon {
 		                                             pointer */
 
 	};
-	
-	std::size_t horizon_curl_writeback(char *ptr, size_t size, size_t nmemb, void *userdata);
-
 	
 	int curl_socket_cb(CURL *easy,      /* easy handle */   
 	                   curl_socket_t s, /* socket */   

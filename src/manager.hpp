@@ -47,7 +47,7 @@ namespace Horizon {
 		std::map<gint64, std::shared_ptr<Thread>> threads;
 		std::set<gint64> updatedThreads;
 		void push_updated_thread(const gint64);
-		void signal_404(const gint64 id);
+		void on_404(const gint64 id);
 		void check_threads();
 		void check_catalogs();
 

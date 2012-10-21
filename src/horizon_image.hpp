@@ -41,6 +41,8 @@ namespace Horizon {
 		Gtk::Grid  *grid;
 		Gtk::EventBox event_box;
 		Gtk::Image image;
+		void on_area_prepared(Glib::RefPtr<Gdk::Pixbuf> pixbuf);
+		void on_area_updated(int, int, int, int);
 
 		ImageState image_state;
 		sigc::signal<void, const ImageState&> signal_state_changed;

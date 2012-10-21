@@ -104,7 +104,35 @@ namespace Horizon {
 			return;
 		} else {
 			image_connection = ifetcher->signal_image_ready.connect(sigc::mem_fun(*this, &Image::on_image_ready));
-			ifetcher->download_image(post);
+			auto area_prepared = std::bind(&Image::on_area_prepared, this, std::placeholders::_1);
+			auto area_updated = std::bind(&Image::on_area_updated, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+			ifetcher->download_image(post, area_prepared, area_updated);
+		}
+	}
+
+	void Image::on_area_prepared(Glib::RefPtr<Gdk::Pixbuf> pixbuf) {
+		unscaled_image = pixbuf;
+		
+		if (is_changing_state) {
+			is_changing_state = false;
+			set_expand_state();
+		}
+	}
+
+	void Image::on_area_updated(int x, int y, int width, int height) {
+		if (scaled_image && scaled_width > 0 && scaled_height > 0) {
+			float scale = static_cast<float>(scaled_width) / static_cast<float>(unscaled_image->get_width());
+			int nx, ny, nw, nh;
+			nx = static_cast<int>(scale * x);
+			ny = static_cast<int>(scale * y);
+			nw = static_cast<int>(scale * width);
+			nh = static_cast<int>(scale * height);
+			scaled_width = 0;
+			scaled_height = 0;
+			queue_resize();
+			image.queue_draw();
+		} else {
+			image.queue_draw_area(x, y, width, height);
 		}
 	}
 
@@ -188,9 +216,10 @@ namespace Horizon {
 				}
 			}
 		} else {
-			if ( ! unscaled_image ) {
-				unscaled_image = ifetcher->get_image(hash);
-			}
+			unscaled_image = ifetcher->get_image(hash);
+			image.clear();
+			image.set(unscaled_image);
+			image.queue_draw();
 		}
 
 		if (G_UNLIKELY( !unscaled_animation && !unscaled_image )) {
