@@ -7,7 +7,6 @@ namespace Horizon {
 		if (!gtype_) {
 			class_init_func_ = &ThreadSummary_Class::class_init_function;
 			register_derived_type(horizon_thread_summary_get_type());
-			CppClassParent::CppObjectType::get_type();
 		}
 		
 		return *this;
