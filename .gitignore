@@ -24,3 +24,12 @@ Makefile.in
 /depcomp
 /install-sh
 /missing
+/config.status
+/config.log
+
+*.tar.gz
+
+src/horizon
+src/horizon-resources.c
+src/horizon-resources.h
+#
