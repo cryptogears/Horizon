@@ -105,31 +105,28 @@ namespace Horizon {
 		return Glib::wrap(horizon_thread_summary_get_thumb_pixbuf(gobj()), true);
 	}
 
+	Glib::RefPtr<Horizon::Post> ThreadSummary::get_proxy_post() const {
+		HorizonPost *cpost = HORIZON_POST(g_object_new(horizon_post_get_type(),
+		                                               "md5",
+		                                               get_hash().c_str(),
+		                                               NULL));
+		horizon_post_set_thumb_url(cpost, horizon_thread_summary_get_thumb_url(gobj()));
+		auto post = Glib::wrap(cpost);
+		return post;
+	}
+
 	void ThreadSummary::fetch_thumb() {
-		auto ifetcher = ImageFetcher::get(CATALOG);
-		const std::string hash = get_hash();
-		std::stringstream url;
-		
-		if (! ifetcher->has_thumb(hash) ) {
-			thumb_connection = ifetcher->signal_thumb_ready.connect( sigc::mem_fun(*this, &ThreadSummary::on_thumb_ready) );
-			HorizonPost *cpost = HORIZON_POST(g_object_new(horizon_post_get_type(),
-			                                               "md5",
-			                                               get_hash().c_str(),
-			                                               NULL));
-			horizon_post_set_thumb_url(cpost, horizon_thread_summary_get_thumb_url(gobj()));
-			auto post = Glib::wrap(cpost, true);
-			ifetcher->download_thumb(post);
-		} else {
-			on_thumb_ready(hash);
+		if (! horizon_thread_summary_get_thumb_pixbuf(gobj()) ) {
+			auto ifetcher = ImageFetcher::get(CATALOG);
+			auto post = get_proxy_post();
+			auto cb = std::bind(&ThreadSummary::on_thumb, this, std::placeholders::_1);
+			ifetcher->download(post, cb);
 		}
 	}
 
-	void ThreadSummary::on_thumb_ready(const std::string &hash) {
-		if ( hash.find(get_hash()) != hash.npos ) {
-			auto ifetcher = ImageFetcher::get(CATALOG);
-			if ( thumb_connection.connected() )
-				thumb_connection.disconnect();
-			auto pixbuf = ifetcher->get_thumb(hash);
+	void ThreadSummary::on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
+		if (loader) {
+			auto pixbuf = loader->get_pixbuf();
 			horizon_thread_summary_set_thumb_pixbuf(gobj(), pixbuf->gobj());
 		}
 	}

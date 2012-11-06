@@ -2,7 +2,8 @@
 #define THREAD_SUMMARY_HPP
 #include <glibmm/object.h>
 #include <glibmm/private/object_p.h>
-#include <gdkmm/pixbuf.h>
+#include <gdkmm/pixbufloader.h>
+#include "thread.hpp"
 
 extern "C" {
 #include "horizon_thread_summary.h"
@@ -68,10 +69,10 @@ namespace Horizon {
 		gint64 get_unix_date() const;
 
 		void fetch_thumb();
+		Glib::RefPtr<Horizon::Post> get_proxy_post() const;
 
 	private:
-		sigc::connection thumb_connection;
-		void on_thumb_ready(const std::string &hash);
+		void on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader);
 	};
 }
 
