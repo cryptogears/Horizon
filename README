@@ -99,14 +99,7 @@ Coming soon:
        compromise.
 
 Bugs:
-        Images, more specifically images' uncompressed pixbufs, are
-        never expunged from memory right now. Browsing for 12 hours
-        will use like 9 gigs of memory. Its an easy fix (now that
-        images are cached to disk) but I haven't gotten to it yet.
-
-        If you double click thread images, you may trigger 2 downloads
-        of the same image. Its an easy fix but I haven't gotten to it
-        yet.
+        There is a massive memory leak in ImageCache::flush()
 
         If you don't have gvim installed you're not going to see
         anything in code tags. It would be relatively bothersome to

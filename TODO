@@ -1,5 +1,3 @@
-o Don't store every pixbuf in memory forever.
-
 o Implement replying to threads
 
 o Make the code pretty 
@@ -11,17 +9,9 @@ o Make the code pretty
 
 o Make the interface pretty
 
-o Think about dropping pixbuf refptrs when threads are closed.
-
 o Implement Save-thread-to target directory
 
 o Implement a slideshow mode. 
-
-o Even after ImageFetcher doesn't use Glib for eventing, I suspect
-  there will still be freezes when we call show_all() on a new 500
-  post thread. There should be a way to show a couple widgets, then
-  iterate on the main loop.
-  o I tried using a Dispatcher but there's still a hang somewhere.
 
 o Use a dirty flag on ImageCache to determine if flush()ing is really
   necessary.
