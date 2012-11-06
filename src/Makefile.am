@@ -27,7 +27,7 @@ BUILT_SOURCES = \
 
 CLEANFILES = horizon-resources.c horizon-resources.h
 
-horizon_SOURCES = main.cpp utils.cpp utils.hpp application.cpp application.hpp curler.cpp curler.hpp thread.cpp thread.hpp manager.cpp manager.hpp entities.c entities.h horizon_post.c horizon_post.h thread_view.cpp thread_view.hpp post_view.cpp post_view.hpp image_fetcher.cpp image_fetcher.hpp notifier.cpp notifier.hpp html_parser.cpp html_parser.hpp horizon_image.cpp horizon_image.hpp horizon-resources.c horizon_thread_summary.c horizon_thread_summary.h thread_summary.cpp thread_summary.hpp summary_cellrenderer.cpp summary_cellrenderer.hpp image_cache.cpp image_cache.hpp horizon_curl.cpp horizon_curl.hpp
+horizon_SOURCES = main.cpp utils.cpp utils.hpp application.cpp application.hpp curler.cpp curler.hpp thread.cpp thread.hpp manager.cpp manager.hpp entities.c entities.h horizon_post.c horizon_post.h thread_view.cpp thread_view.hpp post_view.cpp post_view.hpp image_fetcher.cpp image_fetcher.hpp notifier.cpp notifier.hpp html_parser.cpp html_parser.hpp horizon_image.cpp horizon_image.hpp horizon-resources.c horizon_thread_summary.c horizon_thread_summary.h thread_summary.cpp thread_summary.hpp summary_cellrenderer.cpp summary_cellrenderer.hpp image_cache.cpp image_cache.hpp horizon_curl.cpp horizon_curl.hpp canceller.cpp canceller.hpp
 
 UPDATE_ICON_CACHE = gtk-update-icon-cache -f -t $(datadir)/icons/hicolor || :
 
