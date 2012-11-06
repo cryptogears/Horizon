@@ -3,6 +3,7 @@
 #include <gtkmm/label.h>
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <gtkmm/separator.h>
 #include <gtkmm/button.h>
 #include <gtkmm/cssprovider.h>
@@ -11,6 +12,7 @@
 #include "thread.hpp"
 #include "html_parser.hpp"
 #include "horizon_image.hpp"
+#include "image_fetcher.hpp"
 
 extern "C" {
 #include "horizon-resources.h"
@@ -25,6 +27,7 @@ namespace Horizon {
 		swindow(),
 		vadjustment(swindow.get_vadjustment()),
 		expand_button("Expand All"),
+		fetching_image(false),
 		settings(s),
 		notifier(Notifier::getNotifier())
 	{
@@ -233,12 +236,18 @@ namespace Horizon {
 	}
 
 	void ThreadView::refresh_tab_image() {
-		if (post_map.size() == 0)
-			return;
-		const PostView *postview = post_map.begin()->second;
+		if (!fetching_image) {
+			fetching_image = true;
+			auto post = thread->get_first_post();
+			auto cb = std::bind(&ThreadView::set_tab_image, this, std::placeholders::_1);
+			auto ifetcher = ImageFetcher::get(FOURCHAN);
+			ifetcher->download(post, cb);
+		}
+	}
 
-		if ( postview->get_image() ) {
-			auto pixbuf = postview->get_image();
+	void ThreadView::set_tab_image(const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
+		if (loader) {
+			auto pixbuf = loader->get_pixbuf();
 			int new_width, new_height;
 			float scale;
 			new_width = 100;
@@ -253,7 +262,10 @@ namespace Horizon {
 			tab_image.set(pixbuf->scale_simple(new_width, new_height, Gdk::INTERP_HYPER));
 			tab_image.show();
 		}
+
+		fetching_image = false;
 	}
+
 
 	void ThreadView::refresh_tab_text() {
 		gsize posts, images;

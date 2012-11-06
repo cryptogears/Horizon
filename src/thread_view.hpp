@@ -44,6 +44,7 @@ namespace Horizon {
 		Gtk::Label tab_label;
 		Gtk::Grid tab_label_grid;
 		Gtk::Image tab_image;
+		bool fetching_image;
 		sigc::connection tab_updates;
 
 		std::deque<PostView*> unshown_views;
@@ -60,6 +61,7 @@ namespace Horizon {
 
 		bool refresh_post(const Glib::RefPtr<Post> &post);
 		void refresh_tab_image();
+		void set_tab_image(const Glib::RefPtr<Gdk::PixbufLoader> &loader);
 		void refresh_tab_text();
 
 		bool on_activate_link(const Glib::ustring &link);
