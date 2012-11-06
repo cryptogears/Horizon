@@ -105,12 +105,14 @@ namespace Horizon {
 		
 		auto slot = sigc::mem_fun(*this, &ThreadView::refresh_tab_text);
 		tab_updates = Glib::signal_timeout().connect_seconds(sigc::bind_return(slot, true), 10);
-		signal_unshown_views.connect(sigc::mem_fun(*this, &ThreadView::on_unshown_views));
 	}
 
 	ThreadView::~ThreadView() {
 		if (tab_updates.connected())
 			tab_updates.disconnect();
+
+		if (unshown_view_idle.connected())
+			unshown_view_idle.disconnect();
 	}
 
 	void ThreadView::on_scrollbar_changed() {
@@ -176,12 +178,12 @@ namespace Horizon {
 				pv->set_image_state(Image::EXPAND);
 		}
 
-		signal_unshown_views();
-
+		if (!unshown_view_idle.connected())
+			unshown_view_idle = Glib::signal_idle().connect(sigc::mem_fun(*this, &ThreadView::on_unshown_views));
 		return was_new;
 	}
 
-	void ThreadView::on_unshown_views() {
+	bool ThreadView::on_unshown_views() {
 		if (unshown_views.size() > 0) {
 			PostView* view = unshown_views.front();
 			view->show_all();
@@ -189,8 +191,11 @@ namespace Horizon {
 			unshown_views.pop_front();
 		} 
 
-		if (unshown_views.size() > 0) {
-			signal_unshown_views();
+		if (unshown_views.size() == 0) {
+			unshown_view_idle.disconnect();
+			return false;
+		} else {
+			return true;
 		}
 	}
 

@@ -47,8 +47,8 @@ namespace Horizon {
 		sigc::connection tab_updates;
 
 		std::deque<PostView*> unshown_views;
-		Glib::Dispatcher signal_unshown_views;
-		void on_unshown_views();
+		bool on_unshown_views();
+		sigc::connection unshown_view_idle;
 
 		std::map<gint64, PostView*> post_map;
 		Glib::RefPtr<Gio::Settings> settings;
