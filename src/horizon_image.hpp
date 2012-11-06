@@ -58,6 +58,8 @@ namespace Horizon {
 		bool on_animation_timeout();
 		int scaled_width, scaled_height;
 		bool is_scaled;
+		bool am_fetching_thumb;
+		bool am_fetching_image;
 
 		sigc::connection animation_timeout;
 		void on_image_unmap();
@@ -68,13 +70,10 @@ namespace Horizon {
 		void fetch_thumbnail();
 		void fetch_image();
 		void on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader);
-		void on_thumb_ready(std::string hash);
-		void on_image_ready(std::string hash);
+		void on_image(const Glib::RefPtr<Gdk::PixbufLoader> &loader);
 		void set_none_state();
 		void set_thumb_state();
 		void set_expand_state();
-		sigc::connection thumb_connection;
-		sigc::connection image_connection;
 		std::shared_ptr<ImageFetcher> ifetcher;
 
 		void refresh_size_request();
