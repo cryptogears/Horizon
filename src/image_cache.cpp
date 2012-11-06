@@ -135,6 +135,26 @@ namespace Horizon {
 		}
 	}
 
+	void ImageData::merge(const std::shared_ptr<ImageData> &in) {
+		if ( md5.find(in->md5) == md5.npos ) {
+			g_warning("ImageData::merge() called with wrong hash. These shouldn't be merged!");
+			return;
+		}
+
+		boards.insert            (in->boards.begin(), in->boards.end());
+		tags.insert              (in->tags.begin(), in->tags.end());
+		original_filenames.insert(in->original_filenames.begin(),
+		                          in->original_filenames.end());
+		poster_names.insert      (in->poster_names.begin(),
+		                          in->poster_names.end());
+		posted_unix_dates.insert (in->posted_unix_dates.begin(),
+		                          in->posted_unix_dates.end());
+		num_spoiler += in->num_spoiler;
+		num_deleted += in->num_deleted;
+		have_thumbnail = have_thumbnail | in->have_thumbnail;
+		have_image = have_image | in->have_image;
+	}
+
 	Glib::VariantContainerBase ImageData::get_variant() const {
 		auto vsize = Glib::Variant<gsize>::create(size);
 		auto vmd5 = Glib::Variant<std::string>::create(md5);
@@ -567,10 +587,23 @@ namespace Horizon {
 
 	static std::string get_cache_file_path() {
 		const std::vector<std::string> path_parts = { Glib::get_user_data_dir(),
-		                                              "horizon",
-		                                              CACHE_FILENAME };
+		                                                     "horizon",
+		                                                     CACHE_FILENAME };
 		const std::string path = Glib::build_filename( path_parts );
 		return path;
+	}
+
+	static std::vector<std::string> get_cache_file_paths() {
+		std::vector<std::string> paths;
+		paths.push_back(get_cache_file_path());
+
+		const std::vector<std::string> path_merge_parts = { Glib::get_user_data_dir(),
+		                                                    "horizon",
+		                                                    CACHE_MERGE_FILENAME };
+		const std::string path_merge = Glib::build_filename( path_merge_parts );
+		paths.push_back(path_merge);
+
+		return paths;
 	}
 
 	void ImageCache::on_flush_w(ev::async &, int) {
@@ -626,7 +659,10 @@ namespace Horizon {
 		
 		try {
 			auto file = Gio::File::create_for_path(get_cache_file_path());
-			auto ostream = file->replace();
+			const std::string etag;
+			constexpr bool make_backup = true;
+			constexpr Gio::FileCreateFlags fcflags = Gio::FILE_CREATE_NONE;
+			auto ostream = file->replace(etag, make_backup, fcflags);
 			gsize written = 0;
 			ostream->write_all(&CACHE_FILE_VERSION, sizeof(guint32), written);
 			if ( written < sizeof(guint32) ) {
@@ -656,95 +692,103 @@ namespace Horizon {
 
 	void ImageCache::read_from_disk() {
 		Glib::Threads::Mutex::Lock lock(map_lock);
-		auto file = Gio::File::create_for_path(get_cache_file_path());
 
-		if (! file->query_exists() ) {
-			auto parent = file->get_parent();
-			if (! parent->query_exists() ) {
-				try {
-					bool res = parent->make_directory_with_parents();
-					if (!res) {
-						g_error ("Unable to create directory %s", parent->get_uri().c_str());
-					} else {
-						std::cerr << "Created directory " << parent->get_uri() << std::endl;
-					}
-				} catch ( Gio::Error e ) {
-				} // Ignore. this happens if ~/.local/share/
-				  // exists. Other failures are caught above.
-				try {
-					parent->get_child("thumbs")->make_directory();
-					parent->get_child("images")->make_directory();
-				} catch ( Gio::Error e) {
-				}
-			}
-
-			try {
-				auto ostream = file->create_file();
-				if (ostream) {
-					std::cerr << "Created file " << file->get_uri() << std::endl;
-					ostream->close();
-				}
-			} catch (Gio::Error e) {
-				g_error("Failed to create ImageCache file: %s", e.what().c_str());
-			}
-		}
-
-		goffset fsize = 0;
-		try {
-			auto fileinfo = file->query_info(G_FILE_ATTRIBUTE_STANDARD_SIZE);
-			fsize = fileinfo->get_size();
-		} catch (Gio::Error e) {
-			g_error("Failed to read info about our ImageCache file: %s", e.what().c_str());
-		}
-
-
-		if (fsize > 0) {
-			try {
-				auto istream = file->read();
-				guint32 version = 0;
-				gsize read_bytes = 0;
-				if (istream->read_all(&version, sizeof(guint32), read_bytes)) {
-					if (read_bytes < sizeof(guint32))
-						g_error("Failed to read version header of ImageCache.");
-					fsize -= read_bytes;
-					if (fsize > 0) {
-						void *buffer = g_malloc(fsize);
-						if (istream->read_all(buffer,
-						                      static_cast<gsize>(fsize),
-						                      read_bytes)) {
-							GVariantType *gvt = g_variant_type_new(CACHE_VERSION_1_ARRAYTYPE.c_str());
-							GVariant *v = g_variant_new_from_data(gvt, buffer, 
-							                                      fsize, FALSE,
-							                                      buffer_destroy_notify,
-							                                      buffer);
-							if ( ! g_variant_is_normal_form(v) ) {
-								g_error ( "ImageCache is corrupted. You might want to delete everything under %s",
-								          file->get_parent()->get_uri().c_str() );
-							}
-							gsize elements = g_variant_n_children( v );
-
-							for ( gsize i = 0; i < elements; i++ ) {
-								GVariant *child = g_variant_get_child_value(v, i);
-								auto cpp_child = Glib::wrap(child, true);
-								auto typed_cpp_child = Glib::VariantBase::cast_dynamic<Glib::VariantContainerBase>(cpp_child);
-
-								std::shared_ptr<ImageData> cp = ImageData::create(version, typed_cpp_child);
-								if (cp)
-									images.insert({cp->md5, cp});
-
-								g_variant_unref(child);
-							}
-							g_variant_unref(v);
-							g_variant_type_free(gvt);
-
+		for ( auto cache_file_path : get_cache_file_paths() ) {
+			bool file_exists = false;
+			auto file = Gio::File::create_for_path(cache_file_path);
+			file_exists = file->query_exists();
+			if (! file_exists ) {
+				auto parent = file->get_parent();
+				if (! parent->query_exists() ) {
+					try {
+						bool res = parent->make_directory_with_parents();
+						if (!res) {
+							g_error ("Unable to create directory %s", parent->get_uri().c_str());
 						} else {
-							g_error("Failed to read the ImageCache serialized data");
+							std::cerr << "Created directory " << parent->get_uri() << std::endl;
+						}
+					} catch ( Gio::Error e ) {
+					} // Ignore. this happens if ~/.local/share/
+					// exists. Other failures are caught above.
+					try {
+						parent->get_child("thumbs")->make_directory();
+						parent->get_child("images")->make_directory();
+					} catch ( Gio::Error e) {
+					}
+				}
+				continue;
+			}
+
+			goffset fsize = 0;
+			try {
+				auto fileinfo = file->query_info(G_FILE_ATTRIBUTE_STANDARD_SIZE);
+				fsize = fileinfo->get_size();
+			} catch (Gio::Error e) {
+				g_error("Failed to read info about our ImageCache file: %s", e.what().c_str());
+			}
+
+
+			if (fsize > 0) {
+				try {
+					auto istream = file->read();
+					guint32 version = 0;
+					gsize read_bytes = 0;
+					if (istream->read_all(&version, sizeof(guint32), read_bytes)) {
+						if (read_bytes < sizeof(guint32))
+							g_error("Failed to read version header of ImageCache.");
+						fsize -= read_bytes;
+						if (fsize > 0) {
+							void *buffer = g_malloc(fsize);
+							if (istream->read_all(buffer,
+							                      static_cast<gsize>(fsize),
+							                      read_bytes)) {
+								GVariantType *gvt = g_variant_type_new(CACHE_VERSION_1_ARRAYTYPE.c_str());
+								GVariant *v_untrusted = g_variant_new_from_data(gvt, buffer, 
+								                                                fsize, FALSE,
+								                                                buffer_destroy_notify,
+								                                                buffer);
+								GVariant *v = g_variant_get_normal_form(v_untrusted);
+								g_variant_unref(v_untrusted);
+
+								if ( ! g_variant_is_normal_form(v) ) {
+									g_error ( "ImageCache is corrupted. You might want to delete everything under %s",
+									          file->get_parent()->get_uri().c_str() );
+								}
+								gsize elements = g_variant_n_children( v );
+							
+								std::cout << "Info: " << cache_file_path 
+								          << " has information on " << elements
+								          << " images." << std::endl;
+							
+								for ( gsize i = 0; i < elements; i++ ) {
+									GVariant *child = g_variant_get_child_value(v, i);
+									auto cpp_child = Glib::wrap(child, true);
+									auto typed_cpp_child = Glib::VariantBase::cast_dynamic<Glib::VariantContainerBase>(cpp_child);
+
+									std::shared_ptr<ImageData> cp = ImageData::create(version, typed_cpp_child);
+									if (cp) {
+										auto iter = images.find(cp->md5);
+										if ( iter == images.end() ) {
+											images.insert({cp->md5, cp});
+										} else {
+											iter->second->merge(cp);
+										}
+									}
+
+									g_variant_unref(child);
+								}
+
+								g_variant_unref(v);
+								g_variant_type_free(gvt);
+							} else {
+								g_error("Failed to read the ImageCache serialized data");
+							}
 						}
 					}
+					istream->close();
+				} catch (Gio::Error e) {
+					g_error("Failure reading ImageCache file: %s", e.what().c_str());
 				}
-				istream->close();
-			} catch (Gio::Error e) {
-				g_error("Failure reading ImageCache file: %s", e.what().c_str());
 			}
 		}
 	}

@@ -35,6 +35,7 @@ namespace Horizon {
 
 	public:
 		void update(const Glib::RefPtr<Post> &post);
+		void merge(const std::shared_ptr<ImageData>&);
 
 		Glib::VariantContainerBase get_variant() const;
 		Glib::ustring get_uri(bool thumb) const;
@@ -130,6 +131,7 @@ namespace Horizon {
 	};
 
 	const std::string CACHE_FILENAME = "horizon-cache.dat";
+	const std::string CACHE_MERGE_FILENAME = "horizon-cache.merge";
 	const guint32 CACHE_FILE_VERSION = 1;
 	const std::string CACHE_VERSION_1_TYPE = "(tayayasasaayaayaxqqbb)";
 	const std::string CACHE_VERSION_1_ARRAYTYPE = "a(tayayasasaayaayaxqqbb)";
