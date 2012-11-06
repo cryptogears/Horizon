@@ -4,6 +4,7 @@
 #include <glibmm/private/object_p.h>
 #include <gdkmm/pixbufloader.h>
 #include "thread.hpp"
+#include "canceller.hpp"
 
 extern "C" {
 #include "horizon_thread_summary.h"
@@ -73,6 +74,7 @@ namespace Horizon {
 
 	private:
 		void on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader);
+		std::shared_ptr<Canceller> canceller;
 	};
 }
 

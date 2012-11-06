@@ -29,7 +29,8 @@ namespace Horizon {
 		expand_button("Expand All"),
 		fetching_image(false),
 		settings(s),
-		notifier(Notifier::getNotifier())
+		notifier(Notifier::getNotifier()),
+		canceller(new Canceller())
 	{
 		set_name("frame");
 		set_shadow_type(Gtk::SHADOW_IN);
@@ -111,6 +112,7 @@ namespace Horizon {
 	}
 
 	ThreadView::~ThreadView() {
+		canceller->cancel();
 		if (tab_updates.connected())
 			tab_updates.disconnect();
 
@@ -241,7 +243,7 @@ namespace Horizon {
 			auto post = thread->get_first_post();
 			auto cb = std::bind(&ThreadView::set_tab_image, this, std::placeholders::_1);
 			auto ifetcher = ImageFetcher::get(FOURCHAN);
-			ifetcher->download(post, cb);
+			ifetcher->download(post, cb, canceller);
 		}
 	}
 

@@ -21,6 +21,7 @@ namespace Horizon {
 		is_scaled(false),
 		am_fetching_thumb(false),
 		am_fetching_image(false),
+		canceller(new Canceller()),
 		ifetcher(ImageFetcher::get(FOURCHAN))
 	{
 		set_has_window(false);
@@ -55,6 +56,10 @@ namespace Horizon {
 		image.signal_unmap()    .connect(sigc::mem_fun(*this, &Image::on_image_unmap));
 		image.signal_unrealize().connect(sigc::mem_fun(*this, &Image::on_image_unrealize));
 		image.signal_draw()     .connect(sigc::mem_fun(*this, &Image::on_image_draw), false);
+	}
+
+	Image::~Image() {
+		canceller->cancel();
 	}
 
 	void Image::reset_animation_iter() {
@@ -98,7 +103,7 @@ namespace Horizon {
 		if (!am_fetching_thumb) {
 			am_fetching_thumb = true;
 			std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> cb = std::bind(&Image::on_thumb, this, std::placeholders::_1);
-			ifetcher->download(post, cb, true, nullptr, nullptr);
+			ifetcher->download(post, cb, canceller, true, nullptr, nullptr);
 		}
 	}
 
@@ -120,7 +125,7 @@ namespace Horizon {
 			                              std::placeholders::_2,
 			                              std::placeholders::_3,
 			                              std::placeholders::_4);
-			ifetcher->download(post, callback, false, area_prepared, area_updated);
+			ifetcher->download(post, callback, canceller, false, area_prepared, area_updated);
 		}
 	}
 

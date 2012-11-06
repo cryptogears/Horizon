@@ -28,57 +28,6 @@ namespace Horizon {
 		}
 	}
 	
-	const Glib::RefPtr<Gdk::Pixbuf> ImageFetcher::get_thumb(const std::string &hash) const {
-		Glib::Mutex::Lock lock(thumbs_mutex);
-		
-		auto iter = thumbs.find(hash);
-		if ( iter != thumbs.end() ) {
-			return iter->second;
-		} else {
-			g_error("ImageFetcher::get_thumb called for an image not yet downloaded");
-			return Glib::RefPtr<Gdk::Pixbuf>();
-		}
-	}
-
-	const Glib::RefPtr<Gdk::Pixbuf> ImageFetcher::get_image(const std::string &hash) const {
-		Glib::Mutex::Lock lock(images_mutex);
-		
-		auto iter = images.find(hash);
-		if ( iter != images.end() ) {
-			return iter->second;
-		} else {
-			g_error("ImageFetcher::get_image called for an image not yet downloaded");
-			return Glib::RefPtr<Gdk::Pixbuf>();
-		}
-	}
-
-	const Glib::RefPtr<Gdk::PixbufAnimation> ImageFetcher::get_animation(const std::string &hash) const {
-		Glib::Mutex::Lock lock(images_mutex);
-		
-		auto iter = animations.find(hash);
-		if ( iter != animations.end() ) {
-			return iter->second;
-		} else {
-			g_error("ImageFetcher::get_animation called for an image not yet downloaded");
-			return Glib::RefPtr<Gdk::PixbufAnimation>();
-		}
-	}
-
-	bool ImageFetcher::has_thumb(const std::string &hash) const {
-		Glib::Mutex::Lock lock(thumbs_mutex);
-		return thumbs.count(hash) > 0;
-	}
-
-	bool ImageFetcher::has_image(const std::string &hash) const {
-		Glib::Mutex::Lock lock(images_mutex);
-		return images.count(hash) > 0;
-	}
-
-	bool ImageFetcher::has_animation(const std::string &hash) const {
-		Glib::Mutex::Lock lock(images_mutex);
-		return animations.count(hash) > 0;
-	}
-
 	std::size_t ImageFetcher::curl_writeback(const std::string &str_buf,
 	                                         std::shared_ptr<Request> request) {
 		std::size_t wrote = 0;
@@ -112,24 +61,9 @@ namespace Horizon {
 	void ImageFetcher::start_new_download() {
 		std::vector< std::pair<std::shared_ptr<CurlEasy<std::shared_ptr<Request> > >,
 		                       std::shared_ptr<Request> > > work_list;
-		{ /* Old Interface */
-			Glib::Mutex::Lock lock(curl_data_mutex);
-			while ( !curl_queue.empty() ) {
-				if (request_queue.empty()) {
-					break;
-				} else {
-					std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > easy = curl_queue.front();
-					curl_queue.pop();
-					std::shared_ptr<Request> request = request_queue.front();
-					request_queue.pop();
-					work_list.push_back(std::make_pair(easy, request));
-				}
-			}
-		} /* Old Interface */
-
 		{ /* New Interface */
 			Glib::Threads::RWLock::WriterLock wlock(request_queue_rwlock);
-			Glib::Mutex::Lock lock(curl_data_mutex);
+			Glib::Threads::Mutex::Lock lock(curl_data_mutex);
 			while ( (!curl_queue.empty()) && (!new_request_queue.empty()) ) {
 					std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > easy = curl_queue.front();
 					curl_queue.pop();
@@ -173,13 +107,13 @@ namespace Horizon {
 					curl_multi->add_handle(easy);
 				} catch ( Gdk::PixbufError e ) {
 					std::cerr << "Download aborted for url " << url << std::endl;
-					Glib::Mutex::Lock lock(curl_data_mutex);
+					Glib::Threads::Mutex::Lock lock(curl_data_mutex);
 					curl_queue.push(easy);
 					queue_w.send();
 				}
 
 			} else {
-				Glib::Mutex::Lock lock(curl_data_mutex);
+				Glib::Threads::Mutex::Lock lock(curl_data_mutex);
 				curl_queue.push(easy);
 				queue_w.send();
 			}
@@ -192,11 +126,11 @@ namespace Horizon {
 	void ImageFetcher::on_area_prepared(std::shared_ptr<Request> request) {
 		if (request->area_prepared_functor) {
 			auto pixbuf = request->loader->get_pixbuf();
-			auto functor = std::bind(request->area_prepared_functor, pixbuf);
-			
+			std::function<void ()> f = std::bind(request->area_prepared_functor, pixbuf);
 			{
-				Glib::Mutex::Lock lock(pixbuf_mutex);
-				pixbuf_update_queue.push_back(functor);
+				Glib::Threads::Mutex::Lock lock(pixbuf_update_queue_mutex);
+				auto pair = std::make_pair(request->canceller, f);
+				pixbuf_update_queue.push_back(pair);
 			}
 
 			signal_pixbuf_updated();
@@ -211,10 +145,11 @@ namespace Horizon {
 	void ImageFetcher::on_area_updated(int x, int y, int width, int height,
 	                                   std::shared_ptr<Request> request) {
 		if (request->area_updated_functor) {
-			auto functor = std::bind(request->area_updated_functor, x, y, width, height);
+			std::function<void ()> f = std::bind(request->area_updated_functor, x, y, width, height);
 			{
-				Glib::Mutex::Lock lock(pixbuf_mutex);
-				pixbuf_update_queue.push_back(functor);
+				Glib::Threads::Mutex::Lock lock(pixbuf_updated_idle_mutex);
+				auto pair = std::make_pair(request->canceller, f);
+				pixbuf_update_queue.push_back(pair);
 			}
 			signal_pixbuf_updated();
 		}
@@ -237,12 +172,13 @@ namespace Horizon {
 	bool ImageFetcher::on_pixbuf_updated() {
 		Glib::Threads::Mutex::Lock lock(pixbuf_updated_idle_mutex);
 		bool ret = true;
-		std::function<void ()> functor;
 		{
-			Glib::Mutex::Lock lock(pixbuf_mutex);
+			Glib::Threads::Mutex::Lock lock(pixbuf_update_queue_mutex);
 			if (pixbuf_update_queue.size() > 0) {
-				functor = pixbuf_update_queue.front();
-				functor();
+				auto pair = pixbuf_update_queue.front();
+				auto canceller = pair.first;
+				auto functor = pair.second;
+				canceller->involke_if_not_cancelled(functor);
 				pixbuf_update_queue.pop_front();
 			}
 
@@ -257,85 +193,6 @@ namespace Horizon {
 		return ret;
 	}
 
-	/*
-	 * Called from Glib main thread
-	 */
-	void ImageFetcher::download_thumb(const Glib::RefPtr<Post> &post) {
-		//const std::string &hash, const std::string &url) {
-		bool is_new = false;
-
-		{
-			Glib::Mutex::Lock lock(thumbs_mutex);
-			auto pair = pending_thumbs.insert(post->get_hash());
-			is_new = pair.second;
-		}
-		
-		if (is_new) {
-			std::shared_ptr<Request> req(new Request());
-			req->hash = post->get_hash();
-			req->url = post->get_thumb_url();
-			req->is_thumb = true;
-			req->ext = ".jpg";
-			req->istream = Gio::MemoryInputStream::create();
-			req->post = post;
-
-			if (image_cache->has_thumb(post)) {
-				auto functor = std::bind(&ImageFetcher::on_cache_result,
-				                         this,
-				                         std::placeholders::_1,
-				                         req);
-				image_cache->get_thumb_async(post, functor);
-			} else {
-				{
-					Glib::Mutex::Lock lock(curl_data_mutex);
-					request_queue.push(req);
-				}
-				queue_w.send();
-			}
-		}
-	}
-
-	/*
-	 * Called from Glib main thread
-	 */
-	void ImageFetcher::download_image(const Glib::RefPtr<Post> &post,
-	                                  std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared,
-	                                  std::function<void (int, int, int, int)> area_updated) {
-		bool is_new = false;
-
-		{
-			Glib::Mutex::Lock lock(images_mutex);
-			auto pair = pending_images.insert(post->get_hash());
-			is_new = pair.second;
-		}
-
-		if (is_new) {
-			std::shared_ptr<Request> req(new Request());
-			req->hash = post->get_hash();
-			req->url = post->get_image_url();
-			req->is_thumb = false;
-			req->ext = post->get_image_ext();
-			req->istream = Gio::MemoryInputStream::create();
-			req->post = post;
-			req->area_prepared_functor = area_prepared;
-			req->area_updated_functor = area_updated;
-
-			if (image_cache->has_image(post)) {
-				auto functor = std::bind(&ImageFetcher::on_cache_result,
-				                         this,
-				                         std::placeholders::_1,
-				                         req);
-				image_cache->get_image_async(post, functor);
-			} else {
-				{
-					Glib::Mutex::Lock lock(curl_data_mutex);
-					request_queue.push(req);
-				}
-				queue_w.send();
-			}
-		}
-	}
-
 	static std::string get_request_key(const Glib::RefPtr<Post> &post, bool get_thumb) {
 		std::string hash;
 		if (get_thumb)
@@ -348,9 +205,10 @@ namespace Horizon {
 	}
 	
 	static std::shared_ptr<Request> create_request(const Glib::RefPtr<Post> &post,
-	                                            bool is_thumb,
-	                                            std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb,
-	                                            std::function<void (int, int, int, int)> area_updated_cb) {
+	                                               bool is_thumb,
+	                                               std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb,
+	                                               std::function<void (int, int, int, int)> area_updated_cb,
+	                                               std::shared_ptr<Canceller> canceller) {
 		std::shared_ptr<Request> req(new Request());
 		req->hash = post->get_hash();
 		req->is_thumb = is_thumb;
@@ -365,6 +223,7 @@ namespace Horizon {
 		req->post = post;
 		req->area_prepared_functor = area_prepared_cb;
 		req->area_updated_functor = area_updated_cb;
+		req->canceller = canceller;
 
 		return req;
 	}
@@ -374,6 +233,7 @@ namespace Horizon {
 	 */
 	void ImageFetcher::download(const Glib::RefPtr<Post> &post,
 	                            std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &loader)> callback,
+	                            std::shared_ptr<Canceller> canceller,
 	                            bool get_thumb,
 	                            std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb,
 	                            std::function<void (int, int, int, int)> area_updated_cb) {
@@ -384,7 +244,8 @@ namespace Horizon {
 			bool in_cache = false;
 			std::shared_ptr<Request> request = create_request(post, get_thumb,
 			                                                  area_prepared_cb,
-			                                                  area_updated_cb);
+			                                                  area_updated_cb,
+			                                                  canceller);
 			auto cache_cb = std::bind(&ImageFetcher::on_cache_result, this,
 			                          std::placeholders::_1,
 			                          request);
@@ -587,33 +448,12 @@ namespace Horizon {
 		}
 	}
 
-	void ImageFetcher::remove_pending(std::shared_ptr<Request> request) {
-		if (request->is_thumb) {
-			Glib::Mutex::Lock lock(thumbs_mutex);
-			auto iter = pending_thumbs.find(request->hash);
-			if (iter != pending_thumbs.end()) {
-				pending_thumbs.erase(iter);
-			} else {
-				g_warning("A failed download couldn't be found pending");
-			}
-		} else {
-			Glib::Mutex::Lock lock(images_mutex);
-			auto iter = pending_images.find(request->hash);
-			if (iter != pending_images.end()) {
-				pending_images.erase(iter);
-			} else {
-				g_warning("A failed download couldn't be found pending");
-			}
-		}
-	}
-
 	/*
 	 * Called on ev_thread
 	 */
 	void ImageFetcher::cleanup_failed_pixmap(std::shared_ptr<Request> request,
-	                                         bool is_404) {
+	                                         bool) { /* is_404 */
 		Glib::RefPtr<Gdk::PixbufLoader> loader = request->loader;
-		bool use_old_interface = false;
 
 		if (G_LIKELY( loader )) {
 			try {
@@ -627,33 +467,9 @@ namespace Horizon {
 		/*
 		 * TODO: for !404 errors, put the requests in a cooldown queue
 		 */
-		loader.reset();
-		const std::string request_key = get_request_key(request->post,
-		                                                request->is_thumb);
-		bool found_cb = bind_loader_to_callbacks(request_key, loader);
-		use_old_interface = !found_cb;
-
-		if (use_old_interface) { /* Old Interface */
-			if (is_404) {
-				GError *error = nullptr;
-				const char* resource_404 = "/com/talisein/fourchan/native/gtk/404-Anonymous-2.png";
-				GdkPixbuf *cpixbuf_404 = gdk_pixbuf_new_from_resource(resource_404,
-				                                                      &error);
-				if (G_LIKELY( !error )) {
-					auto pixbuf_404 = Glib::wrap(cpixbuf_404);
-					{
-						Glib::Mutex::Lock lock(pixbuf_mutex);
-						pixbuf_map.insert({request, pixbuf_404});
-					}
-					signal_pixbuf_ready();
-				} else {
-					g_warning("Unable to create 404 image from resource: %s",
-					          error->message);
-				}
-			}
-		} /* Old Interface */
-
 		request->area_updated_connection.disconnect();
+		loader.reset();
+		bind_loader_to_callbacks(request, loader);
 	}
 
 	/*
@@ -661,12 +477,8 @@ namespace Horizon {
 	 */
 	void ImageFetcher::create_pixmap(std::shared_ptr<Request> request) {
 		const bool isThumb = request->is_thumb;
-		const std::string hash = request->hash;
-		const bool isGif = request->ext.rfind("gif") != std::string::npos;
 		Glib::RefPtr<Gdk::PixbufLoader> loader = request->loader;
 		bool close_error = false;
-		bool get_error = false;
-		bool use_old_interface = false;
 
 		if ( G_LIKELY( loader ) ) {
 			try {
@@ -687,6 +499,8 @@ namespace Horizon {
 			return;
 		}
 
+		request->area_updated_connection.disconnect();
+
 		if (close_error) {
 			loader.reset();
 			request->istream->close();
@@ -700,65 +514,17 @@ namespace Horizon {
 			}
 		}
 
-		const std::string request_key = get_request_key(request->post,
-		                                                request->is_thumb);
-		bool found_cb = bind_loader_to_callbacks(request_key, loader);
-		use_old_interface = !found_cb;
-
-
-		if (use_old_interface) { /* Old Interface */
-			if (G_LIKELY( !close_error && loader )) {
-				if (isGif) {
-					Glib::RefPtr<Gdk::PixbufAnimation> pixbuf_animation;
-					try {
-						pixbuf_animation = loader->get_animation();
-					} catch (Gdk::PixbufError e) {
-						std::cerr << "Unexpected Pixbuf error fetching "
-						          << "from loader for url " 
-						          << request->url << ": "
-						          << e.what() << std::endl;
-						get_error = true;
-					}
-
-					if (!get_error && pixbuf_animation) {
-						{
-							Glib::Mutex::Lock lock(pixbuf_mutex);
-							pixbuf_animation_map.insert({request, pixbuf_animation});
-						}
-						signal_pixbuf_ready();
-					}
-				} else {
-					Glib::RefPtr<Gdk::Pixbuf> pixbuf;
-					try {
-						pixbuf = loader->get_pixbuf();
-					} catch (Gdk::PixbufError e) {
-						std::cerr << "Unexpected Pixbuf error fetching "
-						          << "from loader for url " 
-						          << request->url << ": "
-						          << e.what() << std::endl;
-						get_error = true;
-					}
-				
-					if (!get_error && pixbuf) {
-						{
-							Glib::Mutex::Lock lock(pixbuf_mutex);
-							pixbuf_map.insert({request, pixbuf});
-						}
-						signal_pixbuf_ready();
-					}
-				}
-			}
-		} /* Old interface */
-
-		request->area_updated_connection.disconnect();
-		
+		bind_loader_to_callbacks(request, loader);
 	}
 
 	/*
 	 * Called on ImageCache thread or ev_thread
 	 */
-	bool ImageFetcher::bind_loader_to_callbacks(const std::string &request_key,
+	bool ImageFetcher::bind_loader_to_callbacks(std::shared_ptr<Request> request,
 	                                            const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
+		std::string request_key = get_request_key(request->post,
+		                                          request->is_thumb);
+		std::shared_ptr<Canceller> canceller = request->canceller;
 		bool found_cb = false;
 		Glib::Threads::RWLock::WriterLock lock(request_cb_rwlock);
 		auto iter_pair = request_cb_map.equal_range(request_key);
@@ -770,10 +536,11 @@ namespace Horizon {
 			std::transform(lower_bound,
 			               upper_bound,
 			               std::back_inserter(cb_queue),
-			               [&loader](const std::pair<std::string,
+			               [&loader, &canceller](const std::pair<std::string,
 			                         std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &)>
 			                         > &pair) {
-				               return std::bind(pair.second, loader);
+				               std::function<void ()> f = std::bind(pair.second, loader);
+				               return std::make_pair(canceller, f);
 			               });
 			request_cb_map.erase(lower_bound, upper_bound);
 			if (!cb_queue_idle.connected()) {
@@ -792,8 +559,10 @@ namespace Horizon {
 		bool ret = true;
 		Glib::Threads::RWLock::WriterLock cb_queue_lock(cb_queue_rwlock);
 		if ( !cb_queue.empty() ) {
-			auto cb = cb_queue.front();
-			cb();
+			auto pair = cb_queue.front();
+			auto canceller = pair.first;
+			auto cb = pair.second;
+			canceller->involke_if_not_cancelled(cb);
 			cb_queue.pop_front();
 		}
 
@@ -810,53 +579,8 @@ namespace Horizon {
 	 */
 	void ImageFetcher::on_cache_result(const Glib::RefPtr<Gdk::PixbufLoader>& loader,
 	                                   std::shared_ptr<Request> request) {
-		bool load_error = false;
-
 		if (loader) {
-			const std::string request_key = get_request_key(request->post,
-			                                                request->is_thumb);
-			bool use_old_interface = false;
-
-			bool found_cb = bind_loader_to_callbacks(request_key, loader);
-			use_old_interface = !found_cb;
-
-			if (use_old_interface) {
-				/* Old Interface */
-				if ( request->ext.find(".gif") != request->ext.npos ) {
-					Glib::RefPtr<Gdk::PixbufAnimation> ani_pixbuf;
-					try {
-						ani_pixbuf = loader->get_animation();
-					} catch (Gdk::PixbufError e) {
-						load_error = true;
-						g_warning("Error loading from pixbuf: %s", e.what().c_str());
-					}
-
-					if (ani_pixbuf && !load_error) {
-						{
-							Glib::Mutex::Lock lock(pixbuf_mutex);
-							pixbuf_animation_map.insert({request, ani_pixbuf});
-						}
-						signal_pixbuf_ready();
-					}
-				} else {
-					Glib::RefPtr<Gdk::Pixbuf> pixbuf;
-					try {
-						pixbuf = loader->get_pixbuf();
-					} catch (Gdk::PixbufError e) {
-						load_error = true;
-						g_warning("Error loading from pixbuf: %s", e.what().c_str());
-					}
-				
-					if (pixbuf && !load_error) {
-						{
-							Glib::Mutex::Lock lock(pixbuf_mutex);
-							pixbuf_map.insert({request, pixbuf});
-						}
-						signal_pixbuf_ready();
-					}
-				}
-				/* Old Interface */
-			}
+			bind_loader_to_callbacks(request, loader);
 		} else {
 			// There was an error from disk, so fallback to downloading.
 			std::cerr << "Info: An on disk image was invalid or corrupt, so we are downloading it again." << std::endl;
@@ -864,77 +588,6 @@ namespace Horizon {
 		}
 
 	}
-
-	/*
-	 * Called on the GLib Main Thread
-	 */
-	void ImageFetcher::on_pixbuf_ready() {
-		std::pair<std::shared_ptr<Request>, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_pair;
-		bool had_pixbuf = false;
-		{
-			Glib::Mutex::Lock lock(pixbuf_mutex);
-			if (pixbuf_map.size() > 0) {
-				auto iter = pixbuf_map.begin();
-				pixbuf_pair = *iter;
-				pixbuf_map.erase(iter);
-				had_pixbuf = true;
-			}
-		}
-				
-		if (had_pixbuf) {
-			auto request = pixbuf_pair.first;
-			auto pixbuf = pixbuf_pair.second;
-			if (request->is_thumb) {
-				{
-					Glib::Mutex::Lock lock(thumbs_mutex);
-					thumbs.insert({request->hash, pixbuf});
-				}
-				signal_thumb_ready(request->hash);
-			} else {
-				{
-					Glib::Mutex::Lock lock(images_mutex);
-					images.insert({request->hash, pixbuf});
-				}
-				signal_image_ready(request->hash);
-			}
-			remove_pending(request);
-		}
-
-
-		std::pair<std::shared_ptr<Request>, Glib::RefPtr<Gdk::PixbufAnimation> > animation_pair;
-		bool had_animation = false;
-		{
-			Glib::Mutex::Lock lock(pixbuf_mutex);
-			if ( pixbuf_animation_map.size() > 0 ) {
-				auto iter = pixbuf_animation_map.begin();
-				animation_pair = *iter;
-				pixbuf_animation_map.erase(iter);
-				had_animation = true;
-			}
-		}
-		
-		if (had_animation) {
-			auto request = animation_pair.first;
-			auto pixbuf = animation_pair.second;
-			{
-				Glib::Mutex::Lock lock(images_mutex);
-				animations.insert({request->hash, pixbuf});
-			}
-			signal_image_ready(request->hash);
-			remove_pending(request);
-		}
-
-		bool should_signal = false;
-		{
-			Glib::Mutex::Lock lock(pixbuf_mutex);
-			should_signal = (pixbuf_map.size() > 0 
-			                 || pixbuf_animation_map.size() > 0);
-		}
-
-		if (should_signal)
-			signal_pixbuf_ready();
-	}
-
 
 	/* 
 	 * Called on ev_thread
@@ -976,7 +629,7 @@ namespace Horizon {
 				}
 
 				{
-					Glib::Mutex::Lock lock(curl_data_mutex);
+					Glib::Threads::Mutex::Lock lock(curl_data_mutex);
 					curl_queue.push(easy);
 				}
 				queue_w.send();
@@ -1008,8 +661,7 @@ namespace Horizon {
 		queue_w(ev_loop),
 		timeout_w(ev_loop)
 	{
-		Glib::Mutex::Lock lock(curl_data_mutex);
-		signal_pixbuf_ready.connect( sigc::mem_fun(*this, &ImageFetcher::on_pixbuf_ready) );
+		Glib::Threads::Mutex::Lock lock(curl_data_mutex);
 
 		curl_multi->set_socket_function(&curl_socket_cb, this);
 		curl_multi->set_timer_function(&curl_timer_cb, this);

@@ -8,6 +8,7 @@
 #include <gtkmm/grid.h>
 #include "image_fetcher.hpp"
 #include "thread.hpp"
+#include "canceller.hpp"
 #include <sigc++/functors/slot.h>
 
 namespace Horizon {
@@ -17,7 +18,7 @@ namespace Horizon {
 		enum ImageState { NONE, THUMBNAIL, EXPAND, FULL };
 		static std::shared_ptr<Image> create(const Glib::RefPtr<Post>&,
 		                                     sigc::slot<void, const ImageState&>);
-		~Image() = default;
+		~Image();
 
 		Glib::RefPtr<Gdk::Pixbuf> get_image() const;
 
@@ -60,6 +61,8 @@ namespace Horizon {
 		bool is_scaled;
 		bool am_fetching_thumb;
 		bool am_fetching_image;
+		
+		std::shared_ptr<Canceller> canceller;
 
 		sigc::connection animation_timeout;
 		void on_image_unmap();

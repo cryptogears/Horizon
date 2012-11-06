@@ -50,6 +50,7 @@ namespace Horizon {
 		std::map<gint64, ThreadView*> thread_map;
 
 		Horizon::Manager manager;
+		std::shared_ptr<Canceller> canceller;
 		sigc::connection manager_alarm;
 		sigc::connection summary_alarm;
 		

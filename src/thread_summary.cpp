@@ -27,11 +27,13 @@ namespace Horizon {
 	}
 
 	ThreadSummary::ThreadSummary(HorizonThreadSummary* castitem) :
-		Glib::Object((GObject*) castitem)
+		Glib::Object((GObject*) castitem),
+		canceller(new Canceller())
 	{}
 
 	ThreadSummary::ThreadSummary(const Glib::ConstructParams &params) :
-		Glib::Object(params)
+		Glib::Object(params),
+		canceller(new Canceller())
 	{}
 
 	ThreadSummary::CppClassType ThreadSummary::thread_summary_class_;
@@ -45,6 +47,7 @@ namespace Horizon {
 	}
 
 	ThreadSummary::~ThreadSummary() {
+		canceller->cancel();
 	}
 
 	gint64 ThreadSummary::get_id() const {
@@ -120,7 +123,7 @@ namespace Horizon {
 			auto ifetcher = ImageFetcher::get(CATALOG);
 			auto post = get_proxy_post();
 			auto cb = std::bind(&ThreadSummary::on_thumb, this, std::placeholders::_1);
-			ifetcher->download(post, cb);
+			ifetcher->download(post, cb, canceller);
 		}
 	}
 

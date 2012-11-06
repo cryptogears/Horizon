@@ -20,6 +20,7 @@
 #include <glibmm/threads.h>
 #include "image_cache.hpp"
 #include "horizon_curl.hpp"
+#include "canceller.hpp"
 
 #ifdef HAVE_EV___H
 #include <ev++.h>
@@ -47,6 +48,7 @@ namespace Horizon {
 		std::function<void (int, int, int, int)> area_updated_functor;
 		sigc::connection area_prepared_connection;
 		sigc::connection area_updated_connection;
+		std::shared_ptr<Canceller> canceller;
 	};
 
 	class ImageFetcher {
@@ -56,25 +58,13 @@ namespace Horizon {
 		~ImageFetcher();
 
 		/* Old interface */
-		void download_thumb(const Glib::RefPtr<Post> &) G_GNUC_DEPRECATED;
-		void download_image(const Glib::RefPtr<Post> &,
-		                    std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared = nullptr,
-		                    std::function<void (int, int, int, int)> area_updated = nullptr) G_GNUC_DEPRECATED;
-
 		sigc::signal<void, std::string> signal_thumb_ready;
 		sigc::signal<void, std::string> signal_image_ready;
-
-		const Glib::RefPtr<Gdk::Pixbuf> get_thumb(const std::string &hash) const G_GNUC_DEPRECATED;
-		const Glib::RefPtr<Gdk::Pixbuf> get_image(const std::string &hash) const G_GNUC_DEPRECATED;
-		const Glib::RefPtr<Gdk::PixbufAnimation> get_animation(const std::string &hash) const G_GNUC_DEPRECATED;
-
-		bool has_thumb(const std::string &hash) const G_GNUC_DEPRECATED;
-		bool has_image(const std::string &hash) const G_GNUC_DEPRECATED;
-		bool has_animation(const std::string &hash) const G_GNUC_DEPRECATED;
 
 		/* New interface */
 		void download(const Glib::RefPtr<Post> &,
 		              std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &loader)> callback,
+		              std::shared_ptr<Canceller> canceller,
 		              bool get_thumb = true,
 		              std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb = nullptr,
 		              std::function<void (int, int, int, int)> area_updated_cb = nullptr
@@ -91,7 +81,6 @@ namespace Horizon {
 		void start_new_download();
 		void cleanup_failed_pixmap(std::shared_ptr<Request> request, bool is_404);
 		void create_pixmap(std::shared_ptr<Request> request);
-		void remove_pending(std::shared_ptr<Request> request);
 		
 		/* New Interface */
 		std::multimap<std::string,
@@ -100,48 +89,26 @@ namespace Horizon {
 		mutable Glib::Threads::RWLock                      request_cb_rwlock;
 		std::deque<std::shared_ptr<Request> >              new_request_queue;
 		mutable Glib::Threads::RWLock                      request_queue_rwlock;
-		std::deque<std::function<void ()> >                cb_queue;
+		std::deque<std::pair<std::shared_ptr<Canceller>, std::function<void ()> > > cb_queue;
 		mutable Glib::Threads::RWLock                      cb_queue_rwlock;
 		sigc::connection                                   cb_queue_idle;
 
 		bool process_cb_queue();
 		bool add_request_cb(const std::string &request_key,
 		                    std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &)> cb);
-		bool bind_loader_to_callbacks(const std::string &request_key,
+		bool bind_loader_to_callbacks(std::shared_ptr<Request> request,
 		                              const Glib::RefPtr<Gdk::PixbufLoader> &loader);
 		void add_request(const std::shared_ptr<Request> &);
 
-
-
-		mutable Glib::Mutex pixbuf_mutex;
-		Glib::Dispatcher signal_pixbuf_ready;
-		void on_pixbuf_ready();
-		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
-		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
-
 		/* Progressive Loading callbacks */
 		void signal_pixbuf_updated();
-		Glib::Threads::Mutex pixbuf_updated_idle_mutex;
+		mutable Glib::Threads::Mutex pixbuf_updated_idle_mutex;
 		sigc::connection pixbuf_updated_idle;
 		bool on_pixbuf_updated();
 		void on_area_prepared(std::shared_ptr<Request> request);
 		void on_area_updated(int x, int y, int width, int height, std::shared_ptr<Request> request);
-		std::deque<std::function<void ()> > pixbuf_update_queue;
-
-		/* Old interface state */
-		mutable Glib::Mutex images_mutex;
-		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > images;
-		std::map<std::string, Glib::RefPtr<Gdk::PixbufAnimation> > animations;
-		std::set<std::string> pending_images;
-
-		mutable Glib::Mutex thumbs_mutex;
-		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > thumbs;
-		std::set<std::string> pending_thumbs;
-
-		/* old interface: Requests */
-		// Uses curl_data_mutex
-		std::queue<std::shared_ptr<Request> >  request_queue;
-		
+		mutable Glib::Threads::Mutex pixbuf_update_queue_mutex;
+		std::deque<std::pair<std::shared_ptr<Canceller>, std::function<void ()> > > pixbuf_update_queue;
 
 		/* Curl socket eventing methods */
 		void curl_addsock(curl_socket_t s, CURL *easy, int action);
@@ -153,7 +120,7 @@ namespace Horizon {
 		void curl_event_cb(ev::io &w, int);
 
 		/* Curl state */
-		mutable Glib::Mutex curl_data_mutex;
+		mutable Glib::Threads::Mutex curl_data_mutex;
 		char* curl_error_buffer;
 		std::shared_ptr< CurlMulti< std::shared_ptr<Request> > > curl_multi;
 		std::queue<std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > > curl_queue;

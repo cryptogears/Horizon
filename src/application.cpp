@@ -450,7 +450,7 @@ namespace Horizon {
 						                    std::placeholders::_1,
 						                    path,
 						                    thread);
-						ifetcher->download(post, cb);
+						ifetcher->download(post, cb, canceller);
 
 						iter->set_value(thread_summary_columns.thread_summary,
 						                thread);
@@ -471,8 +471,10 @@ namespace Horizon {
 						                                   thread->get_unix_date()));
 					} else {
 						auto pixbuf = match_iter->second.get_value(thread_summary_columns.thumb);
-						horizon_thread_summary_set_thumb_pixbuf(thread->gobj(),
-						                                        pixbuf->gobj());
+						if (pixbuf) {
+							horizon_thread_summary_set_thumb_pixbuf(thread->gobj(),
+							                                        pixbuf->gobj());
+						}
 						match_iter->second.set_value(thread_summary_columns.reply_count,
 						                      thread->get_reply_count());
 						match_iter->second.set_value(thread_summary_columns.image_count,
@@ -552,13 +554,15 @@ namespace Horizon {
 	}
 
 	Application::~Application() {
+		canceller->cancel();
 		manager_alarm.disconnect();
 		summary_alarm.disconnect();
 	}
 
 
 	Application::Application(const Glib::ustring &appid) :
-		Gtk::Application(appid)
+		Gtk::Application(appid),
+		canceller(new Canceller())
 	{
 		Notifier::init();
 	}

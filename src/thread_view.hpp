@@ -14,6 +14,7 @@
 #include "thread.hpp"
 #include "post_view.hpp"
 #include "notifier.hpp"
+#include "canceller.hpp"
 
 namespace Horizon {
 
@@ -54,6 +55,8 @@ namespace Horizon {
 		std::map<gint64, PostView*> post_map;
 		Glib::RefPtr<Gio::Settings> settings;
 		std::shared_ptr<Notifier> notifier;
+
+		std::shared_ptr<Canceller> canceller;
 
 		double prev_value;
 		double prev_upper;
