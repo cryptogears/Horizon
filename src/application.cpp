@@ -49,7 +49,7 @@ namespace Horizon {
 			summary_view.append_column(* Gtk::manage(column) );
 			sw->add(summary_view);
 			summary_view.signal_button_press_event().connect(sigc::mem_fun(*this, &Application::on_treeview_click), false);
-			board_combobox->signal_changed().connect(sigc::mem_fun(*this, &Application::refresh_catalog_view));
+			board_combobox->signal_changed().connect(sigc::mem_fun(*this, &Application::on_catalog_board_change));
 			summary_grid.attach(*search_entry, 0, 0, 1, 1);
 			summary_grid.attach(*board_combobox, 1, 0, 1, 1);
 			summary_grid.attach(*sw, 0, 1, 2, 1);
@@ -388,18 +388,33 @@ namespace Horizon {
 			if (board.size() == active_board.size() &&
 			    board.find(active_board) != board.npos) {
 				refresh_catalog_view();
-			} else {
-				try {
-					for ( auto thread : manager.get_catalog(board) ) {
-						// Get those downloads started. This has to be
-						// done from the main thread or else the callbacks
-						// will be fucked up.
-						thread->fetch_thumb();
-					}
-				} catch (std::range_error e) {
-					;
-				}
 			}
+		}
+	}
+
+
+	void Application::on_catalog_board_change() {
+		model->clear();
+		refresh_catalog_view();
+	}
+
+	void Application::on_catalog_image(const Glib::RefPtr<Gdk::PixbufLoader> &loader,
+	                                   Gtk::TreeModel::Path path,
+	                                   Glib::RefPtr<ThreadSummary> thread) {
+		if (loader) {
+			auto iter = model->get_iter(path);
+
+			if (iter) {
+				auto pixbuf = loader->get_pixbuf();
+				horizon_thread_summary_set_thumb_pixbuf(thread->gobj(),
+				                                        pixbuf->gobj());
+				iter->set_value(thread_summary_columns.thumb,
+				                pixbuf);
+				iter->set_value(thread_summary_columns.thread_summary,
+				                thread);
+			}
+		} else {
+			std::cerr << "Warning: CatalogView got invalid PixbufLoader" << std::endl;
 		}
 	}
 
@@ -407,35 +422,69 @@ namespace Horizon {
 		if (board_combobox->get_active_row_number() == -1)
 			return;
 		const std::string active_board = get_board_from_fancy(board_combobox->get_active_text());
+		auto ifetcher = ImageFetcher::get(CATALOG);
+
 		try {
 			auto catalog = manager.get_catalog(active_board);
 		
 			if ( model ) {
-				model->clear();
+				auto children = model->children();
+				std::map<gint64, Gtk::TreeRow> row_map;
+				auto column_id = thread_summary_columns.id;
+				std::transform(children.begin(),
+				               children.end(),
+				               std::inserter(row_map, row_map.end()),
+				               [&column_id](const Gtk::TreeRow &row) {
+					               return std::make_pair(row.get_value(column_id), row);
+						               });
+
 				for ( auto thread : catalog ) {
-					thread->fetch_thumb();
-				
-					auto iter = model->append();
-					iter->set_value(thread_summary_columns.thread_summary,
-					                thread);
-					iter->set_value(thread_summary_columns.teaser,
-					                Glib::ustring(thread->get_teaser()));
-					iter->set_value(thread_summary_columns.url,
-					                Glib::ustring(thread->get_url()));
-					if (thread->get_thumb_pixbuf())
-						iter->set_value(thread_summary_columns.thumb,
-						                thread->get_thumb_pixbuf());
-					iter->set_value(thread_summary_columns.id,
-					                thread->get_id());
-					iter->set_value(thread_summary_columns.reply_count,
-					                thread->get_reply_count());
-					iter->set_value(thread_summary_columns.image_count,
-					                thread->get_image_count());
-					iter->set_value(thread_summary_columns.ppm, 
-					                static_cast<float>(thread->get_reply_count()) /
-					                static_cast<float>(Glib::DateTime::
-					                                   create_now_utc().to_unix() -
-					                                   thread->get_unix_date()));
+					const gint64 this_id = thread->get_id();
+					auto match_iter = row_map.find(this_id);
+					if (match_iter == row_map.end()) {
+						auto iter = model->append();
+						auto path = model->get_path(iter);
+
+						auto post = thread->get_proxy_post();
+						auto cb = std::bind(&Application::on_catalog_image, this,
+						                    std::placeholders::_1,
+						                    path,
+						                    thread);
+						ifetcher->download(post, cb);
+
+						iter->set_value(thread_summary_columns.thread_summary,
+						                thread);
+						iter->set_value(thread_summary_columns.teaser,
+						                Glib::ustring(thread->get_teaser()));
+						iter->set_value(thread_summary_columns.url,
+						                Glib::ustring(thread->get_url()));
+						iter->set_value(thread_summary_columns.id,
+						                thread->get_id());
+						iter->set_value(thread_summary_columns.reply_count,
+						                thread->get_reply_count());
+						iter->set_value(thread_summary_columns.image_count,
+						                thread->get_image_count());
+						iter->set_value(thread_summary_columns.ppm, 
+						                static_cast<float>(thread->get_reply_count()) /
+						                static_cast<float>(Glib::DateTime::
+						                                   create_now_utc().to_unix() -
+						                                   thread->get_unix_date()));
+					} else {
+						auto pixbuf = match_iter->second.get_value(thread_summary_columns.thumb);
+						horizon_thread_summary_set_thumb_pixbuf(thread->gobj(),
+						                                        pixbuf->gobj());
+						match_iter->second.set_value(thread_summary_columns.reply_count,
+						                      thread->get_reply_count());
+						match_iter->second.set_value(thread_summary_columns.image_count,
+						                      thread->get_image_count());
+						match_iter->second.set_value(thread_summary_columns.ppm, 
+						                      static_cast<float>(thread->get_reply_count()) /
+						                      static_cast<float>(Glib::DateTime::
+						                                         create_now_utc().to_unix() -
+						                                         thread->get_unix_date()));
+						match_iter->second.set_value(thread_summary_columns.thread_summary,
+						                      thread);
+					}
 				}
 			} else {
 				g_error("Summary model not created");

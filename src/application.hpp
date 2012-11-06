@@ -62,6 +62,10 @@ namespace Horizon {
 
 		Gtk::TreeView summary_view;
 		void refresh_catalog_view();
+		void on_catalog_board_change();
+		void on_catalog_image(const Glib::RefPtr<Gdk::PixbufLoader> &loader,
+		                      Gtk::TreeModel::Path path,
+		                      Glib::RefPtr<ThreadSummary> thread);
 		Glib::RefPtr<Gtk::ListStore> model;
 		Gtk::ComboBoxText *board_combobox;
 		bool board_combobox_add_board(const std::string& board,
