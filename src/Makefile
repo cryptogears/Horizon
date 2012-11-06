@@ -71,7 +71,8 @@ am_horizon_OBJECTS = main.$(OBJEXT) utils.$(OBJEXT) \
 	html_parser.$(OBJEXT) horizon_image.$(OBJEXT) \
 	horizon-resources.$(OBJEXT) horizon_thread_summary.$(OBJEXT) \
 	thread_summary.$(OBJEXT) summary_cellrenderer.$(OBJEXT) \
-	image_cache.$(OBJEXT) horizon_curl.$(OBJEXT)
+	image_cache.$(OBJEXT) horizon_curl.$(OBJEXT) \
+	canceller.$(OBJEXT)
 horizon_OBJECTS = $(am_horizon_OBJECTS)
 am__DEPENDENCIES_1 =
 horizon_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -138,7 +139,7 @@ AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -g -O2
-CPPFLAGS = 
+CPPFLAGS = -Werror
 CURL_CFLAGS =  
 CURL_LIBS = -lcurl  
 CXX = g++
@@ -254,7 +255,7 @@ BUILT_SOURCES = \
 	$(NULL)
 
 CLEANFILES = horizon-resources.c horizon-resources.h
-horizon_SOURCES = main.cpp utils.cpp utils.hpp application.cpp application.hpp curler.cpp curler.hpp thread.cpp thread.hpp manager.cpp manager.hpp entities.c entities.h horizon_post.c horizon_post.h thread_view.cpp thread_view.hpp post_view.cpp post_view.hpp image_fetcher.cpp image_fetcher.hpp notifier.cpp notifier.hpp html_parser.cpp html_parser.hpp horizon_image.cpp horizon_image.hpp horizon-resources.c horizon_thread_summary.c horizon_thread_summary.h thread_summary.cpp thread_summary.hpp summary_cellrenderer.cpp summary_cellrenderer.hpp image_cache.cpp image_cache.hpp horizon_curl.cpp horizon_curl.hpp
+horizon_SOURCES = main.cpp utils.cpp utils.hpp application.cpp application.hpp curler.cpp curler.hpp thread.cpp thread.hpp manager.cpp manager.hpp entities.c entities.h horizon_post.c horizon_post.h thread_view.cpp thread_view.hpp post_view.cpp post_view.hpp image_fetcher.cpp image_fetcher.hpp notifier.cpp notifier.hpp html_parser.cpp html_parser.hpp horizon_image.cpp horizon_image.hpp horizon-resources.c horizon_thread_summary.c horizon_thread_summary.h thread_summary.cpp thread_summary.hpp summary_cellrenderer.cpp summary_cellrenderer.hpp image_cache.cpp image_cache.hpp horizon_curl.cpp horizon_curl.hpp canceller.cpp canceller.hpp
 UPDATE_ICON_CACHE = gtk-update-icon-cache -f -t $(datadir)/icons/hicolor || :
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -342,6 +343,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 include ./$(DEPDIR)/application.Po
+include ./$(DEPDIR)/canceller.Po
 include ./$(DEPDIR)/curler.Po
 include ./$(DEPDIR)/entities.Po
 include ./$(DEPDIR)/horizon-resources.Po

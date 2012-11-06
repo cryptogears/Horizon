@@ -163,7 +163,7 @@ AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -g -O2
-CPPFLAGS = 
+CPPFLAGS = -Werror
 CURL_CFLAGS =  
 CURL_LIBS = -lcurl  
 CXX = g++
