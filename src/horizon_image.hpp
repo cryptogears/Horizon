@@ -38,7 +38,6 @@ namespace Horizon {
 
 	private:
 		Glib::RefPtr<Post> post;
-		Gtk::Grid  *grid;
 		Gtk::EventBox event_box;
 		Gtk::Image image;
 		void on_area_prepared(Glib::RefPtr<Gdk::Pixbuf> pixbuf);
@@ -68,6 +67,7 @@ namespace Horizon {
 
 		void fetch_thumbnail();
 		void fetch_image();
+		void on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader);
 		void on_thumb_ready(std::string hash);
 		void on_image_ready(std::string hash);
 		void set_none_state();

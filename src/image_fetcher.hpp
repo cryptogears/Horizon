@@ -55,73 +55,94 @@ namespace Horizon {
 		static std::shared_ptr<ImageFetcher> get(FETCH_TYPE);
 		~ImageFetcher();
 
-		void download_thumb(const Glib::RefPtr<Post> &);
+		/* Old interface */
+		void download_thumb(const Glib::RefPtr<Post> &) G_GNUC_DEPRECATED;
 		void download_image(const Glib::RefPtr<Post> &,
 		                    std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared = nullptr,
-		                    std::function<void (int, int, int, int)> area_updated = nullptr);
+		                    std::function<void (int, int, int, int)> area_updated = nullptr) G_GNUC_DEPRECATED;
 
 		sigc::signal<void, std::string> signal_thumb_ready;
 		sigc::signal<void, std::string> signal_image_ready;
 
-		const Glib::RefPtr<Gdk::Pixbuf> get_thumb(const std::string &hash) const;
-		const Glib::RefPtr<Gdk::Pixbuf> get_image(const std::string &hash) const;
-		const Glib::RefPtr<Gdk::PixbufAnimation> get_animation(const std::string &hash) const;
-		bool has_thumb(const std::string &hash) const;
-		bool has_image(const std::string &hash) const;
-		bool has_animation(const std::string &hash) const;
+		const Glib::RefPtr<Gdk::Pixbuf> get_thumb(const std::string &hash) const G_GNUC_DEPRECATED;
+		const Glib::RefPtr<Gdk::Pixbuf> get_image(const std::string &hash) const G_GNUC_DEPRECATED;
+		const Glib::RefPtr<Gdk::PixbufAnimation> get_animation(const std::string &hash) const G_GNUC_DEPRECATED;
+
+		bool has_thumb(const std::string &hash) const G_GNUC_DEPRECATED;
+		bool has_image(const std::string &hash) const G_GNUC_DEPRECATED;
+		bool has_animation(const std::string &hash) const G_GNUC_DEPRECATED;
+
+		/* New interface */
+		void download(const Glib::RefPtr<Post> &,
+		              std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &loader)> callback,
+		              bool get_thumb = true,
+		              std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb = nullptr,
+		              std::function<void (int, int, int, int)> area_updated_cb = nullptr
+ 		              );
 
 	private:
 		ImageFetcher();
-		std::shared_ptr<ImageCache> image_cache;
 
+		/* Image Cache handles on-disk images */
+		std::shared_ptr<ImageCache> image_cache;
 		void on_cache_result(const Glib::RefPtr<Gdk::PixbufLoader>&,
 		                     std::shared_ptr<Request>);
 
-		// Mutex wraps curl_queue, request_queue
-		mutable Glib::Mutex curl_data_mutex;
-		char* curl_error_buffer;
-		std::shared_ptr< CurlMulti< std::shared_ptr<Request> > > curl_multi;
+		void start_new_download();
+		void cleanup_failed_pixmap(std::shared_ptr<Request> request, bool is_404);
+		void create_pixmap(std::shared_ptr<Request> request);
+		void remove_pending(std::shared_ptr<Request> request);
+		
+		/* New Interface */
+		std::multimap<std::string,
+		              std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &)>
+		              >                                    request_cb_map;
+		mutable Glib::Threads::RWLock                      request_cb_rwlock;
+		std::deque<std::shared_ptr<Request> >              new_request_queue;
+		mutable Glib::Threads::RWLock                      request_queue_rwlock;
+		std::deque<std::function<void ()> >                cb_queue;
+		mutable Glib::Threads::RWLock                      cb_queue_rwlock;
+		sigc::connection                                   cb_queue_idle;
 
-		std::queue<std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > > curl_queue;
-		std::queue<std::shared_ptr<Request> >  request_queue;
+		bool process_cb_queue();
+		bool add_request_cb(const std::string &request_key,
+		                    std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &)> cb);
+		bool bind_loader_to_callbacks(const std::string &request_key,
+		                              const Glib::RefPtr<Gdk::PixbufLoader> &loader);
+		void add_request(const std::shared_ptr<Request> &);
 
-		sigc::connection timeout_connection;
-		std::list<curl_socket_t> active_sockets_;
-		std::vector<Socket_Info*> socket_info_cache_;
-		std::list<Socket_Info*> active_socket_infos_;
-		int running_handles;
+
 
 		mutable Glib::Mutex pixbuf_mutex;
 		Glib::Dispatcher signal_pixbuf_ready;
+		void on_pixbuf_ready();
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::Pixbuf> > pixbuf_map;
 		std::map<std::shared_ptr<Request>, Glib::RefPtr<Gdk::PixbufAnimation> > pixbuf_animation_map;
 
-		Glib::Dispatcher signal_pixbuf_updated;
-		void on_pixbuf_updated();
+		/* Progressive Loading callbacks */
+		void signal_pixbuf_updated();
+		Glib::Threads::Mutex pixbuf_updated_idle_mutex;
+		sigc::connection pixbuf_updated_idle;
+		bool on_pixbuf_updated();
 		void on_area_prepared(std::shared_ptr<Request> request);
 		void on_area_updated(int x, int y, int width, int height, std::shared_ptr<Request> request);
 		std::deque<std::function<void ()> > pixbuf_update_queue;
 
-
-		void on_pixbuf_ready();
-		void remove_pending(std::shared_ptr<Request> request);
-		void cleanup_failed_pixmap(std::shared_ptr<Request> request, bool is_404);
-		void create_pixmap(std::shared_ptr<Request> request);
-		void start_new_download();
-
-		/* Hash to Image Pixbuf. 
-		   Expose */
+		/* Old interface state */
 		mutable Glib::Mutex images_mutex;
 		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > images;
 		std::map<std::string, Glib::RefPtr<Gdk::PixbufAnimation> > animations;
 		std::set<std::string> pending_images;
 
-		/* Hash to Thumbnail Pixbuf 
-		   Expose */
 		mutable Glib::Mutex thumbs_mutex;
 		std::map<std::string, Glib::RefPtr<Gdk::Pixbuf> > thumbs;
 		std::set<std::string> pending_thumbs;
+
+		/* old interface: Requests */
+		// Uses curl_data_mutex
+		std::queue<std::shared_ptr<Request> >  request_queue;
 		
+
 		/* Curl socket eventing methods */
 		void curl_addsock(curl_socket_t s, CURL *easy, int action);
 		void curl_setsock(Socket_Info* info, curl_socket_t s, 
@@ -130,6 +151,18 @@ namespace Horizon {
 		void curl_check_info();
 		bool curl_timeout_expired_cb();
 		void curl_event_cb(ev::io &w, int);
+
+		/* Curl state */
+		mutable Glib::Mutex curl_data_mutex;
+		char* curl_error_buffer;
+		std::shared_ptr< CurlMulti< std::shared_ptr<Request> > > curl_multi;
+		std::queue<std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > > curl_queue;
+
+		sigc::connection timeout_connection;
+		std::list<curl_socket_t> active_sockets_;
+		std::vector<Socket_Info*> socket_info_cache_;
+		std::list<Socket_Info*> active_socket_infos_;
+		int running_handles;
 
 		/* Libev */
 		Glib::Threads::Thread *ev_thread;

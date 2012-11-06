@@ -18,6 +18,7 @@ namespace Horizon {
 		is_changing_state(false),
 		scaled_width(-1),
 		scaled_height(-1),
+		is_scaled(false),
 		ifetcher(ImageFetcher::get(FOURCHAN))
 	{
 		set_has_window(false);
@@ -87,12 +88,17 @@ namespace Horizon {
 	}
 
 	void Image::fetch_thumbnail() {
+		std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> cb = std::bind(&Image::on_thumb, this, std::placeholders::_1);
+		ifetcher->download(post, cb, true, nullptr, nullptr);
+
+		/*
 		if ( ifetcher->has_thumb(post->get_hash()) ) {
 			on_thumb_ready(post->get_hash());
 		} else {
 			thumb_connection = ifetcher->signal_thumb_ready.connect(sigc::mem_fun(*this, &Image::on_thumb_ready));
 			ifetcher->download_thumb(post);
 		}
+		*/
 	}
 
 	void Image::fetch_image() {
@@ -104,8 +110,15 @@ namespace Horizon {
 			return;
 		} else {
 			image_connection = ifetcher->signal_image_ready.connect(sigc::mem_fun(*this, &Image::on_image_ready));
-			auto area_prepared = std::bind(&Image::on_area_prepared, this, std::placeholders::_1);
-			auto area_updated = std::bind(&Image::on_area_updated, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+			auto area_prepared = std::bind(&Image::on_area_prepared,
+			                               this,
+			                               std::placeholders::_1);
+			auto area_updated = std::bind(&Image::on_area_updated,
+			                              this,
+			                              std::placeholders::_1,
+			                              std::placeholders::_2,
+			                              std::placeholders::_3,
+			                              std::placeholders::_4);
 			ifetcher->download_image(post, area_prepared, area_updated);
 		}
 	}
@@ -117,16 +130,14 @@ namespace Horizon {
 			is_changing_state = false;
 			set_expand_state();
 		}
+
+		if (image_state == NONE) {
+			set_thumb_state();
+		}
 	}
 
 	void Image::on_area_updated(int x, int y, int width, int height) {
 		if (scaled_image && scaled_width > 0 && scaled_height > 0) {
-			float scale = static_cast<float>(scaled_width) / static_cast<float>(unscaled_image->get_width());
-			int nx, ny, nw, nh;
-			nx = static_cast<int>(scale * x);
-			ny = static_cast<int>(scale * y);
-			nw = static_cast<int>(scale * width);
-			nh = static_cast<int>(scale * height);
 			scaled_width = 0;
 			scaled_height = 0;
 			queue_resize();
@@ -153,21 +164,19 @@ namespace Horizon {
 			set_thumb_state();
 	}
 
-	void Image::set_thumb_state() {
-		try {
-			if (!image.get_pixbuf() &&
-			    thumbnail_image) {
-				image.set(thumbnail_image);
+	void Image::on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
+		if (loader) {
+			thumbnail_image = loader->get_pixbuf();
+			if (G_UNLIKELY(!thumbnail_image)) {
+				g_error("Received pixbuf thumb is null");
 			}
-			
-			image_state = THUMBNAIL;
-			state_changed_dispatcher();
-			show_all();
-			refresh_size_request();
-		} catch (Glib::Error e) {
-			g_warning("Error creating image from pixmap: %s", e.what().c_str());
+		} else {
+			std::cerr << "Warning: Horizon::Image got invalid PixbufLoader for"
+			          << " thumbnail" << std::endl;
 		}
 
+		if (image_state == NONE)
+			set_thumb_state();
 	}
 
 	bool Image::on_animation_timeout() {
@@ -212,15 +221,26 @@ namespace Horizon {
 				if (unscaled_animation->is_static_image()) {
 					unscaled_image = unscaled_animation->get_static_image();
 				} else {
-					unscaled_image = unscaled_animation->get_static_image();
+					if (!animation_iter) {
+						animation_time.assign_current_time();
+						animation_iter = unscaled_animation->get_iter(&animation_time);
+						animation_timeout = Glib::signal_timeout().connect(sigc::mem_fun(*this, &Image::on_animation_timeout),
+						                                                   animation_iter->get_delay_time());
+					}
+
+					unscaled_image = animation_iter->get_pixbuf();
 				}
 			}
 		} else {
 			unscaled_image = ifetcher->get_image(hash);
-			image.clear();
-			image.set(unscaled_image);
-			image.queue_draw();
 		}
+
+		image.clear();
+		image.set(unscaled_image);
+		image.show();
+		show_all();
+		image.queue_draw();
+		refresh_size_request();
 
 		if (G_UNLIKELY( !unscaled_animation && !unscaled_image )) {
 			g_error("Received pixbuf image is null");
@@ -236,6 +256,26 @@ namespace Horizon {
 			set_thumb_state();
 	}
 
+	void Image::set_thumb_state() {
+		try {
+			if (!image.get_pixbuf()) {
+				if (thumbnail_image) {
+					image.set(thumbnail_image);
+				} else if (unscaled_image) {
+					image.set(unscaled_image);
+				}
+			}
+			
+			image_state = THUMBNAIL;
+			state_changed_dispatcher();
+			refresh_size_request();
+			show_all();
+		} catch (Glib::Error e) {
+			g_warning("Error creating image from pixmap: %s", e.what().c_str());
+		}
+
+	}
+
 	void Image::set_expand_state() {
 		image_state = EXPAND;
 		state_changed_dispatcher();
@@ -246,8 +286,8 @@ namespace Horizon {
 	void Image::set_none_state() {
 		image_state = NONE;
 		state_changed_dispatcher();
-		refresh_size_request();
 		image.hide();
+		refresh_size_request();
 	}
 
 	void Image::set_state(const ImageState new_state) {
