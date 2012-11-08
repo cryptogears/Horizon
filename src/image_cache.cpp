@@ -6,7 +6,6 @@
 #include "image_cache.hpp"
 #include "utils.hpp"
 
-
 namespace Horizon {
 
 	std::shared_ptr<ImageData> ImageData::create(const guint32 version,
@@ -190,6 +189,72 @@ namespace Horizon {
 					vdeleted,       // 9
 					vhave_thumb,    // 10
 					vhave_image});  // 11
+	}
+
+	GVariant* ImageData::get_cvariant() const {
+		GVariantBuilder boards_builder, tags_builder, filenames_builder, posters_builder, dates_builder;
+		GVariantType *dates_type     = g_variant_type_new("ax");
+		g_variant_builder_init(&boards_builder,
+		                       G_VARIANT_TYPE_STRING_ARRAY);
+		g_variant_builder_init(&tags_builder,
+		                       G_VARIANT_TYPE_STRING_ARRAY);
+		g_variant_builder_init(&filenames_builder,
+		                       G_VARIANT_TYPE_BYTESTRING_ARRAY);
+		g_variant_builder_init(&posters_builder,
+		                       G_VARIANT_TYPE_BYTESTRING_ARRAY);
+		g_variant_builder_init(&dates_builder,
+		                       dates_type);
+
+		for ( auto board : boards ) {
+			g_variant_builder_add(&boards_builder,
+			                      "s",
+			                      board.c_str());
+		}
+
+		for ( auto tag : tags ) {
+			g_variant_builder_add(&tags_builder,
+			                      "s",
+			                      tag.c_str());
+		}
+
+		for ( auto filename : original_filenames ) {
+			g_variant_builder_add_value(&filenames_builder,
+			                            g_variant_new_bytestring(filename.c_str()));
+		}
+
+		for ( auto poster : poster_names ) {
+			g_variant_builder_add_value(&posters_builder,
+			                            g_variant_new_bytestring(poster.c_str()));
+		}
+
+		for ( auto date : posted_unix_dates ) {
+			g_variant_builder_add(&dates_builder,
+			                      "x",
+			                      date);
+		}
+		
+		GVariant **varray = g_new(GVariant*, 12);
+		varray[0]  = g_variant_new("t", size);
+		varray[1]  = g_variant_new_bytestring(md5.c_str());
+		varray[2]  = g_variant_new_bytestring(ext.c_str());
+
+		varray[3]  = g_variant_builder_end(&boards_builder);
+		varray[4]  = g_variant_builder_end(&tags_builder);
+		varray[5]  = g_variant_builder_end(&filenames_builder);
+		varray[6]  = g_variant_builder_end(&posters_builder);
+		varray[7]  = g_variant_builder_end(&dates_builder);
+
+		varray[8]  = g_variant_new("q", num_spoiler);
+		varray[9]  = g_variant_new("q", num_deleted);
+
+		varray[10] = g_variant_new("b", have_thumbnail);
+		varray[11] = g_variant_new("b", have_image);
+
+		GVariant *variant = g_variant_new_tuple(varray, 12);
+
+		g_variant_type_free(dates_type);
+		g_free(varray);
+		return variant;
 	}
 
 	/*
@@ -538,9 +603,6 @@ namespace Horizon {
 		}
 
 		work_list.clear();
-		
-		// We may have updated the metadata :)
-		flush_w.send();
 	}
 
 	void ImageCache::on_write_queue_w(ev::async &, int) {
@@ -582,7 +644,6 @@ namespace Horizon {
 		}
 
 		work_list.clear();
-		flush_w.send();
 	}
 
 	static std::string get_cache_file_path() {
@@ -607,55 +668,44 @@ namespace Horizon {
 	}
 
 	void ImageCache::on_flush_w(ev::async &, int) {
-		if (!idle_w.is_active())
-			idle_w.start();
-	}
-
-	void ImageCache::on_idle_w(ev::idle &w, int) {
 		flush();
-		w.stop();
 	}
 
 	void ImageCache::flush() {
-		std::vector< std::pair<std::string, std::shared_ptr<ImageData> > > work_list;
+		std::cerr << "Flushing..." << std::endl;
+		std::vector< std::shared_ptr<ImageData> > work_list;
 		{
 			Glib::Threads::Mutex::Lock lock(map_lock);
 			work_list.reserve(images.size());
-			std::copy(images.begin(),
-			          images.end(),
-			          std::back_inserter(work_list));
+			for ( auto pair : images ) {
+				work_list.push_back(pair.second);
+			}
 		}
 
-		std::vector< Glib::VariantContainerBase > variants;
-		variants.reserve(work_list.size());
-
-		std::transform(work_list.begin(),
-		               work_list.end(),
-		               std::back_inserter(variants),
-		               [](std::pair<std::string, std::shared_ptr<ImageData> > pair) {
-			               std::shared_ptr<ImageData> data(pair.second);
-			               if (data) {
-				               Glib::VariantContainerBase v = data->get_variant();
-				               return v;
-			               } else {
-				               throw std::range_error("Invalid pointer in work_list");
-			               }
-		               });
+		if (work_list.size() == 0) {
+			return;
+		}
 
 		std::vector<GVariant*> cvariants;
-		cvariants.reserve(variants.size());
-		
-		std::transform(variants.begin(),
-		               variants.end(),
-		               std::back_inserter(cvariants),
-		               [](Glib::VariantContainerBase variant) {
-			               return variant.gobj_copy();
-		               });
+		cvariants.reserve(work_list.size());
+
+		for ( auto data : work_list ) {
+			GVariant *v = data->get_cvariant();
+			cvariants.push_back(v);
+		}
+		work_list.clear();
 
 		GVariantType *vt = g_variant_type_new(CACHE_VERSION_1_TYPE.c_str());
 		GVariant *varray = g_variant_new_array(vt,
 		                                       cvariants.data(),
 		                                       cvariants.size());
+		g_variant_ref_sink(varray);
+		gsize data_size = g_variant_get_size(varray);
+		gpointer data = g_malloc(data_size);
+		g_variant_store(varray, data);
+		g_variant_unref(varray);
+		g_variant_type_free(vt);
+		cvariants.clear();
 		
 		try {
 			auto file = Gio::File::create_for_path(get_cache_file_path());
@@ -668,22 +718,19 @@ namespace Horizon {
 			if ( written < sizeof(guint32) ) {
 				g_error("Unable to write version information");
 			}
-			ostream->write_all(g_variant_get_data(varray),
-			                   g_variant_get_size(varray),
+			ostream->write_all(data,
+			                   data_size,
 			                   written);
+			if ( written < data_size ) {
+				g_error("Unable to write complete ImageCache: %" G_GSIZE_FORMAT
+				        " of %" G_GSIZE_FORMAT ".", written, data_size);
+			}
 			ostream->close();
 		} catch (Gio::Error e) {
 			g_error("Failed to write ImageCache file: %s", e.what().c_str());
 		}
 
-		g_variant_unref(varray);
-		g_variant_type_free(vt);
-
-		std::for_each(cvariants.begin(),
-		              cvariants.end(),
-		              [](GVariant* cvariant) {
-			              g_variant_unref(cvariant);
-		              });
+		g_free(data);
 	}
 
 	static void buffer_destroy_notify(gpointer data) {
@@ -747,6 +794,7 @@ namespace Horizon {
 								                                                fsize, FALSE,
 								                                                buffer_destroy_notify,
 								                                                buffer);
+								g_variant_ref_sink(v_untrusted);
 								GVariant *v = g_variant_get_normal_form(v_untrusted);
 								g_variant_unref(v_untrusted);
 
@@ -794,12 +842,20 @@ namespace Horizon {
 	}
 
 	void ImageCache::loop() {
+		timer_w.set(0., 60.*5.);
+		timer_w.again();
 		read_from_disk();
 
 		ev_loop.run();
 	}
 
+	void ImageCache::on_timer_w(ev::timer &w, int) {
+		flush_w.send();
+		w.again();
+	}
+
 	void ImageCache::on_kill_loop_w(ev::async &, int) {
+		timer_w.stop();
 		write_queue_w.stop();
 		read_queue_w.stop();
 		flush_w.stop();
@@ -807,7 +863,7 @@ namespace Horizon {
 	}
 
 	ImageCache::~ImageCache() {
-		flush_w.send();
+		flush();
 		kill_loop_w.send();
 		ev_thread->join();
 	}
@@ -819,13 +875,13 @@ namespace Horizon {
 		write_queue_w(ev_loop),
 		read_queue_w(ev_loop),
 		flush_w(ev_loop),
-		idle_w(ev_loop)
+		timer_w(ev_loop)
 	{
 		write_queue_w.set<ImageCache, &ImageCache::on_write_queue_w>(this);
 		read_queue_w. set<ImageCache, &ImageCache::on_read_queue_w> (this);
 		kill_loop_w.  set<ImageCache, &ImageCache::on_kill_loop_w>  (this);
 		flush_w.      set<ImageCache, &ImageCache::on_flush_w>      (this);
-		idle_w.       set<ImageCache, &ImageCache::on_idle_w>       (this);
+		timer_w.      set<ImageCache, &ImageCache::on_timer_w>      (this);
 		write_queue_w.start();
 		read_queue_w.start();
 		kill_loop_w.start();

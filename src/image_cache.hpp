@@ -38,6 +38,7 @@ namespace Horizon {
 		void merge(const std::shared_ptr<ImageData>&);
 
 		Glib::VariantContainerBase get_variant() const;
+		GVariant* get_cvariant() const;
 		Glib::ustring get_uri(bool thumb) const;
 
 		gsize size;
@@ -128,6 +129,9 @@ namespace Horizon {
 
 		ev::idle         idle_w;
 		void             on_idle_w(ev::idle &, int);
+
+		ev::timer        timer_w;
+		void             on_timer_w(ev::timer &, int);
 	};
 
 	const std::string CACHE_FILENAME = "horizon-cache.dat";
