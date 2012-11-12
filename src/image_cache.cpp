@@ -1,3 +1,4 @@
+#include <array>
 #include <iostream>
 #include <glibmm/convert.h>
 #include <glibmm/miscutils.h>
@@ -5,9 +6,6 @@
 #include <glibmm/uriutils.h>
 #include "image_cache.hpp"
 #include "utils.hpp"
-
-#include <gperftools/heap-profiler.h>
-#include <array>
 
 namespace Horizon {
 
@@ -455,11 +453,15 @@ namespace Horizon {
 					read_error = true;
 				} else {
 					auto istream = file->read();
-					auto info = istream->query_info(G_FILE_ATTRIBUTE_STANDARD_SIZE);
-					const gsize fsize = info->get_size();
-					guint8 *buffer = g_new0(guint8, fsize);
+					if (!istream->can_seek()) {
+						g_error("Filesystem holding cache does not allow seeks.");
+					}
+					istream->seek(0, Glib::SEEK_TYPE_END);
+					const gsize fsize = istream->tell();
+					istream->seek(0, Glib::SEEK_TYPE_SET);
+					std::unique_ptr<guint8[]> buffer(new guint8[fsize]);
 					gsize read_bytes = 0;
-					istream->read_all(buffer, fsize, read_bytes);
+					istream->read_all(buffer.get(), fsize, read_bytes);
 					if (read_bytes != fsize) {
 						std::cerr << "Warning: While reading "
 						          << file->get_uri() << " from disk, expected "
@@ -467,11 +469,10 @@ namespace Horizon {
 						          << std::endl;
 						read_error = true;
 					} else {
-						loader->write(buffer, read_bytes);
+						// This leaks spuriously
+						loader->write(buffer.get(), read_bytes);
 					}
 					istream->close();
-					// Close the loader below.
-					g_free(buffer);
 				}
 			} catch (Gio::Error e) {
 				std::cerr << "Error reading image " << file->get_uri()
@@ -764,18 +765,16 @@ namespace Horizon {
 				continue;
 			}
 
-			goffset fsize = 0;
 			try {
-				auto fileinfo = file->query_info(G_FILE_ATTRIBUTE_STANDARD_SIZE);
-				fsize = fileinfo->get_size();
-			} catch (Gio::Error e) {
-				g_error("Failed to read info about our ImageCache file: %s", e.what().c_str());
-			}
-
-
-			if (fsize > 0) {
-				try {
-					auto istream = file->read();
+				goffset fsize = 0;
+				auto istream = file->read();
+				if (!istream->can_seek()) {
+					g_error("Filesystem doesn't support seeking");
+				} 
+				istream->seek(0, Glib::SEEK_TYPE_END);
+				fsize = istream->tell();
+				istream->seek(0, Glib::SEEK_TYPE_SET);
+				if (fsize > 0) {
 					guint32 version = 0;
 					gsize read_bytes = 0;
 					if (istream->read_all(&version, sizeof(guint32), read_bytes)) {
@@ -831,10 +830,10 @@ namespace Horizon {
 							}
 						}
 					}
-					istream->close();
-				} catch (Gio::Error e) {
-					g_error("Failure reading ImageCache file: %s", e.what().c_str());
 				}
+				istream->close();
+			} catch (Gio::Error e) {
+				g_error("Failure reading ImageCache file: %s", e.what().c_str());
 			}
 		}
 	}
