@@ -4,7 +4,8 @@ bin_PROGRAMS = horizon
 INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(JSON_CFLAGS) $(LIBXML_CFLAGS) $(LIBEV_CFLAGS)
 horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS) $(LIBEV_LIBS)
 
-AM_CXXFLAGS=-Wall -Wextra -pedantic -D_FORTIFY_SOURCE=2 -ggdb -g3
+AM_CXXFLAGS=-Wall -Wextra -pedantic -D_FORTIFY_SOURCE=2 -ggdb -g3 -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fno-omit-frame-pointer
+AM_CFLAGS=-Wall -std=c99 -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fno-omit-frame-pointer
 
 horizon-resources.c: horizon.gresource.xml style.css menus.xml 4chan-icon.png
 	glib-compile-resources --target=$@ --sourcedir=$(srcdir) --generate-source --c-name horizon $(srcdir)/horizon.gresource.xml

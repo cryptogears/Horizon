@@ -19,7 +19,7 @@ namespace Horizon {
 	class PostView : public Gtk::Grid {
 	public:
 		PostView( const Glib::RefPtr<Post> &in );
-		~PostView() = default;
+		virtual ~PostView();
 
 		void refresh( const Glib::RefPtr<Post> &in );
 		sigc::signal<bool, const Glib::ustring&> signal_activate_link;
@@ -46,7 +46,7 @@ namespace Horizon {
 		Gtk::Label linkbacks;
 		Gtk::Viewport comment_viewport;
 
-		std::shared_ptr<Image> image;
+		std::unique_ptr<Image> image;
 
 		void set_new_scaled_image(const int width);
 		bool on_activate_link(const Glib::ustring&);

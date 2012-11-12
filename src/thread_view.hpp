@@ -21,7 +21,7 @@ namespace Horizon {
 	class ThreadView : public Gtk::Frame {
 	public:
 		ThreadView(std::shared_ptr<Thread> t, Glib::RefPtr<Gio::Settings>);
-		~ThreadView();
+		virtual ~ThreadView();
 		// Returns true is the thread is now 404
 		bool refresh();
 		

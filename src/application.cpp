@@ -232,7 +232,7 @@ namespace Horizon {
 			auto t = Thread::create(url);
 
 			if ( thread_map.count( t->id ) == 0 ) {
-				auto tv = Gtk::manage(new ThreadView(t, settings));
+				auto tv = new ThreadView(t, settings);
 				tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
 
 				notebook.append_page(*tv,
@@ -342,6 +342,7 @@ namespace Horizon {
 
 			thread_map.erase(iter);
 			remove_thread(id);
+			delete tv;
 		}
 	}
 

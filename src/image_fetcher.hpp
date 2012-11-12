@@ -73,6 +73,14 @@ namespace Horizon {
 	private:
 		ImageFetcher();
 
+		struct RequestComparitor {
+			typedef std::shared_ptr<Request> value_type;
+			bool operator() (const std::shared_ptr<Request> &lhs,
+			                 const std::shared_ptr<Request> &rhs) {
+				return rhs->is_thumb && !lhs->is_thumb;
+			}
+		} request_comparitor;
+
 		/* Image Cache handles on-disk images */
 		std::shared_ptr<ImageCache> image_cache;
 		void on_cache_result(const Glib::RefPtr<Gdk::PixbufLoader>&,
@@ -126,9 +134,9 @@ namespace Horizon {
 		std::queue<std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > > curl_queue;
 
 		sigc::connection timeout_connection;
-		std::list<curl_socket_t> active_sockets_;
+		std::vector<curl_socket_t> active_sockets_;
 		std::vector<Socket_Info*> socket_info_cache_;
-		std::list<Socket_Info*> active_socket_infos_;
+		std::vector<Socket_Info*> active_socket_infos_;
 		int running_handles;
 
 		/* Libev */

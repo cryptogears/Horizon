@@ -16,17 +16,16 @@ namespace Horizon {
 	class Image : public Gtk::Container {
 	public:
 		enum ImageState { NONE, THUMBNAIL, EXPAND, FULL };
-		static std::shared_ptr<Image> create(const Glib::RefPtr<Post>&,
-		                                     sigc::slot<void, const ImageState&>);
-		~Image();
+		virtual ~Image();
 
 		Glib::RefPtr<Gdk::Pixbuf> get_image() const;
 
 		void set_state(const ImageState new_state);
 
-	protected:
 		Image(const Glib::RefPtr<Post>&,
 		      sigc::slot<void, const Image::ImageState&>);
+
+	protected:
 
 		virtual Gtk::SizeRequestMode get_request_mode_vfunc() const;
 		virtual void get_preferred_width_vfunc(int& minimum_width, int& natural_width) const;
@@ -39,8 +38,8 @@ namespace Horizon {
 
 	private:
 		Glib::RefPtr<Post> post;
-		Gtk::EventBox event_box;
-		Gtk::Image image;
+		std::unique_ptr<Gtk::EventBox> event_box;
+		std::unique_ptr<Gtk::Image> image;
 		void on_area_prepared(Glib::RefPtr<Gdk::Pixbuf> pixbuf);
 		void on_area_updated(int, int, int, int);
 

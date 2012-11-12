@@ -5,11 +5,6 @@
 
 namespace Horizon {
 
-	std::shared_ptr<Image> Image::create(const Glib::RefPtr<Post> &post,
-	                                     sigc::slot<void, const ImageState&> state_change_callback) {
-		return std::shared_ptr<Image>(new Image(post, state_change_callback));
-	}
-	
 	Image::Image(const Glib::RefPtr<Post> &post_,
 	             sigc::slot<void, const ImageState&> state_change_callback) :
 		Gtk::Container(),
@@ -24,17 +19,21 @@ namespace Horizon {
 		canceller(new Canceller()),
 		ifetcher(ImageFetcher::get(FOURCHAN))
 	{
+		std::unique_ptr<Gtk::Image> i(new Gtk::Image());
+		image = std::move(i);
+		std::unique_ptr<Gtk::EventBox> eb(new Gtk::EventBox());
+		event_box = std::move(eb);
 		set_has_window(false);
 		set_redraw_on_allocate(false);
 		set_name("imagewindow");
-		event_box.set_events(Gdk::BUTTON_PRESS_MASK);
-		event_box.set_visible_window(false);
-		event_box.signal_button_press_event().connect( sigc::mem_fun(*this, &Image::on_image_click) );
-		image.set_name("image");
-		image.set_halign(Gtk::ALIGN_START);
-		image.set_valign(Gtk::ALIGN_START);
-		event_box.set_parent(*this);
-		image.set_parent(*this);
+		event_box->set_events(Gdk::BUTTON_PRESS_MASK);
+		event_box->set_visible_window(false);
+		event_box->signal_button_press_event().connect( sigc::mem_fun(*this, &Image::on_image_click) );
+		image->set_name("image");
+		image->set_halign(Gtk::ALIGN_START);
+		image->set_valign(Gtk::ALIGN_START);
+		event_box->set_parent(*this);
+		image->set_parent(*this);
 
 		state_changed_dispatcher.connect(sigc::mem_fun(*this,
 		                                               &Image::run_state_changed_callbacks));
@@ -53,9 +52,9 @@ namespace Horizon {
 			        post->get_id()); 
 		}
 
-		image.signal_unmap()    .connect(sigc::mem_fun(*this, &Image::on_image_unmap));
-		image.signal_unrealize().connect(sigc::mem_fun(*this, &Image::on_image_unrealize));
-		image.signal_draw()     .connect(sigc::mem_fun(*this, &Image::on_image_draw), false);
+		image->signal_unmap()    .connect(sigc::mem_fun(*this, &Image::on_image_unmap));
+		image->signal_unrealize().connect(sigc::mem_fun(*this, &Image::on_image_unrealize));
+		image->signal_draw()     .connect(sigc::mem_fun(*this, &Image::on_image_draw), false);
 	}
 
 	Image::~Image() {
@@ -80,8 +79,11 @@ namespace Horizon {
 		if (unscaled_animation) {
 			if (!animation_iter) {
 				animation_time.assign_current_time();
-				animation_iter = unscaled_animation->get_iter(&animation_time);
+				
+				animation_iter = Glib::wrap(gdk_pixbuf_animation_get_iter(unscaled_animation->gobj(), &animation_time));
+				unscaled_image.reset();
 				unscaled_image = animation_iter->get_pixbuf();
+
 				animation_timeout = Glib::signal_timeout().connect(sigc::mem_fun(*this, &Image::on_animation_timeout),
 				                                                   animation_iter->get_delay_time());
 			}
@@ -147,14 +149,15 @@ namespace Horizon {
 			scaled_width = 0;
 			scaled_height = 0;
 			queue_resize();
-			image.queue_draw();
+			image->queue_draw();
 		} else {
-			image.queue_draw_area(x, y, width, height);
+			image->queue_draw_area(x, y, width, height);
 		}
 	}
 
 	void Image::on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
 		if (loader) {
+			thumbnail_image.reset();
 			thumbnail_image = loader->get_pixbuf();
 			if (G_UNLIKELY(!thumbnail_image)) {
 				g_error("Received pixbuf thumb is null");
@@ -174,13 +177,15 @@ namespace Horizon {
 		animation_time.assign_current_time();
 		if (animation_iter) {
 			if (animation_iter->advance(animation_time)) {
+				unscaled_image.reset();
 				unscaled_image = animation_iter->get_pixbuf();
+
 				if (is_scaled) {
 					set_new_scaled_image(scaled_width, scaled_height);
 				} else {
-					image.set(unscaled_image);
+					image->set(unscaled_image);
 				}
-				image.queue_draw();
+				image->queue_draw();
 			}
 		
 			animation_timeout = Glib::signal_timeout().connect(sigc::mem_fun(*this, &Image::on_animation_timeout),
@@ -196,6 +201,8 @@ namespace Horizon {
 	 */
 	void Image::on_image(const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
 		if (loader) {
+			unscaled_image.reset();
+
 			if (post->is_gif()) {
 				unscaled_animation = loader->get_animation();
 				if (unscaled_animation->is_static_image()) {
@@ -204,10 +211,12 @@ namespace Horizon {
 				} else {
 					if (!animation_iter) {
 						animation_time.assign_current_time();
-						animation_iter = unscaled_animation->get_iter(&animation_time);
+						animation_iter = Glib::wrap(gdk_pixbuf_animation_get_iter(unscaled_animation->gobj(), &animation_time));
+
 						animation_timeout = Glib::signal_timeout().connect(sigc::mem_fun(*this, &Image::on_animation_timeout),
 						                                                   animation_iter->get_delay_time());
 					}
+					unscaled_image.reset();
 					unscaled_image = animation_iter->get_pixbuf();
 				}
 			} else {
@@ -218,11 +227,10 @@ namespace Horizon {
 				g_error("Received pixbuf image is null");
 			}
 
-			image.clear();
-			image.set(unscaled_image);
-			image.show();
+			image->set(unscaled_image);
+			image->show();
 			show_all();
-			image.queue_draw();
+			image->queue_draw();
 			refresh_size_request();
 
 			if (is_changing_state) {
@@ -237,17 +245,16 @@ namespace Horizon {
 			          << " image" << std::endl;
 		}
 
-
 		am_fetching_image = false;
 	}
 
 	void Image::set_thumb_state() {
 		try {
-			if (!image.get_pixbuf()) {
+			if (!image->get_pixbuf()) {
 				if (thumbnail_image) {
-					image.set(thumbnail_image);
+					image->set(thumbnail_image);
 				} else if (unscaled_image) {
-					image.set(unscaled_image);
+					image->set(unscaled_image);
 				}
 			}
 			
@@ -271,7 +278,7 @@ namespace Horizon {
 	void Image::set_none_state() {
 		image_state = NONE;
 		state_changed_dispatcher();
-		image.hide();
+		image->hide();
 		refresh_size_request();
 	}
 
@@ -348,7 +355,7 @@ namespace Horizon {
 				                                            Gdk::INTERP_BILINEAR);
 			}
 
-			image.set(scaled_image);
+			image->set(scaled_image);
 			scaled_height = new_height;
 			scaled_width = new_width;
 		}
@@ -496,14 +503,14 @@ namespace Horizon {
 				if (width != scaled_width) {
 					set_new_scaled_image(width, height);					
 				} else {
-					image.set(scaled_image);
+					image->set(scaled_image);
 				}
 				used_width = scaled_width;
 				used_height = scaled_height;
 				is_scaled = true;
 			} else {
 				if (unscaled_image)
-					image.set(unscaled_image);
+					image->set(unscaled_image);
 				else
 					g_error("Image in EXPAND state without unscaled image data.");
 				is_scaled = false;
@@ -516,13 +523,13 @@ namespace Horizon {
 			g_warning("Horizon::Image not allocated enough space!");
 		}
 
-		event_box.size_allocate(allocation);
-		image.size_allocate(allocation);
+		event_box->size_allocate(allocation);
+		image->size_allocate(allocation);
 	}
 
 	void Image::forall_vfunc(gboolean, GtkCallback callback, gpointer callback_data) {
-		callback(GTK_WIDGET(event_box.gobj()), callback_data);
-		callback(GTK_WIDGET(image.gobj()), callback_data);
+		callback(GTK_WIDGET(event_box->gobj()), callback_data);
+		callback(GTK_WIDGET(image->gobj()), callback_data);
 	}
 
 	GType Image::child_type_vfunc() const {

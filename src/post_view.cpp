@@ -153,9 +153,14 @@ namespace Horizon {
 
 		if ( post->has_image() ) {
 			auto s = sigc::mem_fun(*this, &PostView::on_image_state_changed);
-			image = Image::create(post, s);
+			std::unique_ptr<Image> i(new Image(post, s));
+			image = std::move(i);
 			image->set_hexpand(false);
 		}
+	}
+
+	PostView::~PostView() {
+		hide();
 	}
 
 	Glib::ustring PostView::get_comment_body() const {

@@ -118,6 +118,11 @@ namespace Horizon {
 
 		if (unshown_view_idle.connected())
 			unshown_view_idle.disconnect();
+
+		for ( auto pair : post_map ) {
+			PostView* pv = pair.second;
+			delete pv;
+		}
 	}
 
 	void ThreadView::on_scrollbar_changed() {
@@ -162,7 +167,7 @@ namespace Horizon {
 			}
 		} else {
 			// This is a new post
-			PostView *pv = Gtk::manage( new PostView(post) );
+			PostView *pv = new PostView(post);
 			post_map.insert({post->get_id(), pv});
 			pv->signal_activate_link.connect(sigc::mem_fun(*this, &ThreadView::on_activate_link));
 			post->mark_rendered();
@@ -241,9 +246,11 @@ namespace Horizon {
 		if (!fetching_image) {
 			fetching_image = true;
 			auto post = thread->get_first_post();
-			auto cb = std::bind(&ThreadView::set_tab_image, this, std::placeholders::_1);
-			auto ifetcher = ImageFetcher::get(FOURCHAN);
-			ifetcher->download(post, cb, canceller);
+			if (post) {
+				auto cb = std::bind(&ThreadView::set_tab_image, this, std::placeholders::_1);
+				auto ifetcher = ImageFetcher::get(FOURCHAN);
+				ifetcher->download(post, cb, canceller);
+			}
 		}
 	}
 

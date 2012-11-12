@@ -49,11 +49,11 @@ namespace Horizon {
 			}
 		} else {
 			g_critical("Got an invalid loader or stream");
-			return wrote;
 		}
 
 		return wrote;
 	}
+
 
 	/*
 	 * Called on ev_thread
@@ -61,17 +61,20 @@ namespace Horizon {
 	void ImageFetcher::start_new_download() {
 		std::vector< std::pair<std::shared_ptr<CurlEasy<std::shared_ptr<Request> > >,
 		                       std::shared_ptr<Request> > > work_list;
-		{ /* New Interface */
+		{
 			Glib::Threads::RWLock::WriterLock wlock(request_queue_rwlock);
 			Glib::Threads::Mutex::Lock lock(curl_data_mutex);
 			while ( (!curl_queue.empty()) && (!new_request_queue.empty()) ) {
 					std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > easy = curl_queue.front();
 					curl_queue.pop();
-					std::shared_ptr<Request> request = new_request_queue.front();
-					new_request_queue.pop_front();
+					std::pop_heap(new_request_queue.begin(),
+					              new_request_queue.end(),
+					              request_comparitor);
+					std::shared_ptr<Request> request = new_request_queue.back();
+					new_request_queue.pop_back();
 					work_list.push_back(std::make_pair(easy, request));
 			}
-		} /* New Interface */
+		}
 
 		for (auto pair : work_list) {
 			std::shared_ptr<CurlEasy<std::shared_ptr<Request> > > easy = pair.first;
@@ -96,10 +99,11 @@ namespace Horizon {
 				try {
 					// Supports "jpeg" "gif" "png"
 					request->loader = Gdk::PixbufLoader::create();
-					auto area_prepared_slot = sigc::bind(sigc::mem_fun(*this, &ImageFetcher::on_area_prepared),
-					                                     request);
-					request->area_prepared_connection = request->loader->signal_area_prepared().connect(area_prepared_slot);
-
+					if (request->area_prepared_functor) {
+						auto area_prepared_slot = sigc::bind(sigc::mem_fun(*this, &ImageFetcher::on_area_prepared),
+						                                     request);
+						request->area_prepared_connection = request->loader->signal_area_prepared().connect(area_prepared_slot);
+					}
 					auto area_updated_slot = sigc::bind(sigc::mem_fun(*this, &ImageFetcher::on_area_updated),
 					                                    request);
 					request->area_updated_connection = request->loader->signal_area_updated().connect(area_updated_slot);
@@ -209,7 +213,7 @@ namespace Horizon {
 	                                               std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb,
 	                                               std::function<void (int, int, int, int)> area_updated_cb,
 	                                               std::shared_ptr<Canceller> canceller) {
-		std::shared_ptr<Request> req(new Request());
+		std::shared_ptr<Request> req = std::make_shared<Request>();
 		req->hash = post->get_hash();
 		req->is_thumb = is_thumb;
 		if (is_thumb) {
@@ -289,9 +293,11 @@ namespace Horizon {
 	 */
 	void ImageFetcher::add_request(const std::shared_ptr<Request> &request) {
 		Glib::Threads::RWLock::WriterLock lock(request_queue_rwlock);
-
+		
 		new_request_queue.push_back(request);
-
+		std::push_heap(new_request_queue.begin(),
+		               new_request_queue.end(),
+		               request_comparitor);
 		queue_w.send();
 	}
 
@@ -304,7 +310,7 @@ namespace Horizon {
 	                   void *userp,     /* private callback pointer */
 	                   void *socketp)   /* private socket pointer */
 	{
-		Socket_Info* info = static_cast<Socket_Info*>(socketp);
+		Socket_Info *info      = static_cast<Socket_Info*>(socketp);
 		ImageFetcher *ifetcher = static_cast<ImageFetcher*>(userp);
 		
 		if (action == CURL_POLL_REMOVE) {
@@ -332,7 +338,7 @@ namespace Horizon {
 		} else if (timeout_ms == 0) {
 			ifetcher->curl_timeout_expired_cb();
 		} else {
-			ev_tstamp SEC_PER_MS = 0.001;
+			constexpr ev_tstamp SEC_PER_MS = 0.001;
 			ev_tstamp timeout = static_cast<ev_tstamp>(timeout_ms) * SEC_PER_MS;
 			ifetcher->timeout_w.set( timeout );
 			ifetcher->timeout_w.start();
@@ -386,7 +392,7 @@ namespace Horizon {
 
 		if (info->w)
 			info->w.reset();
-		info->w = std::shared_ptr<ev::io>(new ev::io(ev_loop));
+		info->w = std::make_shared<ev::io>(ev_loop);
 		info->w->set<ImageFetcher, &ImageFetcher::curl_event_cb>(this);
 		info->w->set(static_cast<int>(s), condition);
 		info->w->start();
@@ -434,12 +440,16 @@ namespace Horizon {
 		                         active_sockets_.end(), s) > 0 )) {
 			if (G_LIKELY( std::count(active_socket_infos_.begin(),
 			                         active_socket_infos_.end(), info) > 0 )) {
-				// We SHOULD NOT call info->channel->close(). This closes curl's
-				// cached connection to the server.
 				info->w->stop();
 				socket_info_cache_.push_back(info);
-				active_socket_infos_.remove(info);
-				active_sockets_.remove(s);
+				active_socket_infos_.erase(std::remove(active_socket_infos_.begin(),
+				                                       active_socket_infos_.end(),
+				                                       info),
+				                           active_socket_infos_.end());
+				active_sockets_.erase(std::remove(active_sockets_.begin(),
+				                                  active_sockets_.end(),
+				                                  s),
+				                      active_sockets_.end());
 			} else {
 				g_critical("curl_remsock called on inactive info.");
 			}
@@ -705,5 +715,15 @@ namespace Horizon {
 		ev_thread->join();
 
 		g_free(curl_error_buffer);
+		for ( Socket_Info *info : socket_info_cache_ ) {
+			delete info;
+		}
+
+		if ( active_socket_infos_.size() > 0 ) {
+			g_warning("Curl has left active sockets laying around");
+			for ( Socket_Info *info : active_socket_infos_ ) {
+				delete info;
+			}
+		}
 	}
 }
