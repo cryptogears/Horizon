@@ -400,12 +400,18 @@ namespace Horizon {
 	}
 
 	void Application::on_catalog_image(const Glib::RefPtr<Gdk::PixbufLoader> &loader,
-	                                   Gtk::TreeModel::Path path,
 	                                   Glib::RefPtr<ThreadSummary> thread) {
 		if (loader) {
-			auto iter = model->get_iter(path);
+			const gint64 match_id = thread->get_id();
+			const Gtk::TreeModelColumn<gint64> column = thread_summary_columns.id;
+			auto children = model->children();
+			auto iter = std::find_if(children.begin(),
+			                         children.end(),
+			                         [&match_id, &column](const Gtk::TreeRow &row) {
+				                         return match_id == row.get_value(column);
+			                         });
 
-			if (iter) {
+			if (iter != children.end()) {
 				auto pixbuf = loader->get_pixbuf();
 				horizon_thread_summary_set_thumb_pixbuf(thread->gobj(),
 				                                        pixbuf->gobj());
@@ -427,68 +433,108 @@ namespace Horizon {
 
 		try {
 			auto catalog = manager.get_catalog(active_board);
-		
+			std::map<gint64, Glib::RefPtr<ThreadSummary> > summary_map;
+			std::transform(catalog.begin(),
+			               catalog.end(),
+			               std::inserter(summary_map, summary_map.end()),
+			               [](const Glib::RefPtr<ThreadSummary> &summary) {
+				               return std::make_pair(summary->get_id(), summary);
+			               });
+
 			if ( model ) {
 				auto children = model->children();
-				std::map<gint64, Gtk::TreeRow> row_map;
+				std::vector<std::pair<gint64, Gtk::TreeRow> > row_map;
+				row_map.reserve(children.size());
 				auto column_id = thread_summary_columns.id;
 				std::transform(children.begin(),
 				               children.end(),
-				               std::inserter(row_map, row_map.end()),
+				               std::back_inserter(row_map),
 				               [&column_id](const Gtk::TreeRow &row) {
 					               return std::make_pair(row.get_value(column_id), row);
-						               });
+				               });
+				std::map<gint64, Gtk::TreeRow> erase_map;
+				auto partition_iter = std::partition(row_map.begin(),
+				                                     row_map.end(),
+				                                     [&summary_map](const std::pair<gint64, Gtk::TreeRow> &pair) {
+					                                     const gint64 id = pair.first;
+					                                     bool row_in_catalog = summary_map.count(id) > 0;
+					                                     return row_in_catalog;
+				                                     });
+				auto partition_iter_copy = partition_iter;
+				std::copy(partition_iter, row_map.end(), std::inserter(erase_map, erase_map.end()));
+				row_map.erase(partition_iter_copy, row_map.end());
 
-				for ( auto thread : catalog ) {
-					const gint64 this_id = thread->get_id();
-					auto match_iter = row_map.find(this_id);
-					if (match_iter == row_map.end()) {
-						auto iter = model->append();
-						auto path = model->get_path(iter);
-
-						auto post = thread->get_proxy_post();
-						auto cb = std::bind(&Application::on_catalog_image, this,
-						                    std::placeholders::_1,
-						                    path,
-						                    thread);
-						ifetcher->download(post, cb, canceller);
-
-						iter->set_value(thread_summary_columns.thread_summary,
-						                thread);
-						iter->set_value(thread_summary_columns.teaser,
-						                Glib::ustring(thread->get_teaser()));
-						iter->set_value(thread_summary_columns.url,
-						                Glib::ustring(thread->get_url()));
-						iter->set_value(thread_summary_columns.id,
-						                thread->get_id());
-						iter->set_value(thread_summary_columns.reply_count,
-						                thread->get_reply_count());
-						iter->set_value(thread_summary_columns.image_count,
-						                thread->get_image_count());
-						iter->set_value(thread_summary_columns.ppm, 
-						                static_cast<float>(thread->get_reply_count()) /
-						                static_cast<float>(Glib::DateTime::
-						                                   create_now_utc().to_unix() -
-						                                   thread->get_unix_date()));
-					} else {
-						auto pixbuf = match_iter->second.get_value(thread_summary_columns.thumb);
-						if (pixbuf) {
-							horizon_thread_summary_set_thumb_pixbuf(thread->gobj(),
-							                                        pixbuf->gobj());
-						}
-						match_iter->second.set_value(thread_summary_columns.reply_count,
-						                      thread->get_reply_count());
-						match_iter->second.set_value(thread_summary_columns.image_count,
-						                      thread->get_image_count());
-						match_iter->second.set_value(thread_summary_columns.ppm, 
-						                      static_cast<float>(thread->get_reply_count()) /
-						                      static_cast<float>(Glib::DateTime::
-						                                         create_now_utc().to_unix() -
-						                                         thread->get_unix_date()));
-						match_iter->second.set_value(thread_summary_columns.thread_summary,
-						                      thread);
+				int update_count = 0;
+				for ( auto pair : row_map ) {
+					// These are all the rows that can be updated
+					Gtk::TreeRow row = pair.second;
+					auto match_iter = summary_map.find(pair.first);
+					if (match_iter == summary_map.end())
+						g_error("Can't find the row to be updated");
+					auto thread = match_iter->second;
+					auto pixbuf = row.get_value(thread_summary_columns.thumb);
+					if (pixbuf) {
+						horizon_thread_summary_set_thumb_pixbuf(thread->gobj(),
+						                                        pixbuf->gobj());
 					}
+					row.set_value(thread_summary_columns.reply_count,
+					                             thread->get_reply_count());
+					row.set_value(thread_summary_columns.image_count,
+					                             thread->get_image_count());
+					row.set_value(thread_summary_columns.ppm, 
+					                             static_cast<float>(thread->get_reply_count()) /
+					                             static_cast<float>(Glib::DateTime::
+					                                                create_now_utc().to_unix() -
+					                                                thread->get_unix_date()));
+					row.set_value(thread_summary_columns.thread_summary,
+					                             thread);
+					summary_map.erase(match_iter);
+					update_count++;
 				}
+				int new_count = 0;
+				// summary_map now contains only new summaries
+				for ( auto pair : summary_map ) {
+					auto thread = pair.second;
+					auto iter = model->append();
+					auto path = model->get_path(iter);
+
+					auto post = thread->get_proxy_post();
+					auto cb = std::bind(&Application::on_catalog_image, this,
+					                    std::placeholders::_1,
+					                    thread);
+					ifetcher->download(post, cb, canceller);
+
+					iter->set_value(thread_summary_columns.thread_summary,
+					                thread);
+					iter->set_value(thread_summary_columns.teaser,
+					                Glib::ustring(thread->get_teaser()));
+					iter->set_value(thread_summary_columns.url,
+					                Glib::ustring(thread->get_url()));
+					iter->set_value(thread_summary_columns.id,
+					                thread->get_id());
+					iter->set_value(thread_summary_columns.reply_count,
+					                thread->get_reply_count());
+					iter->set_value(thread_summary_columns.image_count,
+					                thread->get_image_count());
+					iter->set_value(thread_summary_columns.ppm, 
+					                static_cast<float>(thread->get_reply_count()) /
+					                static_cast<float>(Glib::DateTime::
+					                                   create_now_utc().to_unix() -
+					                                   thread->get_unix_date()));
+					new_count++;
+				}
+				int erase_count = 0;
+				for ( auto pair : erase_map ) {
+					// The Gtk::TreeRow in the pair is now invalid
+					const gint64 id_to_erase = pair.first;
+					auto slot = sigc::bind(sigc::mem_fun(*this, &Application::erase_iter_if_match_id), id_to_erase);
+					model->foreach_iter(slot);
+					erase_count++;
+				}
+
+				std::cerr << "Catalog updated. " << new_count << " new, " 
+				          << update_count << " updated, " << erase_count 
+				          << " expired." << std::endl;
 			} else {
 				g_error("Summary model not created");
 			}
@@ -496,6 +542,17 @@ namespace Horizon {
 			return;
 		}
 	}
+
+	bool Application::erase_iter_if_match_id(const Gtk::TreeModel::iterator& iter, const gint64 id) {
+		gint64 row_id = iter->get_value(thread_summary_columns.id);
+		if (row_id == id) {
+			model->erase(iter);
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 
 	void Application::onUpdates() {
 		while (manager.is_updated_thread()) {
