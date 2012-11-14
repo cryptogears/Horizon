@@ -230,7 +230,7 @@ namespace Horizon {
 			auto t = Thread::create(url);
 
 			if ( thread_map.count( t->id ) == 0 ) {
-				auto tv = new ThreadView(t, settings);
+				auto tv = Gtk::manage(new ThreadView(t, settings));
 				tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
 
 				notebook->append_page(*tv,
@@ -334,13 +334,10 @@ namespace Horizon {
 		if ( iter != thread_map.end() ) {
 
 			ThreadView *tv = iter->second;
-			int pagenum = notebook->page_num(*tv);
-			if (pagenum != -1)
-				notebook->remove_page(pagenum);
+			notebook->remove_page(*tv);
 
 			thread_map.erase(iter);
 			remove_thread(id);
-			delete tv;
 		}
 	}
 
