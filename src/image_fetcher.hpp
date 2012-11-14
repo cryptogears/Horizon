@@ -55,6 +55,7 @@ namespace Horizon {
 	public:
 
 		static std::shared_ptr<ImageFetcher> get(FETCH_TYPE);
+		static void cleanup();
 		~ImageFetcher();
 
 		/* Old interface */
@@ -72,6 +73,9 @@ namespace Horizon {
 
 	private:
 		ImageFetcher();
+		static std::shared_ptr<ImageFetcher> singleton_4chan;
+		static std::shared_ptr<ImageFetcher> singleton_catalog;
+		static Glib::Threads::Mutex          singleton_mutex;
 
 		struct RequestComparitor {
 			typedef std::shared_ptr<Request> value_type;

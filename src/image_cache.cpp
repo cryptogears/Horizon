@@ -30,7 +30,7 @@ namespace Horizon {
 			if (num != 12) {
 				g_error("Invalid number of elements in version 1 data: %" G_GSIZE_FORMAT " elements.", num);
 			}
-			Glib::Variant< gsize >                        vsize;
+			Glib::Variant< guint64 >                      vsize;
 			Glib::Variant< std::string >                  vmd5;
 			Glib::Variant< std::string >                  vext;
 			Glib::Variant< std::vector< Glib::ustring > > vboards;
@@ -59,7 +59,6 @@ namespace Horizon {
 			std::vector<std::string>   filenames  = vfilenames.get();
 			std::vector<std::string>   posters    = vposters  .get();
 			std::vector<gint64>        dates      = vdates    .get();
-
 			size                                  = vsize     .get();
 			md5                                   = vmd5      .get();
 			ext                                   = vext      .get();
@@ -140,7 +139,7 @@ namespace Horizon {
 			g_warning("ImageData::merge() called with wrong hash. These shouldn't be merged!");
 			return;
 		}
-
+		
 		boards.insert            (in->boards.begin(), in->boards.end());
 		tags.insert              (in->tags.begin(), in->tags.end());
 		original_filenames.insert(in->original_filenames.begin(),
@@ -156,7 +155,7 @@ namespace Horizon {
 	}
 
 	Glib::VariantContainerBase ImageData::get_variant() const {
-		auto vsize = Glib::Variant<gsize>::create(size);
+		auto vsize = Glib::Variant<guint64>::create(size);
 		auto vmd5 = Glib::Variant<std::string>::create(md5);
 		auto vext = Glib::Variant<std::string>::create(ext);
 		std::vector<Glib::ustring> vec_boards, vec_tags;
@@ -237,7 +236,7 @@ namespace Horizon {
 			                            g_variant_new_int64(date));
 		}
 		
-		std::array<GVariant*, 12> varray{ {g_variant_new("t", size),
+		std::array<GVariant*, 12> varray{ {g_variant_new_uint64(size),
 					g_variant_new_bytestring(md5.c_str()),
 					g_variant_new_bytestring(ext.c_str()),
 					g_variant_builder_end(&boards_builder),
@@ -245,10 +244,10 @@ namespace Horizon {
 					g_variant_builder_end(&filenames_builder),
 					g_variant_builder_end(&posters_builder),
 					g_variant_builder_end(&dates_builder),
-					g_variant_new("q", num_spoiler),
-					g_variant_new("q", num_deleted),
-					g_variant_new("b", have_thumbnail),
-					g_variant_new("b", have_image)} };
+					g_variant_new_uint16(num_spoiler),
+					g_variant_new_uint16(num_deleted),
+					g_variant_new_boolean(have_thumbnail),
+					g_variant_new_boolean(have_image)} };
 					
 		GVariant *cvariant = g_variant_new_tuple(varray.data(), varray.size());
 
@@ -286,10 +285,20 @@ namespace Horizon {
 		return ret;
 	}
 
-	std::shared_ptr<ImageCache> ImageCache::get() {
-		static std::shared_ptr<ImageCache> singleton = std::shared_ptr<ImageCache>(new ImageCache());
+	std::shared_ptr<ImageCache> ImageCache::singleton = nullptr;
+	Glib::Threads::Mutex ImageCache::singleton_mutex;
 
-		return singleton;
+	std::shared_ptr<ImageCache> ImageCache::get() {
+		Glib::Threads::Mutex::Lock lock(singleton_mutex);
+
+		if (!ImageCache::singleton) {
+			ImageCache::singleton = std::shared_ptr<ImageCache>(new ImageCache());
+		}
+		return ImageCache::singleton;
+	}
+	
+	void ImageCache::cleanup() {
+		singleton.reset();
 	}
 
 	bool ImageCache::has_thumb(const Glib::RefPtr<Post> &post) {
@@ -469,7 +478,8 @@ namespace Horizon {
 						          << std::endl;
 						read_error = true;
 					} else {
-						// This leaks spuriously
+						// BUG LEAK: gdk_pixbuf_loader_write() leaks
+						// randomly (but rarely)
 						loader->write(buffer.get(), read_bytes);
 					}
 					istream->close();
@@ -679,6 +689,7 @@ namespace Horizon {
 	};
 
 	void ImageCache::flush() {
+		std::cerr << "Flushing...";
 		std::vector< std::shared_ptr<ImageData> > work_list;
 		{
 			Glib::Threads::Mutex::Lock lock(map_lock);
@@ -730,6 +741,8 @@ namespace Horizon {
 				g_error("Failed to write ImageCache file: %s", e.what().c_str());
 			}
 		}
+
+		std::cerr << " done." << std::endl;
 	}
 
 	static void buffer_destroy_notify(gpointer data) {
@@ -786,7 +799,7 @@ namespace Horizon {
 							if (istream->read_all(buffer,
 							                      static_cast<gsize>(fsize),
 							                      read_bytes)) {
-								GVariantType *gvt = g_variant_type_new(CACHE_VERSION_1_ARRAYTYPE.c_str());
+								GVariantType *gvt = g_variant_type_new(CACHE_VERSION_1_ARRAYTYPE);
 								GVariant *v_untrusted = g_variant_new_from_data(gvt, buffer, 
 								                                                fsize, FALSE,
 								                                                buffer_destroy_notify,

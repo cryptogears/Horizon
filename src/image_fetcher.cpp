@@ -6,9 +6,12 @@
 #include "horizon_curl.cpp"
 
 namespace Horizon {
+	std::shared_ptr<ImageFetcher> ImageFetcher::singleton_4chan = nullptr;
+	std::shared_ptr<ImageFetcher> ImageFetcher::singleton_catalog = nullptr;
+	Glib::Threads::Mutex          ImageFetcher::singleton_mutex;
+
 	std::shared_ptr<ImageFetcher> ImageFetcher::get(FETCH_TYPE type) {
-		static std::shared_ptr<ImageFetcher> singleton_4chan;
-		static std::shared_ptr<ImageFetcher> singleton_catalog;
+		Glib::Threads::Mutex::Lock lock(singleton_mutex);
 		
 		if (!singleton_4chan) {
 			singleton_4chan = std::shared_ptr<ImageFetcher>(new ImageFetcher());
@@ -26,6 +29,11 @@ namespace Horizon {
 		default:
 			return singleton_4chan;
 		}
+	}
+
+	void ImageFetcher::cleanup() {
+		singleton_4chan.reset();
+		singleton_catalog.reset();
 	}
 	
 	std::size_t ImageFetcher::curl_writeback(const std::string &str_buf,

@@ -22,7 +22,6 @@ namespace Horizon {
 		amWorking(false),
 		last_pull(Glib::DateTime::create_now_utc(0))
 	{
-		curl_global_init(CURL_GLOBAL_ALL);
 		curl = curl_easy_init();
 		parser = json_parser_new();
 		Horizon::wrap_init();
@@ -31,7 +30,6 @@ namespace Horizon {
 	Curler::~Curler() {
 		g_object_unref(parser);
 		curl_easy_cleanup(curl);
-		curl_global_cleanup();
 	}
 
 	void Curler::thread_writeback(const void* data, gssize len) {

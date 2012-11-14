@@ -41,7 +41,7 @@ namespace Horizon {
 		GVariant* get_cvariant() const;
 		Glib::ustring get_uri(bool thumb) const;
 
-		gsize size;
+		guint64 size;
 		std::string md5;
 		std::string ext;
 		std::set<Glib::ustring> boards;
@@ -58,6 +58,8 @@ namespace Horizon {
 	class ImageCache {
 	public:
 		static std::shared_ptr<ImageCache> get();
+		static void cleanup();
+
 		~ImageCache();
 
 		bool has_thumb(const Glib::RefPtr<Post> &post);
@@ -132,13 +134,16 @@ namespace Horizon {
 
 		ev::timer        timer_w;
 		void             on_timer_w(ev::timer &, int);
+
+		static std::shared_ptr<ImageCache> singleton;
+		static Glib::Threads::Mutex singleton_mutex;
 	};
 
-	const std::string CACHE_FILENAME = "horizon-cache.dat";
-	const std::string CACHE_MERGE_FILENAME = "horizon-cache.merge";
-	const guint32 CACHE_FILE_VERSION = 1;
-	const std::string CACHE_VERSION_1_TYPE = "(tayayasasaayaayaxqqbb)";
-	const std::string CACHE_VERSION_1_ARRAYTYPE = "a(tayayasasaayaayaxqqbb)";
+	constexpr char CACHE_FILENAME[] = "horizon-cache.dat";
+	constexpr char CACHE_MERGE_FILENAME[] = "horizon-cache.merge";
+	constexpr guint32 CACHE_FILE_VERSION = 1;
+	constexpr char CACHE_VERSION_1_TYPE[] = "(tayayasasaayaayaxqqbb)";
+	constexpr char CACHE_VERSION_1_ARRAYTYPE[] = "a(tayayasasaayaayaxqqbb)";
 }
 
 
