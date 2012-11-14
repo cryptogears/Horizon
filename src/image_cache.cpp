@@ -199,7 +199,7 @@ namespace Horizon {
 
 	GVariant* ImageData::get_cvariant() const {
 		GVariantBuilder boards_builder, tags_builder, filenames_builder, posters_builder, dates_builder;
-		static std::unique_ptr<GVariantType, VariantTypeDeleter> dates_type(g_variant_type_new("ax"));
+		std::unique_ptr<GVariantType, VariantTypeDeleter> dates_type(g_variant_type_new("ax"));
 		g_variant_builder_init(&boards_builder,
 		                       G_VARIANT_TYPE_STRING_ARRAY);
 		g_variant_builder_init(&tags_builder,
