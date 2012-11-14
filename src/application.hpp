@@ -1,3 +1,5 @@
+#ifndef APPLICATION_HPP
+#define APPLICATION_HPP
 #include <vector>
 #include <map>
 #include <sigc++/connection.h>
@@ -23,21 +25,20 @@
 #include "summary_cellrenderer.hpp"
 
 namespace Horizon {
-	class Application : public Gtk::Application {
+	class Application {
 	public:
 		virtual ~Application();
-		
-		static Glib::RefPtr<Application> create(const Glib::ustring &appid);
+		Application(const Glib::ustring &appid);
 		
 		void onUpdates();
 		void on_catalog_update();
+		void run(int argc, char *argv[]);
 
 	protected:
-		virtual void on_activate();
-		virtual void on_startup();
-		Application(const Glib::ustring &appid);
 
 	private:
+		void on_activate();  // Gio::Application signal
+		void on_startup();   // Gio::Application signal
 		void setup_actions();
 		void setup_window();
 		// When the ThreadView is closed, we remove from thread_map
@@ -46,6 +47,8 @@ namespace Horizon {
 		void remove_thread(const gint64 id);
 
 		bool on_treeview_click(GdkEventButton*);
+
+		Glib::RefPtr<Gtk::Application> gapplication;
 
 		std::map<gint64, ThreadView*> thread_map;
 
@@ -57,11 +60,11 @@ namespace Horizon {
 		Glib::RefPtr<Gio::Settings> settings;
 		std::vector<Glib::ustring> threads;
 		Glib::RefPtr<Gtk::ApplicationWindow> window;
-		Gtk::Grid total_grid;
-		Gtk::Grid summary_grid;
-		Gtk::Notebook notebook;
+		Gtk::Grid* total_grid;
+		Gtk::Grid* summary_grid;
+		Gtk::Notebook* notebook;
 
-		Gtk::TreeView summary_view;
+		Gtk::TreeView* summary_view;
 		void refresh_catalog_view();
 		bool erase_iter_if_match_id(const Gtk::TreeModel::iterator& iter, const gint64 id);
 		void on_catalog_board_change();
@@ -103,7 +106,7 @@ namespace Horizon {
 		                     const Gtk::TreeModel::iterator& iter);
 	};
 
-	static const Glib::ustring app_id = "com.talisein.fourchan.native.gtk";
+	constexpr gchar app_id[] = "com.talisein.fourchan.native.gtk";
 
 	/*
 	 * If you add a board below, you need to update menus.xml and the
@@ -116,3 +119,5 @@ namespace Horizon {
 		"x", "q" };
 		
 }
+
+#endif

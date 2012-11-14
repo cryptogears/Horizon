@@ -19,22 +19,24 @@ namespace Horizon {
 
 	void Application::setup_window() {
 		if (!window) {
-			GtkApplicationWindow *win = GTK_APPLICATION_WINDOW(gtk_application_window_new(gobj()));
+			GtkApplicationWindow *win = GTK_APPLICATION_WINDOW(gtk_application_window_new(gapplication->gobj()));
 			window = Glib::wrap(win, true);
-		
 			window->set_title("Horizon - A Native GTK+ 4chan Viewer");
 			window->set_name("horizonwindow");
-			total_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-			summary_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
+			total_grid = Gtk::manage(new Gtk::Grid());
+			summary_grid = Gtk::manage(new Gtk::Grid());
+			total_grid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+			summary_grid->set_orientation(Gtk::ORIENTATION_VERTICAL);
 			window->set_default_size(500, 800);
 			Gtk::ScrolledWindow* sw = Gtk::manage(new Gtk::ScrolledWindow());
 			sw->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
 			sw->set_vexpand(true);
 
 			model = Gtk::ListStore::create(thread_summary_columns);
-			summary_view.set_model(model);
+			summary_view = Gtk::manage(new Gtk::TreeView());
+			summary_view->set_model(model);
 			SummaryCellRenderer *cr = Gtk::manage(new SummaryCellRenderer());
-			Gtk::TreeViewColumn *column = new Gtk::TreeViewColumn("Threads", *cr);
+			Gtk::TreeViewColumn *column = Gtk::manage(new Gtk::TreeViewColumn("Threads", *cr));
 			column->add_attribute(cr->property_threads(), thread_summary_columns.thread_summary);
 			column->set_sort_column(thread_summary_columns.ppm);
 			column->set_sort_order(Gtk::SORT_DESCENDING);
@@ -42,24 +44,25 @@ namespace Horizon {
 			column->set_alignment(Gtk::ALIGN_CENTER);
 
 			Gtk::Entry *search_entry = Gtk::manage(new Gtk::Entry());
-			summary_view.set_search_column(thread_summary_columns.teaser);
-			summary_view.set_search_entry(*search_entry);
-			summary_view.set_search_equal_func(sigc::mem_fun(*this, &Application::on_search_equal));
+			summary_view->set_search_column(thread_summary_columns.teaser);
+			summary_view->set_search_entry(*search_entry);
+			summary_view->set_search_equal_func(sigc::mem_fun(*this, &Application::on_search_equal));
 
-			summary_view.append_column(* Gtk::manage(column) );
-			sw->add(summary_view);
-			summary_view.signal_button_press_event().connect(sigc::mem_fun(*this, &Application::on_treeview_click), false);
+			summary_view->append_column(*column);
+			sw->add(*summary_view);
+			summary_view->signal_button_press_event().connect(sigc::mem_fun(*this, &Application::on_treeview_click), false);
 			board_combobox->signal_changed().connect(sigc::mem_fun(*this, &Application::on_catalog_board_change));
-			summary_grid.attach(*search_entry, 0, 0, 1, 1);
-			summary_grid.attach(*board_combobox, 1, 0, 1, 1);
-			summary_grid.attach(*sw, 0, 1, 2, 1);
-			total_grid.add(summary_grid);
+			summary_grid->attach(*search_entry, 0, 0, 1, 1);
+			summary_grid->attach(*board_combobox, 1, 0, 1, 1);
+			summary_grid->attach(*sw, 0, 1, 2, 1);
+			total_grid->add(*summary_grid);
 
-			notebook.set_scrollable(true);
-			notebook.popup_enable();
+			notebook = Gtk::manage(new Gtk::Notebook());
+			notebook->set_scrollable(true);
+			notebook->popup_enable();
 
-			total_grid.add(notebook);
-			window->add(total_grid);
+			total_grid->add(*notebook);
+			window->add(*total_grid);
 
 			auto provider = Gtk::CssProvider::get_default();
 
@@ -68,7 +71,7 @@ namespace Horizon {
 			auto screen = Gdk::Screen::get_default();
 			provider->load_from_file(file);
 			sc->add_provider_for_screen(screen, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-			gtk_application_add_window(gobj(), GTK_WINDOW(window->gobj()));
+			gtk_application_add_window(gapplication->gobj(), GTK_WINDOW(window->gobj()));
 
 			window->show_all();
 		} else {
@@ -78,12 +81,10 @@ namespace Horizon {
 
 	/* Called every time the executable is run */
 	void Application::on_activate() {
-		Gtk::Application::on_activate();
 	}
 
 
 	void Application::on_startup() {
-		Gtk::Application::on_startup();
 		Glib::set_application_name("Horizon");
 
 		Glib::wrap_register(horizon_thread_summary_get_type(),
@@ -117,20 +118,17 @@ namespace Horizon {
 		if ( settings ) {
 			std::vector <Glib::ustring> threads = settings->get_string_array("threads");
 			auto iter_end = std::unique(threads.begin(), threads.end());
-			auto add_thread_functor = std::bind(&Application::activate_action,
-			                                    this, "open_thread",
-			                                    std::bind(&Glib::Variant<Glib::ustring>::create,
-			                                              std::placeholders::_1));
-
+			auto app = gapplication;
 			std::for_each(threads.begin(),
 			              iter_end,
-			              add_thread_functor);
+			              [&app](const Glib::ustring &thread) {
+				              auto vthread = Glib::Variant<Glib::ustring>::create(thread);
+				              app->activate_action("open_thread", vthread);
+			              });
 		}
 
 		manager_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::update_threads), 3);
-
-		summary_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::update_catalogs), 30);
-
+		summary_alarm = Glib::signal_timeout().connect_seconds(sigc::mem_fun(&manager, &Manager::update_catalogs), 60);
 	}
 
 	void Application::setup_actions() {
@@ -139,17 +137,17 @@ namespace Horizon {
 		                                      );
 		open->signal_activate().connect( sigc::mem_fun(*this, &Application::on_open_thread) );
 		open->set_enabled(true);
-		add_action(open);
+		gapplication->add_action(open);
 
 		auto opendialog = Gio::SimpleAction::create("open_thread_dialog");
 		opendialog->signal_activate().connect( sigc::mem_fun(*this, &Application::on_open_thread_dialog) );
 		opendialog->set_enabled(true);
-		add_action(opendialog);
+		gapplication->add_action(opendialog);
 
 		auto fullscreen = Gio::SimpleAction::create("fullscreen");
 		fullscreen->signal_activate().connect( sigc::mem_fun(*this, &Application::on_fullscreen) );
 		fullscreen->set_enabled(true);
-		add_action(fullscreen);
+		gapplication->add_action(fullscreen);
 
 		for (auto board : CATALOG_BOARDS) {
 			Glib::Variant<bool> board_default;
@@ -169,7 +167,7 @@ namespace Horizon {
 
 			board_toggle->signal_activate().connect( sigc::bind(sigc::mem_fun(*this, &Application::on_board_toggle), board) );
 			board_toggle->set_enabled(true);
-			add_action(board_toggle);
+			gapplication->add_action(board_toggle);
 			on_board_toggle(board_default, board);
 		}
 
@@ -182,7 +180,7 @@ namespace Horizon {
 			auto cmenu = gtk_builder_get_object(builder, "app-menu");
 			auto menu = Glib::wrap(G_MENU_MODEL(cmenu));
 
-			set_app_menu(menu);
+			gapplication->set_app_menu(menu);
 		} else {
 			g_error ( "Error loading menu resource: %s", error->message );
 		}
@@ -204,7 +202,7 @@ namespace Horizon {
 		auto resp = dialog->run();
 		if ( resp == Gtk::RESPONSE_OK ) {
 			auto parameter = Glib::Variant<Glib::ustring>::create(entry->get_text());
-			activate_action("open_thread", parameter);
+			gapplication->activate_action("open_thread", parameter);
 		}
 		dialog->hide();
 		delete dialog;
@@ -235,10 +233,10 @@ namespace Horizon {
 				auto tv = new ThreadView(t, settings);
 				tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
 
-				notebook.append_page(*tv,
+				notebook->append_page(*tv,
 				                     tv->get_tab_label());
-				notebook.set_tab_reorderable(*tv, true);
-				notebook.set_tab_detachable(*tv, false);
+				notebook->set_tab_reorderable(*tv, true);
+				notebook->set_tab_detachable(*tv, false);
 
 				threads.push_back(url);
 				std::sort(threads.begin(),
@@ -336,9 +334,9 @@ namespace Horizon {
 		if ( iter != thread_map.end() ) {
 
 			ThreadView *tv = iter->second;
-			int pagenum = notebook.page_num(*tv);
+			int pagenum = notebook->page_num(*tv);
 			if (pagenum != -1)
-				notebook.remove_page(pagenum);
+				notebook->remove_page(pagenum);
 
 			thread_map.erase(iter);
 			remove_thread(id);
@@ -378,7 +376,7 @@ namespace Horizon {
 	
 	void Application::on_catalog_update() {
 		// fixme
-		summary_view.add_events(Gdk::BUTTON_PRESS_MASK);
+		summary_view->add_events(Gdk::BUTTON_PRESS_MASK);
 		if (board_combobox->get_active_row_number() == -1)
 			return;
 		const std::string active_board = get_board_from_fancy(board_combobox->get_active_text());
@@ -481,11 +479,11 @@ namespace Horizon {
 					                             thread->get_reply_count());
 					row.set_value(thread_summary_columns.image_count,
 					                             thread->get_image_count());
-					row.set_value(thread_summary_columns.ppm, 
-					                             static_cast<float>(thread->get_reply_count()) /
-					                             static_cast<float>(Glib::DateTime::
-					                                                create_now_utc().to_unix() -
-					                                                thread->get_unix_date()));
+					row.set_value(thread_summary_columns.ppm,
+					              static_cast<float>(thread->get_reply_count()) /
+					              static_cast<float>(Glib::DateTime::
+					                                 create_now_utc().to_unix() -
+					                                 thread->get_unix_date()));
 					row.set_value(thread_summary_columns.thread_summary,
 					                             thread);
 					summary_map.erase(match_iter);
@@ -577,21 +575,21 @@ namespace Horizon {
 
 	bool Application::on_treeview_click(GdkEventButton* eb) {
 		if (eb->type == GDK_2BUTTON_PRESS) {
-			if ( summary_view.get_bin_window() == Glib::wrap(eb->window, true) ) {
+			if ( summary_view->get_bin_window() == Glib::wrap(eb->window, true) ) {
 				Gtk::TreeModel::Path path;
 				Gtk::TreeViewColumn *column;
 				int cell_x, cell_y;
 
-				summary_view.get_path_at_pos(static_cast<int>(eb->x),
-				                             static_cast<int>(eb->y),
-				                             path, column, cell_x, cell_y);
+				summary_view->get_path_at_pos(static_cast<int>(eb->x),
+				                              static_cast<int>(eb->y),
+				                              path, column, cell_x, cell_y);
 
 
 				auto iter = model->get_iter(path);
 				auto val = iter->get_value(thread_summary_columns.url);
 				auto variant = Glib::Variant<Glib::ustring>::create(val);
 
-				activate_action("open_thread", variant);
+				gapplication->activate_action("open_thread", variant);
 				std::cerr << "Opening thread " << val << std::endl;
 			} 
 		}
@@ -618,15 +616,19 @@ namespace Horizon {
 	}
 
 
+	void Application::run(int argc, char *argv[]) {
+		gapplication->run(argc, argv);
+	}
+
 	Application::Application(const Glib::ustring &appid) :
-		Gtk::Application(appid),
 		canceller(new Canceller())
 	{
+		gapplication = Gtk::Application::create(appid);
+		gapplication->signal_activate().connect(sigc::mem_fun(*this, &Application::on_activate));
+		gapplication->signal_startup().connect(sigc::mem_fun(*this, &Application::on_startup));
+
 		Notifier::init();
 	}
 
-	Glib::RefPtr<Application> Application::create(const Glib::ustring &appid) {
-		return Glib::RefPtr<Application>( new Application(appid) );
-	}
-
 }
+
