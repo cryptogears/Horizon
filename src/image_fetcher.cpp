@@ -249,6 +249,10 @@ namespace Horizon {
 	                            bool get_thumb,
 	                            std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb,
 	                            std::function<void (int, int, int, int)> area_updated_cb) {
+		if (!post) {
+			g_warning("ImageFetcher::download() called with invalid post");
+			return;
+		}
 		std::string request_key = get_request_key(post, get_thumb);
 
 		bool is_pending = add_request_cb(request_key, callback);
