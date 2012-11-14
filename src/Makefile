@@ -139,7 +139,7 @@ AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -g -O2
-CPPFLAGS = -Werror
+CPPFLAGS = 
 CURL_CFLAGS =  
 CURL_LIBS = -lcurl  
 CXX = g++
@@ -147,7 +147,7 @@ CXXCPP = g++ -E
 CXXDEPMODE = depmode=gcc3
 CXXFLAGS = -g -O2 -std=c++11
 CYGPATH_W = echo
-DEFS = -DPACKAGE_NAME=\"horizon\" -DPACKAGE_TARNAME=\"horizon\" -DPACKAGE_VERSION=\"0.1.1\" -DPACKAGE_STRING=\"horizon\ 0.1.1\" -DPACKAGE_BUGREPORT=\"agpotter@gmail.com\" -DPACKAGE_URL=\"\" -DPACKAGE=\"horizon\" -DVERSION=\"0.1.1\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_STDLIB_H=1 -DHAVE_MALLOC=1
+DEFS = -DPACKAGE_NAME=\"horizon\" -DPACKAGE_TARNAME=\"horizon\" -DPACKAGE_VERSION=\"0.1.2\" -DPACKAGE_STRING=\"horizon\ 0.1.2\" -DPACKAGE_BUGREPORT=\"agpotter@gmail.com\" -DPACKAGE_URL=\"\" -DPACKAGE=\"horizon\" -DVERSION=\"0.1.2\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_STDLIB_H=1 -DHAVE_MALLOC=1
 DEPDIR = .deps
 ECHO_C = 
 ECHO_N = -n
@@ -184,10 +184,10 @@ OBJEXT = o
 PACKAGE = horizon
 PACKAGE_BUGREPORT = agpotter@gmail.com
 PACKAGE_NAME = horizon
-PACKAGE_STRING = horizon 0.1.1
+PACKAGE_STRING = horizon 0.1.2
 PACKAGE_TARNAME = horizon
 PACKAGE_URL = 
-PACKAGE_VERSION = 0.1.1
+PACKAGE_VERSION = 0.1.2
 PATH_SEPARATOR = :
 PKG_CONFIG = /usr/bin/pkg-config
 PKG_CONFIG_LIBDIR = 
@@ -195,7 +195,7 @@ PKG_CONFIG_PATH =
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = 
-VERSION = 0.1.1
+VERSION = 0.1.2
 abs_builddir = /home/agpotter/Horizon/src
 abs_srcdir = /home/agpotter/Horizon/src
 abs_top_builddir = /home/agpotter/Horizon
@@ -244,7 +244,8 @@ top_srcdir = ..
 # list of sources for the 'helloWorld' binary
 INCLUDES = $(KEYRING_CFLAGS) $(CURL_CFLAGS) $(GLIBMM_CFLAGS) $(GTKMM_CFLAGS) $(JSON_CFLAGS) $(LIBXML_CFLAGS) $(LIBEV_CFLAGS)
 horizon_LDADD = $(KEYRING_LIBS) $(CURL_LIBS) $(GLIBMM_LIBS) $(GTKMM_LIBS) $(JSON_LIBS) $(LIBXML_LIBS) $(LIBEV_LIBS)
-AM_CXXFLAGS = -Wall -Wextra -pedantic -D_FORTIFY_SOURCE=2 -ggdb -g3
+AM_CXXFLAGS = -Wall -Wextra -pedantic -D_FORTIFY_SOURCE=2 -ggdb -g3 -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fno-omit-frame-pointer
+AM_CFLAGS = -Wall -std=c99 -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -fno-omit-frame-pointer
 pngdir = $(datadir)/icons/hicolor/scalable/apps
 png_DATA = 4chan-icon.png
 EXTRA_DIST = horizon.gresource.xml style.css menus.xml 404-Anonymous-2.png com.talisein.fourchan.native.gtk.gschema.xml $(png_DATA)
