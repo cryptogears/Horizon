@@ -22,48 +22,57 @@ namespace Horizon {
 
 	ThreadView::ThreadView(std::shared_ptr<Thread> t,
 	                       Glib::RefPtr<Gio::Settings> s) :
-		Gtk::Frame(),
-		thread(t),
-		swindow(),
-		vadjustment(swindow.get_vadjustment()),
-		expand_button("Expand All"),
-		fetching_image(false),
-		settings(s),
-		notifier(Notifier::getNotifier()),
-		canceller(new Canceller())
+		Gtk::Frame       (),
+		thread           (t),
+		swindow          (Gtk::manage(new Gtk::ScrolledWindow())),
+		vadjustment      (swindow->get_vadjustment()),
+		full_grid        (Gtk::manage(new Gtk::Grid())),
+		grid             (Gtk::manage(new Gtk::Grid())),
+		control_grid     (Gtk::manage(new Gtk::Grid())),
+		notify_switch    (Gtk::manage(new Gtk::Switch())),
+		autoscroll_switch(Gtk::manage(new Gtk::Switch())),
+		expand_button    (Gtk::manage(new Gtk::ToggleButton("Expand All"))),
+		tab_window       (Gtk::manage(new Gtk::EventBox())),
+		tab_label        (Gtk::manage(new Gtk::Label())),
+		tab_label_grid   (Gtk::manage(new Gtk::Grid())),
+		tab_image        (Gtk::manage(new Gtk::Image())),
+		fetching_image   (false),
+		settings         (s),
+		notifier         (Notifier::getNotifier()),
+		canceller        (std::make_shared<Canceller>())
 	{
 		set_name("frame");
 		set_shadow_type(Gtk::SHADOW_IN);
 		set_label_align(0.5f, 0.5f);
-		swindow.set_name("threadview");
-		swindow.set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
-		swindow.set_vexpand(true);
-		grid.set_focus_vadjustment(vadjustment);
-		grid.set_row_spacing(5);
-		grid.set_column_spacing(5);
-		grid.set_margin_right(5);
-		grid.set_margin_left(5);
-		grid.set_margin_top(5);
+		swindow->set_name("threadview");
+		swindow->set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
+		swindow->set_vexpand(true);
+		grid->set_focus_vadjustment(vadjustment);
+		grid->set_row_spacing(5);
+		grid->set_column_spacing(5);
+		grid->set_margin_right(5);
+		grid->set_margin_left(5);
+		grid->set_margin_top(5);
 
-		full_grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
+		full_grid->set_orientation(Gtk::ORIENTATION_VERTICAL);
 
-		grid.set_orientation(Gtk::ORIENTATION_VERTICAL);
-		grid.set_name("postview_grid");
+		grid->set_orientation(Gtk::ORIENTATION_VERTICAL);
+		grid->set_name("postview_grid");
 
-		control_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-		control_grid.set_border_width(2);
-		control_grid.set_column_spacing(5);
+		control_grid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+		control_grid->set_border_width(2);
+		control_grid->set_column_spacing(5);
 
-		expand_button.set_name("expand_all");
-		expand_button.signal_toggled().connect( sigc::mem_fun(*this, &ThreadView::on_expand_all) );
-		control_grid.add(expand_button);
+		expand_button->set_name("expand_all");
+		expand_button->signal_toggled().connect( sigc::mem_fun(*this, &ThreadView::on_expand_all) );
+		control_grid->add(*expand_button);
 
 		Gtk::Label *notify_label = Gtk::manage(new Gtk::Label("Notify on New "));
-		control_grid.add(*notify_label);
-		control_grid.add(notify_switch);
+		control_grid->add(*notify_label);
+		control_grid->add(*notify_switch);
 		Gtk::Label *autoscroll_label = Gtk::manage(new Gtk::Label("Auto-Scroll "));
-		control_grid.add(*autoscroll_label);
-		control_grid.add(autoscroll_switch);
+		control_grid->add(*autoscroll_label);
+		control_grid->add(*autoscroll_switch);
 
 
 		Gtk::Button *close = Gtk::manage(new Gtk::Button(Gtk::Stock::CLOSE));
@@ -71,33 +80,33 @@ namespace Horizon {
 		close->signal_clicked().connect( sigc::mem_fun(*this, &ThreadView::do_close_thread) );
 
 		
-		control_grid.add(*close);
-		control_grid.set_name("threadcontrolgrid");
-		full_grid.add(control_grid);
+		control_grid->add(*close);
+		control_grid->set_name("threadcontrolgrid");
+		full_grid->add(*control_grid);
 
-		swindow.add(grid);
-		full_grid.add(swindow);
-		add(full_grid);
+		swindow->add(*grid);
+		full_grid->add(*swindow);
+		add(*full_grid);
 		
-		tab_label.set_text( Glib::ustring::compose("%1", thread->number));
-		set_label(tab_label.get_text());
+		tab_label->set_text( Glib::ustring::compose("%1", thread->number));
+		set_label(tab_label->get_text());
 
-		tab_label_grid.set_column_spacing(10);
-		tab_label_grid.show();
-		tab_label.set_valign(Gtk::ALIGN_CENTER);
-		tab_label.set_vexpand(true);
-		tab_image.set_valign(Gtk::ALIGN_CENTER);
+		tab_label_grid->set_column_spacing(10);
+		tab_label_grid->show();
+		tab_label->set_valign(Gtk::ALIGN_CENTER);
+		tab_label->set_vexpand(true);
+		tab_image->set_valign(Gtk::ALIGN_CENTER);
 		
-		tab_label.show();
-		tab_label_grid.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
-		tab_label_grid.add(tab_image);
-		tab_label_grid.add(tab_label);
-		tab_label_grid.set_valign(Gtk::ALIGN_CENTER);
+		tab_label->show();
+		tab_label_grid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+		tab_label_grid->add(*tab_image);
+		tab_label_grid->add(*tab_label);
+		tab_label_grid->set_valign(Gtk::ALIGN_CENTER);
 
-		tab_window.set_name("tab");
-		tab_window.set_visible_window(false);
-		tab_window.add(tab_label_grid);
-		tab_window.show();
+		tab_window->set_name("tab");
+		tab_window->set_visible_window(false);
+		tab_window->add(*tab_label_grid);
+		tab_window->show();
 		
 		thread->signal_updated_interval.connect( sigc::mem_fun(*this, &ThreadView::on_updated_interval ) );
 		vadjustment->signal_changed().connect( sigc::mem_fun(*this, &ThreadView::on_scrollbar_changed) );
@@ -119,10 +128,6 @@ namespace Horizon {
 		if (unshown_view_idle.connected())
 			unshown_view_idle.disconnect();
 
-		for ( auto pair : post_map ) {
-			PostView* pv = pair.second;
-			delete pv;
-		}
 	}
 
 	void ThreadView::on_scrollbar_changed() {
@@ -139,7 +144,7 @@ namespace Horizon {
 		                        you fools.
 		*/
 		if ( prev_upper != new_upper &&
-		     autoscroll_switch.get_active() ) {
+		     autoscroll_switch->get_active() ) {
 			vadjustment->set_value(new_upper - min_increment);
 		}
 
@@ -150,7 +155,6 @@ namespace Horizon {
 
 	void ThreadView::do_close_thread() {
 		hide();
-
 		signal_closed(thread->id);
 	}
 
@@ -167,11 +171,11 @@ namespace Horizon {
 			}
 		} else {
 			// This is a new post
-			PostView *pv = new PostView(post);
+			PostView *pv = Gtk::manage(new PostView(post));
 			post_map.insert({post->get_id(), pv});
 			pv->signal_activate_link.connect(sigc::mem_fun(*this, &ThreadView::on_activate_link));
 			post->mark_rendered();
-			grid.add(*pv);
+			grid->add(*pv);
 			was_new = true;
 
 			unshown_views.push_back(pv);
@@ -184,7 +188,7 @@ namespace Horizon {
 				}
 			}
 
-			if (expand_button.get_active())
+			if (expand_button->get_active())
 				pv->set_image_state(Image::EXPAND);
 		}
 
@@ -224,7 +228,7 @@ namespace Horizon {
 
 		if ( was_new &&
 		     ( (should_notify && thread->should_notify()) ||
-		       notify_switch.get_active())) {
+		       notify_switch->get_active())) {
 			auto iter = post_map.rbegin();
 			
 			notifier->notify(thread->id,// id,
@@ -234,7 +238,7 @@ namespace Horizon {
 			                 iter->second->get_image());
 		}
 
-		if (!tab_image.get_pixbuf())
+		if (!tab_image->get_pixbuf())
 			refresh_tab_image();
 
 		refresh_tab_text();
@@ -268,8 +272,8 @@ namespace Horizon {
 				new_width = static_cast<int>(scale * static_cast<float>(pixbuf->get_width()));
 			}
 
-			tab_image.set(pixbuf->scale_simple(new_width, new_height, Gdk::INTERP_HYPER));
-			tab_image.show();
+			tab_image->set(pixbuf->scale_simple(new_width, new_height, Gdk::INTERP_HYPER));
+			tab_image->show();
 		}
 
 		fetching_image = false;
@@ -331,7 +335,7 @@ namespace Horizon {
 			                               lastpost);
 		}
 
-		tab_label.set_markup(label);
+		tab_label->set_markup(label);
 	}
 
 	bool ThreadView::on_activate_link(const Glib::ustring &link) {
@@ -344,7 +348,7 @@ namespace Horizon {
 		s >> post_num;
 		if ( post_map.count(post_num) == 1 ) {
 			auto widget = post_map[post_num];
-			grid.set_focus_child(*widget);
+			grid->set_focus_child(*widget);
 			return true;
 		} else {
 			std::cerr << "Cross-thread links not yet supported." << std::endl;
@@ -354,7 +358,7 @@ namespace Horizon {
 	
 
 	void ThreadView::on_updated_interval() {
-		if (!tab_image.get_pixbuf())
+		if (!tab_image->get_pixbuf())
 			refresh_tab_image();
 
 		const Glib::RefPtr<Post> post = thread->get_first_post();
@@ -390,7 +394,7 @@ namespace Horizon {
 	}
 
 	void ThreadView::on_expand_all() {
-		if (expand_button.get_active()) {
+		if (expand_button->get_active()) {
 			std::for_each(post_map.begin(),
 			              post_map.end(),
 			              [](std::pair<gint64, PostView*> pair) {

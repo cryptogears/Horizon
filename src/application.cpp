@@ -234,7 +234,7 @@ namespace Horizon {
 				tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
 
 				notebook->append_page(*tv,
-				                     tv->get_tab_label());
+				                      *(tv->get_tab_label()));
 				notebook->set_tab_reorderable(*tv, true);
 				notebook->set_tab_detachable(*tv, false);
 

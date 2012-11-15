@@ -27,40 +27,40 @@ namespace Horizon {
 		
 		sigc::signal<void, gint64> signal_closed;
 
-		Gtk::Widget& get_tab_label() {return tab_window;};
+		Gtk::Widget* get_tab_label() {return tab_window;};
 
 	private:
-		std::shared_ptr<Thread> thread;
-		Gtk::ScrolledWindow swindow;
+		std::shared_ptr<Thread>       thread;
+		Gtk::ScrolledWindow          *swindow;
 		Glib::RefPtr<Gtk::Adjustment> hadjustment;
 		Glib::RefPtr<Gtk::Adjustment> vadjustment;
-		Gtk::Grid full_grid; // holds everything
-		Gtk::Grid grid; // holds actual postviews
-		Gtk::Grid control_grid;
-		Gtk::Switch notify_switch;
-		Gtk::Switch autoscroll_switch;
-		Gtk::ToggleButton expand_button;
+		Gtk::Grid                    *full_grid; // holds everything
+		Gtk::Grid                    *grid; // holds actual postviews
+		Gtk::Grid                    *control_grid;
+		Gtk::Switch                  *notify_switch;
+		Gtk::Switch                  *autoscroll_switch;
+		Gtk::ToggleButton            *expand_button;
 
-		Gtk::EventBox tab_window;
-		Gtk::Label tab_label;
-		Gtk::Grid tab_label_grid;
-		Gtk::Image tab_image;
-		bool fetching_image;
-		sigc::connection tab_updates;
+		Gtk::EventBox                *tab_window;
+		Gtk::Label                   *tab_label;
+		Gtk::Grid                    *tab_label_grid;
+		Gtk::Image                   *tab_image;
+		bool                          fetching_image;
+		sigc::connection              tab_updates;
 
-		std::deque<PostView*> unshown_views;
+		std::deque<PostView*>         unshown_views;
 		bool on_unshown_views();
-		sigc::connection unshown_view_idle;
+		sigc::connection              unshown_view_idle;
 
-		std::map<gint64, PostView*> post_map;
-		Glib::RefPtr<Gio::Settings> settings;
-		std::shared_ptr<Notifier> notifier;
+		std::map<gint64, PostView*>   post_map;
+		Glib::RefPtr<Gio::Settings>   settings;
+		std::shared_ptr<Notifier>     notifier;
 
-		std::shared_ptr<Canceller> canceller;
+		std::shared_ptr<Canceller>    canceller;
 
-		double prev_value;
-		double prev_upper;
-		double prev_page_size;
+		double                        prev_value;
+		double                        prev_upper;
+		double                        prev_page_size;
 
 		bool refresh_post(const Glib::RefPtr<Post> &post);
 		void refresh_tab_image();
