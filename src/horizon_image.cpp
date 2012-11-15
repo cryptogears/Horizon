@@ -9,6 +9,8 @@ namespace Horizon {
 	             sigc::slot<void, const ImageState&> state_change_callback) :
 		Gtk::Container(),
 		post(post_),
+		event_box(Gtk::manage(new Gtk::EventBox())),
+		image(Gtk::manage(new Gtk::Image())),
 		image_state(NONE),
 		is_changing_state(false),
 		scaled_width(-1),
@@ -19,10 +21,6 @@ namespace Horizon {
 		canceller(new Canceller()),
 		ifetcher(ImageFetcher::get(FOURCHAN))
 	{
-		std::unique_ptr<Gtk::Image> i(new Gtk::Image());
-		image = std::move(i);
-		std::unique_ptr<Gtk::EventBox> eb(new Gtk::EventBox());
-		event_box = std::move(eb);
 		set_has_window(false);
 		set_redraw_on_allocate(false);
 		set_name("imagewindow");
@@ -526,13 +524,30 @@ namespace Horizon {
 		event_box->size_allocate(allocation);
 		image->size_allocate(allocation);
 	}
-
+	
 	void Image::forall_vfunc(gboolean, GtkCallback callback, gpointer callback_data) {
-		callback(GTK_WIDGET(event_box->gobj()), callback_data);
-		callback(GTK_WIDGET(image->gobj()), callback_data);
+		if (event_box) callback(GTK_WIDGET(event_box->gobj()), callback_data);
+		if (image)     callback(GTK_WIDGET(image    ->gobj()), callback_data);
 	}
 
 	GType Image::child_type_vfunc() const {
 		return G_TYPE_NONE;
+	}
+
+	void Image::on_remove(Gtk::Widget *child) {
+		if (child) {
+			const bool visible = child->get_visible();
+			if ( child == event_box ) {
+				event_box->unparent();
+				event_box = nullptr;
+				if (visible) queue_resize();
+			} 
+
+			if ( child == image ) {
+				image->unparent();
+				image = nullptr;
+				if (visible) queue_resize();
+			}
+		}
 	}
 }

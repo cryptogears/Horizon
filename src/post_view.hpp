@@ -36,17 +36,17 @@ namespace Horizon {
 		PostView& operator=(const PostView&) = delete;
 
 		Glib::RefPtr<Post> post;
-		Glib::RefPtr<Gtk::Adjustment> hadjust, vadjust;
-		Gtk::Grid post_info_grid;
-		Gtk::Grid image_info_grid;
-		Gtk::Grid content_grid; // Contains the image and the comment
-		Gtk::Grid viewport_grid; // Contains comments and special widgets for 
-		                        // things like code tags.
-		Gtk::Label comment;
-		Gtk::Label linkbacks;
-		Gtk::Viewport comment_viewport;
 
-		std::unique_ptr<Image> image;
+		Gtk::Grid* post_info_grid;
+		Gtk::Grid* image_info_grid;
+		Gtk::Grid* content_grid;  // Contains the image and the comment
+		Gtk::Grid* viewport_grid; // Contains comments and special widgets for 
+		                          // things like code tags.
+		Gtk::EventBox *comment_box;
+		Gtk::Label* comment;
+		Gtk::Label* linkbacks;
+
+		Image* image;
 
 		void set_new_scaled_image(const int width);
 		bool on_activate_link(const Glib::ustring&);
