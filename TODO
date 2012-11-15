@@ -12,6 +12,3 @@ o Make the interface pretty
 o Implement Save-thread-to target directory
 
 o Implement a slideshow mode. 
-
-o Use a dirty flag on ImageCache to determine if flush()ing is really
-  necessary.
