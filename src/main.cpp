@@ -27,7 +27,6 @@ int main (int argc, char *argv[])
 
 void cleanup() {
 	Horizon::ImageFetcher::cleanup();
-	Horizon::ImageCache::cleanup(); // Required to get final flush()!
 
 	/*
 	 * This is only required to clean up all memory before exit.

@@ -1,5 +1,6 @@
 #include "image_fetcher.hpp"
 #include <iostream>
+#include <atomic>
 #include <glibmm/fileutils.h>
 #include "utils.hpp"
 
@@ -13,12 +14,15 @@ namespace Horizon {
 	std::shared_ptr<ImageFetcher> ImageFetcher::get(FETCH_TYPE type) {
 		Glib::Threads::Mutex::Lock lock(singleton_mutex);
 		
-		if (!singleton_4chan) {
-			singleton_4chan = std::shared_ptr<ImageFetcher>(new ImageFetcher());
-		}
-
-		if (!singleton_catalog) {
-			singleton_catalog = std::shared_ptr<ImageFetcher>(new ImageFetcher());
+		if (!singleton_4chan || !singleton_catalog) {
+			const std::vector<std::string> path_parts = { Glib::get_user_data_dir(),
+			                                              "horizon",
+			                                              CACHE_FILENAME };
+			const std::string path = Glib::build_filename( path_parts );
+			const Glib::RefPtr<Gio::File> cache_file = Gio::File::create_for_path(path);
+			const std::shared_ptr<ImageCache> cache = std::make_shared<ImageCache>(cache_file);
+			singleton_4chan = std::shared_ptr<ImageFetcher>(new ImageFetcher(cache));
+			singleton_catalog = std::shared_ptr<ImageFetcher>(new ImageFetcher(cache));
 		}
 		
 		switch (type) {
@@ -221,6 +225,7 @@ namespace Horizon {
 	                                               std::function<void (Glib::RefPtr<Gdk::Pixbuf>)> area_prepared_cb,
 	                                               std::function<void (int, int, int, int)> area_updated_cb,
 	                                               std::shared_ptr<Canceller> canceller) {
+		static std::atomic<uint64_t> serial(0);
 		std::shared_ptr<Request> req = std::make_shared<Request>();
 		req->hash = post->get_hash();
 		req->is_thumb = is_thumb;
@@ -236,7 +241,7 @@ namespace Horizon {
 		req->area_prepared_functor = area_prepared_cb;
 		req->area_updated_functor = area_updated_cb;
 		req->canceller = canceller;
-
+		req->serial = serial++;
 		return req;
 	}
 
@@ -672,13 +677,13 @@ namespace Horizon {
 		start_new_download();
 	}
 
-	ImageFetcher::ImageFetcher() :
-		image_cache(ImageCache::get()),
+	ImageFetcher::ImageFetcher(const std::shared_ptr<ImageCache>& cache) :
+		image_cache(cache),
 		curl_error_buffer(g_new0(char, CURL_ERROR_SIZE)),
 		curl_multi(CurlMulti<std::shared_ptr<Request> >::create()),
 		running_handles(0),
 		ev_thread(nullptr),
-		ev_loop(ev::AUTO),
+		ev_loop(ev::AUTO | ev::POLL),
 		kill_loop_w(ev_loop),
 		queue_w(ev_loop),
 		timeout_w(ev_loop)
@@ -688,7 +693,7 @@ namespace Horizon {
 		curl_multi->set_socket_function(&curl_socket_cb, this);
 		curl_multi->set_timer_function(&curl_timer_cb, this);
 
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 6; i++) {
 			auto easy = CurlEasy<std::shared_ptr<Request> >::create();
 			curl_queue.push(easy);
 		}

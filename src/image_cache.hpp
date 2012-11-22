@@ -19,23 +19,31 @@
 
 
 namespace Horizon {
+	struct VariantTypeDeleter {
+		void operator()(GVariantType* vt) {
+			g_variant_type_free(vt);
+		}
+	};
+
+	struct VariantUnrefer {
+		void operator()(GVariant* v) {
+			g_variant_unref(v);
+		}
+	};
 
 	class ImageData {
 	public:
 		ImageData() = delete;
 		ImageData(const ImageData&) = delete;
 		ImageData& operator=(const ImageData&) = delete;
-		~ImageData();
-		static std::shared_ptr<ImageData> create(const guint32 version, const Glib::VariantContainerBase &);
-		static std::shared_ptr<ImageData> create(const Glib::RefPtr<Post> &post);
-
-	private:
+		~ImageData() = default;
 		ImageData(const guint32 version, const Glib::VariantContainerBase &);
+		explicit ImageData(const guint32 version, std::unique_ptr<GVariant, VariantUnrefer> cvariant);
 		ImageData(const Glib::RefPtr<Post> &post);
 
 	public:
 		void update(const Glib::RefPtr<Post> &post);
-		void merge(const std::shared_ptr<ImageData>&);
+		void merge(const std::unique_ptr<ImageData>&);
 
 		Glib::VariantContainerBase get_variant() const;
 		GVariant* get_cvariant() const;
@@ -57,10 +65,10 @@ namespace Horizon {
 
 	class ImageCache {
 	public:
-		static std::shared_ptr<ImageCache> get();
-		static void cleanup();
-
+		ImageCache(const Glib::RefPtr<Gio::File>& cache_file);
 		~ImageCache();
+
+		void merge_file(const Glib::RefPtr<Gio::File>& merge_file);
 
 		bool has_thumb(const Glib::RefPtr<Post> &post);
 		bool has_image(const Glib::RefPtr<Post> &post);
@@ -75,21 +83,21 @@ namespace Horizon {
 		void write_image_async(const Glib::RefPtr<Post> &post,
 		                       Glib::RefPtr<Gio::MemoryInputStream> &istream);
 
+		void clean_invalid();
 		void flush();
 
-	protected:
-		ImageCache();
-
 	private:
+		Glib::RefPtr<Gio::File> cache_file;
+
 		mutable Glib::Threads::Mutex map_lock;
-		std::map<std::string, std::shared_ptr<ImageData> > images;
+		std::map<std::string, std::unique_ptr<ImageData> > images;
 
 		mutable Glib::Threads::Mutex thumb_write_queue_lock;
 		std::deque< std::pair< Glib::RefPtr<Post>,
 		                       Glib::RefPtr<Gio::MemoryInputStream> > > thumb_write_queue;
 		void write(const Glib::RefPtr<Post> &,
 		           Glib::RefPtr<Gio::MemoryInputStream>,
-		           bool write_thumb);
+		           const bool write_thumb);
 		                 
 		mutable Glib::Threads::Mutex image_write_queue_lock;
 		std::deque< std::pair< Glib::RefPtr<Post>,
@@ -107,11 +115,11 @@ namespace Horizon {
 		void read_image(const Glib::RefPtr<Post> &,
 		                std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>);
 
-		void read(const std::shared_ptr<ImageData> &,
-		          std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>,
-		          bool read_thumb);
+		void read(const Glib::RefPtr<Gio::File>&,
+		          std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>);
 
-		void             read_from_disk();
+		void             read_from_disk(const Glib::RefPtr<Gio::File>& cache_file,
+		                                const bool make_dirs);
 
 		Glib::Threads::Thread *ev_thread;
 		ev::dynamic_loop ev_loop;
@@ -135,8 +143,6 @@ namespace Horizon {
 		ev::timer        timer_w;
 		void             on_timer_w(ev::timer &, int);
 
-		static std::shared_ptr<ImageCache> singleton;
-		static Glib::Threads::Mutex singleton_mutex;
 	};
 
 	constexpr char CACHE_FILENAME[] = "horizon-cache.dat";

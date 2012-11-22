@@ -36,6 +36,7 @@ namespace Horizon {
 	enum FETCH_TYPE {FOURCHAN, CATALOG};
 
 	struct Request {
+		guint64 serial;
 		Glib::RefPtr< Gdk::PixbufLoader > loader;
 		Glib::RefPtr< Gio::MemoryInputStream > istream;
 		Glib::RefPtr<Post> post;
@@ -72,7 +73,7 @@ namespace Horizon {
  		              );
 
 	private:
-		ImageFetcher();
+		ImageFetcher(const std::shared_ptr<ImageCache>& cache);
 		static std::shared_ptr<ImageFetcher> singleton_4chan;
 		static std::shared_ptr<ImageFetcher> singleton_catalog;
 		static Glib::Threads::Mutex          singleton_mutex;
@@ -81,7 +82,7 @@ namespace Horizon {
 			typedef std::shared_ptr<Request> value_type;
 			bool operator() (const std::shared_ptr<Request> &lhs,
 			                 const std::shared_ptr<Request> &rhs) {
-				return rhs->is_thumb && !lhs->is_thumb;
+				return (rhs->is_thumb && !lhs->is_thumb) || (rhs->serial < lhs->serial);
 			}
 		} request_comparitor;
 

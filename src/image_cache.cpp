@@ -9,22 +9,98 @@
 
 namespace Horizon {
 
-	std::shared_ptr<ImageData> ImageData::create(const guint32 version,
-	                                             const Glib::VariantContainerBase &variant) {
-		auto data = std::shared_ptr<ImageData>(new ImageData(version, variant));
-		if (!data)
-			g_error("Failed to create image_data.");
-		return data;
-	}
+	struct SArrayGFreer {
+		void operator()(const gchar** s) {
+			g_free(s);
+		}
+	};
 
-	std::shared_ptr<ImageData> ImageData::create(const Glib::RefPtr<Post> &post) {
-		auto data = std::shared_ptr<ImageData>(new ImageData(post));
-		if (!data)
-			g_error("Failed to create image_data.");
-		return data;
+	ImageData::ImageData(const guint32 version, const std::unique_ptr<GVariant, VariantUnrefer> cvariant) {
+		const gsize cvariant_children = g_variant_n_children(cvariant.get());
+		if ( version == 1 ) {
+			if (cvariant_children != 12) {
+				g_error("Invalid number of elements in version 1 data: %" G_GSIZE_FORMAT " elements.",
+				        cvariant_children);
+			} else {
+				typedef std::unique_ptr<GVariant, VariantUnrefer> v_ptr;
+				typedef std::unique_ptr<const gchar*, SArrayGFreer> sarray_ptr;
+				const gchar *string;
+				g_variant_get_child(cvariant.get(), 0, "t", &size);
+				g_variant_get_child(cvariant.get(), 1, "^&ay", &string);
+				md5 = string;
+				g_variant_get_child(cvariant.get(), 2, "^&ay", &string);
+				ext = string;
+				const v_ptr vboards   (g_variant_get_child_value(cvariant.get(), 3));
+				const v_ptr vtags     (g_variant_get_child_value(cvariant.get(), 4));
+				const v_ptr vfilenames(g_variant_get_child_value(cvariant.get(), 5));
+				const v_ptr vposters  (g_variant_get_child_value(cvariant.get(), 6));
+				const v_ptr vdates    (g_variant_get_child_value(cvariant.get(), 7));
+				g_variant_get_child(cvariant.get(), 8, "q",&num_spoiler);
+				g_variant_get_child(cvariant.get(), 9, "q",&num_deleted);
+				g_variant_get_child(cvariant.get(), 10, "b", &have_thumbnail);
+				g_variant_get_child(cvariant.get(), 11, "b", &have_image);
+
+				if (vboards) {
+					const gsize arraysize = g_variant_n_children(vboards.get());
+					if (arraysize > 0) {
+						const sarray_ptr sarray(g_variant_get_strv(vboards.get(),
+						                                           nullptr));
+						for ( gsize i = 0; i < arraysize; ++i ) {
+							boards.insert(sarray.get()[i]);
+						}
+					}
+				}
+
+				if (vtags) {
+					const gsize arraysize = g_variant_n_children(vtags.get());
+					if (arraysize > 0) {
+						const sarray_ptr sarray(g_variant_get_strv(vtags.get(),
+						                                           nullptr));
+						for ( gsize i = 0; i < arraysize; i++ ) {
+							tags.insert(sarray.get()[i]);
+						}
+					}
+				}
+				
+				if (vfilenames) {
+					const gsize arraysize = g_variant_n_children(vfilenames.get());
+					if (arraysize > 0) {
+						const sarray_ptr sarray(g_variant_get_bytestring_array(vfilenames.get(),
+						                                                       nullptr));
+						for ( gsize i = 0; i < arraysize; i++ ) {
+							original_filenames.insert(sarray.get()[i]);
+						}
+					}
+				}
+
+				if (vposters) {
+					const gsize arraysize = g_variant_n_children(vposters.get());
+					if (arraysize > 0) {
+						const sarray_ptr sarray(g_variant_get_bytestring_array(vposters.get(),
+						                                                 nullptr));
+						for ( gsize i = 0; i < arraysize; i++ ) {
+							poster_names.insert(sarray.get()[i]);
+						}
+					}
+				}
+
+				if (vdates) {
+					gsize arraysize = 0;
+					const gint64 *sizes_array = static_cast<const gint64*>(g_variant_get_fixed_array(vdates.get(), &arraysize, sizeof(gint64)));
+					for ( gsize i = 0; i < arraysize; i++ ) {
+						posted_unix_dates.insert(sizes_array[i]);
+					}
+				}
+			}
+		} else {
+			g_error("Invalid ImageCache version %" G_GUINT32_FORMAT, version);
+		}
 	}
 
 	ImageData::ImageData(const guint32 version, const Glib::VariantContainerBase& variant) {
+		/*
+		  Glib::Variant<>::create has a memory leak in Gtk < 3.8
+		 */
 		gsize num = variant.get_n_children();
 		if ( version == 1 ) {
 			if (num != 12) {
@@ -54,23 +130,23 @@ namespace Horizon {
 			variant.get_child(vdeleted,      9);
 			variant.get_child(vhave_thumb,   10);
 			variant.get_child(vhave_image,   11);
-			std::vector<Glib::ustring> vec_boards = vboards   .get();
-			std::vector<Glib::ustring> vec_tags   = vtags     .get();
-			std::vector<std::string>   filenames  = vfilenames.get();
-			std::vector<std::string>   posters    = vposters  .get();
-			std::vector<gint64>        dates      = vdates    .get();
-			size                                  = vsize     .get();
-			md5                                   = vmd5      .get();
-			ext                                   = vext      .get();
+			std::vector<Glib::ustring> vec_boards = vboards    .get();
+			std::vector<Glib::ustring> vec_tags   = vtags      .get();
+			std::vector<std::string>   filenames  = vfilenames .get();
+			std::vector<std::string>   posters    = vposters   .get();
+			std::vector<gint64>        dates      = vdates     .get();
+			size                                  = vsize      .get();
+			md5                                   = vmd5       .get();
+			ext                                   = vext       .get();
+			num_spoiler                           = vspoilers  .get();
+			num_deleted                           = vdeleted   .get();
+			have_thumbnail                        = vhave_thumb.get();
+			have_image                            = vhave_image.get();
 			std::copy(vec_boards.rbegin(), vec_boards.rend(), std::inserter(boards,             boards            .begin()));
 			std::copy(vec_tags  .rbegin(), vec_tags  .rend(), std::inserter(tags,               tags              .begin()));
 			std::copy(filenames .rbegin(), filenames .rend(), std::inserter(original_filenames, original_filenames.begin()));
 			std::copy(posters   .rbegin(), posters   .rend(), std::inserter(poster_names,       poster_names      .begin()));
 			std::copy(dates     .rbegin(), dates     .rend(), std::inserter(posted_unix_dates,  posted_unix_dates .begin()));
-			num_spoiler    = vspoilers.get();
-			num_deleted    = vdeleted.get();
-			have_thumbnail = vhave_thumb.get();
-			have_image     = vhave_image.get();
 		} else {
 			g_error("Invalid version number for ImageCache data.");
 		}
@@ -102,9 +178,6 @@ namespace Horizon {
 		}
 	}
 
-	ImageData::~ImageData() {
-	}
-
 	void ImageData::update(const Glib::RefPtr<Post> &post) {
 		if ( md5.find(post->get_hash()) == md5.npos ) {
 			g_error("ImageData::update() called with invalid post. My hash = %s, post hash = %s.",
@@ -134,26 +207,31 @@ namespace Horizon {
 		}
 	}
 
-	void ImageData::merge(const std::shared_ptr<ImageData> &in) {
+	void ImageData::merge(const std::unique_ptr<ImageData> &in) {
 		if ( md5.find(in->md5) == md5.npos ) {
 			g_warning("ImageData::merge() called with wrong hash. These shouldn't be merged!");
 			return;
 		}
 		
-		boards.insert            (in->boards.begin(), in->boards.end());
-		tags.insert              (in->tags.begin(), in->tags.end());
+		boards.insert            (in->boards.begin(),
+		                          in->boards.end());
+		tags.insert              (in->tags.begin(),
+		                          in->tags.end());
 		original_filenames.insert(in->original_filenames.begin(),
 		                          in->original_filenames.end());
 		poster_names.insert      (in->poster_names.begin(),
 		                          in->poster_names.end());
 		posted_unix_dates.insert (in->posted_unix_dates.begin(),
 		                          in->posted_unix_dates.end());
-		num_spoiler += in->num_spoiler;
-		num_deleted += in->num_deleted;
+		num_spoiler   += in->num_spoiler;
+		num_deleted   += in->num_deleted;
 		have_thumbnail = have_thumbnail | in->have_thumbnail;
-		have_image = have_image | in->have_image;
+		have_image     = have_image | in->have_image;
 	}
 
+	/*
+	  This will lean in Gtk < 3.8
+	 */
 	Glib::VariantContainerBase ImageData::get_variant() const {
 		auto vsize = Glib::Variant<guint64>::create(size);
 		auto vmd5 = Glib::Variant<std::string>::create(md5);
@@ -191,15 +269,9 @@ namespace Horizon {
 					vhave_image});  // 11
 	}
 
-	struct VariantTypeDeleter {
-		void operator()(GVariantType* vt) {
-			g_variant_type_free(vt);
-		}
-	};
-
 	GVariant* ImageData::get_cvariant() const {
 		GVariantBuilder boards_builder, tags_builder, filenames_builder, posters_builder, dates_builder;
-		std::unique_ptr<GVariantType, VariantTypeDeleter> dates_type(g_variant_type_new("ax"));
+		const std::unique_ptr<GVariantType, VariantTypeDeleter> dates_type(g_variant_type_new_array(G_VARIANT_TYPE_INT64));
 		g_variant_builder_init(&boards_builder,
 		                       G_VARIANT_TYPE_STRING_ARRAY);
 		g_variant_builder_init(&tags_builder,
@@ -285,22 +357,6 @@ namespace Horizon {
 		return ret;
 	}
 
-	std::shared_ptr<ImageCache> ImageCache::singleton = nullptr;
-	Glib::Threads::Mutex ImageCache::singleton_mutex;
-
-	std::shared_ptr<ImageCache> ImageCache::get() {
-		Glib::Threads::Mutex::Lock lock(singleton_mutex);
-
-		if (!ImageCache::singleton) {
-			ImageCache::singleton = std::shared_ptr<ImageCache>(new ImageCache());
-		}
-		return ImageCache::singleton;
-	}
-	
-	void ImageCache::cleanup() {
-		singleton.reset();
-	}
-
 	bool ImageCache::has_thumb(const Glib::RefPtr<Post> &post) {
 		Glib::Threads::Mutex::Lock lock(map_lock);
 		auto iter = images.find( post->get_hash() );
@@ -325,7 +381,7 @@ namespace Horizon {
 
 	void ImageCache::write(const Glib::RefPtr<Post> &post,
 	                       Glib::RefPtr<Gio::MemoryInputStream> istream,
-	                       bool write_thumb) {
+	                       const bool write_thumb) {
 		if (write_thumb && has_thumb(post)) {
 			g_warning("write called for thumbnail when we already have a thumbnail");
 			return;
@@ -334,23 +390,35 @@ namespace Horizon {
 			return;
 		}
 
-		std::shared_ptr<ImageData> image_data;
+		Glib::RefPtr<Gio::File> file;
+		bool write_error = false;
 		{
 			Glib::Threads::Mutex::Lock lock(map_lock);
+			std::map<std::string, std::unique_ptr<ImageData> >::iterator image_data_iter;
 			auto iter = images.find(post->get_hash());
 			if ( iter == images.end() ) {
-				image_data = ImageData::create(post);
+				std::unique_ptr<ImageData> ptr(new ImageData(post));
+				auto pair = images.insert(std::make_pair(ptr->md5, std::move(ptr)));
+				if (pair.second) {
+					image_data_iter = pair.first;
+				} else {
+					g_error("Failed to insert new image data");
+				}
 			} else {
-				image_data = iter->second;
+				image_data_iter = iter;
 			}
+			file = Gio::File::create_for_uri(image_data_iter->second->get_uri(write_thumb));
 		}
 
-		if (!image_data) {
-			g_error("Failed to create image_data");
+		if (!file) {
+			std::cerr << "Error: Failed to build filename for image ";
+			if (write_thumb)
+				std::cerr << post->get_thumb_url() << std::endl;
+			else
+				std::cerr << post->get_image_url() << std::endl;
+			return;
 		}
 
-		bool write_error = false;
-		auto file = Gio::File::create_for_uri(image_data->get_uri(write_thumb));
 		try {
 			auto parent = file->get_parent();
 			try {
@@ -376,28 +444,20 @@ namespace Horizon {
 
 		if (!write_error) {
 			Glib::Threads::Mutex::Lock lock(map_lock);
-
 			auto iter = images.find(post->get_hash());
-			if ( iter == images.end() ) {
-				if (write_thumb)
-					image_data->have_thumbnail = true;
-				else
-					image_data->have_image = true;
-				images.insert({post->get_hash(), image_data});
-			} else {
+			if (iter != images.end()) {
 				if (write_thumb)
 					iter->second->have_thumbnail = true;
 				else
 					iter->second->have_image = true;
-				iter->second->update(post);
 			}
 		}
 	}
 
 	void ImageCache::read_thumb(const Glib::RefPtr<Post> &post,
 	                            std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
-		std::shared_ptr<ImageData> image_data;
-		bool is_thumb = true;
+		Glib::RefPtr<Gio::File> file;
+		constexpr bool is_thumb = true;
 
 		if (post) {
 			Glib::Threads::Mutex::Lock lock(map_lock);
@@ -408,9 +468,9 @@ namespace Horizon {
 				if ( iter->second->have_thumbnail == false ) {
 					g_error("Read thumb called when we don't have the thumbnail");
 				} else {
-					image_data = iter->second;
-					if (G_LIKELY(image_data)) {
-						image_data->update(post);
+					if (G_LIKELY(iter->second)) {
+						iter->second->update(post);
+						file = Gio::File::create_for_uri(iter->second->get_uri(is_thumb));
 					} else {
 						g_error("An invalid image_data is in std::map images");
 					}
@@ -418,13 +478,14 @@ namespace Horizon {
 			}
 		}
 
-		read(image_data, callback, is_thumb);
+		if (file)
+			read(file, callback);
 	}
 
 	void ImageCache::read_image(const Glib::RefPtr<Post> &post,
 	                            std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
-		std::shared_ptr<ImageData> image_data;
-		bool is_thumb = false;
+		Glib::RefPtr<Gio::File> file;
+		constexpr bool is_thumb = false;
 		{
 			Glib::Threads::Mutex::Lock lock(map_lock);
 			auto iter = images.find(post->get_hash());
@@ -434,27 +495,26 @@ namespace Horizon {
 				if (iter->second->have_image == false) {
 					g_error("Read thumb called when we don't have the thumbnail");
 				} else {
-					image_data = iter->second;
-					if (G_LIKELY(image_data)) {
-						image_data->update(post);
+					if (G_LIKELY(iter->second)) {
+						iter->second->update(post);
+						file = Gio::File::create_for_uri(iter->second->get_uri(is_thumb));
 					} else {
 						g_error("An invalid image_data is in std::map images");
 					}
 				}
 			}
 		}
-
-		read(image_data, callback, is_thumb);
+		
+		if (file)
+			read(file, callback);
 	}
 	
-	void ImageCache::read(const std::shared_ptr<ImageData> &image_data,
-	                      std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
-	                      bool read_thumb) {
+	void ImageCache::read(const Glib::RefPtr<Gio::File>& file,
+	                      std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
 		auto read_error = false;
-		auto file = Gio::File::create_for_uri(image_data->get_uri(read_thumb));
 		auto loader = Gdk::PixbufLoader::create();
 		
-		if (image_data) {
+		if (file) {
 			try {
 				if ( !file->query_exists() ) {
 					g_warning("Cache believes it has %s on disk, but it doesn't exist.",
@@ -657,73 +717,65 @@ namespace Horizon {
 		work_list.clear();
 	}
 
-	static std::string get_cache_file_path() {
-		const std::vector<std::string> path_parts = { Glib::get_user_data_dir(),
-		                                                     "horizon",
-		                                                     CACHE_FILENAME };
-		const std::string path = Glib::build_filename( path_parts );
-		return path;
-	}
-
-	static std::vector<std::string> get_cache_file_paths() {
-		std::vector<std::string> paths;
-		paths.push_back(get_cache_file_path());
-
-		const std::vector<std::string> path_merge_parts = { Glib::get_user_data_dir(),
-		                                                    "horizon",
-		                                                    CACHE_MERGE_FILENAME };
-		const std::string path_merge = Glib::build_filename( path_merge_parts );
-		paths.push_back(path_merge);
-
-		return paths;
-	}
-
 	void ImageCache::on_flush_w(ev::async &, int) {
 		flush();
 	}
 
-	struct VariantDeleter {
-		void operator()(GVariant *v) {
-			g_variant_unref(v);
-		}
-	};
+	void ImageCache::clean_invalid() {
+		Glib::Threads::Mutex::Lock lock(map_lock);
+		auto iter = images.begin();
+		while (iter != images.end()) {
+			iter = std::find_if(images.begin(),
+			                    images.end(),
+			                    [](const std::pair<const std::string&, const std::unique_ptr<ImageData>& >& pair) {
+				                    return !(pair.second->have_image || pair.second->have_thumbnail);});
+			if ( iter != images.end() ) {
+				std::cerr << "Info: Deleting invalid image cache entry..." << std::endl;
+				images.erase(iter);
+			}
+		}				              
+	}
 
 	void ImageCache::flush() {
-		std::cerr << "Flushing...";
-		std::vector< std::shared_ptr<ImageData> > work_list;
+		clean_invalid();
+		std::cout << "Info: Flushing..." << std::flush;
+		std::vector<GVariant*> cvariants;
 		{
+			std::cout << " (locking)" << std::flush;
 			Glib::Threads::Mutex::Lock lock(map_lock);
-			work_list.reserve(images.size());
+			cvariants.reserve(images.size());
+
 			std::transform(images.begin(),
 			               images.end(),
-			               std::back_inserter(work_list),
-			               std::mem_fn(&std::pair<const std::string,
-			                           std::shared_ptr<ImageData> >::second));
-		}
-
-		if (work_list.size() > 0) {
-			std::vector<GVariant*> cvariants;
-			cvariants.reserve(work_list.size());
-
-			std::transform(work_list.begin(),
-			               work_list.end(),
 			               std::back_inserter(cvariants),
-			               std::mem_fn(&ImageData::get_cvariant));
-			work_list.clear();
+			               // pair.second->get_cvariant()
+			               std::bind(std::mem_fn(&ImageData::get_cvariant),
+			                         std::bind(std::mem_fn(&std::pair<const std::string,
+			                                               std::unique_ptr<ImageData> >::second),
+			                                   std::placeholders::_1))
+			               );
+		}
+		std::cout << " (unlocked)" << std::flush;
 
-			const GVariantType *vt = g_variant_get_type(cvariants.front());
-			std::unique_ptr<GVariant, VariantDeleter> varray(g_variant_ref_sink(g_variant_new_array(vt, cvariants.data(), cvariants.size())));
+		if (cvariants.size() > 0) {
+			// do not free vt
+			const GVariantType * const vt = g_variant_get_type(cvariants.front());
+
+			typedef std::unique_ptr<GVariant, VariantUnrefer> v_ptr;
+
+			const v_ptr varray(g_variant_ref_sink(
+			                   g_variant_new_array(vt,
+			                                       cvariants.data(),
+			                                       cvariants.size())));
 			const gsize data_size = g_variant_get_size(varray.get());
-			std::unique_ptr<guint8[]> data(new guint8[data_size]);
+			const std::unique_ptr<guint8[]> data(new guint8[data_size]);
 			g_variant_store(varray.get(), data.get());
-			cvariants.clear();
 		
 			try {
-				auto file = Gio::File::create_for_path(get_cache_file_path());
 				const std::string etag;
 				constexpr bool make_backup = true;
 				constexpr Gio::FileCreateFlags fcflags = Gio::FILE_CREATE_NONE;
-				auto ostream = file->replace(etag, make_backup, fcflags);
+				auto ostream = cache_file->replace(etag, make_backup, fcflags);
 				gsize written = 0;
 				ostream->write_all(&CACHE_FILE_VERSION, sizeof(guint32), written);
 				if ( written < sizeof(guint32) ) {
@@ -742,119 +794,145 @@ namespace Horizon {
 			}
 		}
 
-		std::cerr << " done." << std::endl;
+		std::cout << " done." << std::endl;
 	}
 
-	static void buffer_destroy_notify(gpointer data) {
-		g_free(data);
+	/*
+	 * Blocking operation
+	 */
+	void ImageCache::merge_file(const Glib::RefPtr<Gio::File>& file) {
+		read_from_disk(file, false);
 	}
 
-	void ImageCache::read_from_disk() {
+	void ImageCache::read_from_disk(const Glib::RefPtr<Gio::File>& file,
+	                                const bool make_dirs) {
+		if (!file) {
+			std::cerr << "Error: Invalid file pointer passed to read_from_disk"
+			          << std::endl;
+			return;
+		}
+
 		Glib::Threads::Mutex::Lock lock(map_lock);
-
-		for ( auto cache_file_path : get_cache_file_paths() ) {
-			bool file_exists = false;
-			auto file = Gio::File::create_for_path(cache_file_path);
-			file_exists = file->query_exists();
-			if (! file_exists ) {
-				auto parent = file->get_parent();
-				if (! parent->query_exists() ) {
-					try {
-						bool res = parent->make_directory_with_parents();
-						if (!res) {
-							g_error ("Unable to create directory %s", parent->get_uri().c_str());
-						} else {
-							std::cerr << "Created directory " << parent->get_uri() << std::endl;
-						}
-					} catch ( Gio::Error e ) {
-					} // Ignore. this happens if ~/.local/share/
-					// exists. Other failures are caught above.
-					try {
-						parent->get_child("thumbs")->make_directory();
-						parent->get_child("images")->make_directory();
-					} catch ( Gio::Error e) {
+		const bool file_exists = file->query_exists();
+		if (G_UNLIKELY( !file_exists && make_dirs )) {
+			auto parent = file->get_parent();
+			if (! parent->query_exists() ) {
+				try {
+					bool res = parent->make_directory_with_parents();
+					if (!res) {
+						g_error ("Unable to create directory %s", parent->get_uri().c_str());
+					} else {
+						std::cerr << "Created directory " << parent->get_uri() << std::endl;
 					}
+					parent->get_child("thumbs")->make_directory();
+					parent->get_child("images")->make_directory();
+				} catch ( Gio::Error e) {
+				// Ignore. this happens if ~/.local/share/
+				// exists. Other failures are caught above.
 				}
-				continue;
+			}
+		}
+
+		try {
+			auto istream = file->read();
+			if (!istream->can_seek()) {
+				g_error("Filesystem doesn't support seeking");
+			} 
+			istream->seek(0, Glib::SEEK_TYPE_END);
+			goffset fsize = istream->tell();
+			istream->seek(0, Glib::SEEK_TYPE_SET);
+			if (G_UNLIKELY( fsize <= 0 )) {
+				return;
+			}
+			guint32 version = 0;
+			gsize read_bytes = 0;
+			if (G_UNLIKELY( !istream->read_all(&version,
+			                                   sizeof(guint32),
+			                                   read_bytes) )) {
+				std::cerr << "Error: Couldn't read image cache versioning."
+				          << std::endl;
+				return;
 			}
 
-			try {
-				goffset fsize = 0;
-				auto istream = file->read();
-				if (!istream->can_seek()) {
-					g_error("Filesystem doesn't support seeking");
-				} 
-				istream->seek(0, Glib::SEEK_TYPE_END);
-				fsize = istream->tell();
-				istream->seek(0, Glib::SEEK_TYPE_SET);
-				if (fsize > 0) {
-					guint32 version = 0;
-					gsize read_bytes = 0;
-					if (istream->read_all(&version, sizeof(guint32), read_bytes)) {
-						if (read_bytes < sizeof(guint32))
-							g_error("Failed to read version header of ImageCache.");
-						fsize -= read_bytes;
-						if (fsize > 0) {
-							void *buffer = g_malloc(fsize);
-							if (istream->read_all(buffer,
-							                      static_cast<gsize>(fsize),
-							                      read_bytes)) {
-								GVariantType *gvt = g_variant_type_new(CACHE_VERSION_1_ARRAYTYPE);
-								GVariant *v_untrusted = g_variant_new_from_data(gvt, buffer, 
-								                                                fsize, FALSE,
-								                                                buffer_destroy_notify,
-								                                                buffer);
-								g_variant_ref_sink(v_untrusted);
-								GVariant *v = g_variant_get_normal_form(v_untrusted);
-								g_variant_unref(v_untrusted);
+			if (G_UNLIKELY( read_bytes < sizeof(guint32))) {
+				std::cerr << "Error: Couldn't read image cache versioning."
+				          << std::endl;
+				return;
+			}
 
-								if ( ! g_variant_is_normal_form(v) ) {
-									g_error ( "ImageCache is corrupted. You might want to delete everything under %s",
-									          file->get_parent()->get_uri().c_str() );
-								}
-								gsize elements = g_variant_n_children( v );
+			fsize -= read_bytes;
+			if (G_UNLIKELY( fsize <= 0 )) {
+				return;
+			}
+			std::unique_ptr<gchar> buffer(new gchar[fsize]);
+			if (G_UNLIKELY( !istream->read_all(buffer.get(),
+			                                   static_cast<gsize>(fsize),
+			                                   read_bytes) )) {
+				std::cerr << "Error: Couldn't read image cache"
+				          << std::endl;
+				return;
+			}
+
+			typedef std::unique_ptr<GVariantType, VariantTypeDeleter> vtype_ptr;
+			typedef std::unique_ptr<GVariant, VariantUnrefer> v_ptr;
+			typedef std::unique_ptr<ImageData> idata_ptr;
+
+			const gchar* vtype = nullptr;
+			if (G_LIKELY( version == 1 )) {
+				vtype = CACHE_VERSION_1_ARRAYTYPE;
+			} else {
+				std::cerr << "Error: Unsupported image cache version "
+				          << version << std::endl;
+				return;
+			}
+
+			const vtype_ptr gvt(g_variant_type_new(vtype));
+			const v_ptr v_untrusted(g_variant_ref_sink(
+                                    g_variant_new_from_data(gvt.get(),
+                                                            buffer.get(), 
+                                                            fsize,
+                                                            FALSE,
+                                                            nullptr,
+                                                            nullptr)));
+			const v_ptr v(g_variant_get_normal_form(v_untrusted.get()));
+			if (G_UNLIKELY( ! g_variant_is_normal_form(v.get()) )) {
+				std::cerr << "Error: ImageCache " << file->get_parse_name()
+				          << " may be corrupted." << std::endl;
+				return;
+			}
+
+			const gsize elements = g_variant_n_children( v.get() );
 							
-								std::cout << "Info: " << cache_file_path 
-								          << " has information on " << elements
-								          << " images." << std::endl;
+			std::cout << "Info: " << file->get_parse_name()
+			          << " has information on " << elements
+			          << " images." << std::endl;
 							
-								for ( gsize i = 0; i < elements; i++ ) {
-									GVariant *child = g_variant_get_child_value(v, i);
-									auto cpp_child = Glib::wrap(child, true);
-									auto typed_cpp_child = Glib::VariantBase::cast_dynamic<Glib::VariantContainerBase>(cpp_child);
-
-									std::shared_ptr<ImageData> cp = ImageData::create(version, typed_cpp_child);
-									if (cp) {
-										auto iter = images.find(cp->md5);
-										if ( iter == images.end() ) {
-											images.insert({cp->md5, cp});
-										} else {
-											iter->second->merge(cp);
-										}
-									}
-
-									g_variant_unref(child);
-								}
-
-								g_variant_unref(v);
-								g_variant_type_free(gvt);
-							} else {
-								g_error("Failed to read the ImageCache serialized data");
-							}
-						}
+			for ( gsize i = 0; i < elements; ++i ) {
+				v_ptr child(g_variant_get_child_value(v.get(), i));
+				idata_ptr cp(new ImageData(version, std::move(child)));
+				if (G_LIKELY( cp )) {
+					auto iter = images.find(cp->md5);
+					if (G_LIKELY( iter == images.end() )) {
+						images.insert(std::make_pair(cp->md5,
+						                             std::move(cp)));
+					} else {
+						iter->second->merge(std::move(cp));
 					}
 				}
-				istream->close();
-			} catch (Gio::Error e) {
-				g_error("Failure reading ImageCache file: %s", e.what().c_str());
 			}
+
+			istream->close();
+		} catch (Gio::Error e) {
+			std::cerr << "Error: While reading image cache " 
+			          << file->get_parse_name() << ": " 
+			          << e.what();
 		}
 	}
 
 	void ImageCache::loop() {
 		timer_w.set(0., 60. * 5.);
 		timer_w.again();
-		read_from_disk();
+		read_from_disk(cache_file, true);
 
 		ev_loop.run();
 	}
@@ -878,9 +956,10 @@ namespace Horizon {
 		ev_thread->join();
 	}
 
-	ImageCache::ImageCache() :
+	ImageCache::ImageCache(const Glib::RefPtr<Gio::File>& file) :
+		cache_file(file),
 		ev_thread(nullptr),
-		ev_loop(ev::AUTO),
+		ev_loop(ev::AUTO | ev::POLL),
 		kill_loop_w(ev_loop),
 		write_queue_w(ev_loop),
 		read_queue_w(ev_loop),
