@@ -161,7 +161,7 @@ namespace Horizon {
 			}
 
 			auto cboard_toggle = g_simple_action_new_stateful(action_name.c_str(),
-			                                                  NULL,
+			                                                  nullptr,
 			                                                  board_default.gobj());
 			auto board_toggle = Glib::wrap(cboard_toggle);
 
