@@ -26,7 +26,7 @@ namespace Horizon {
 		image_info_grid(Gtk::manage(new Gtk::Grid())),
 		content_grid(Gtk::manage(new Gtk::Grid())),
 		viewport_grid(Gtk::manage(new Gtk::Grid())),
-		comment_box(Gtk::manage(new Gtk::EventBox())),
+		comment_box(Gtk::manage(new Gtk::Viewport(Gtk::Adjustment::create(0,0,0), Gtk::Adjustment::create(0,0,0)))),
 		comment(Gtk::manage(new Gtk::Label())),
 		linkbacks(Gtk::manage(new Gtk::Label())),
 		image(nullptr)
@@ -151,7 +151,6 @@ namespace Horizon {
 		comment_box->set_name("commentview");
 		comment_box->add(*viewport_grid);
 		comment_box->set_hexpand(false);
-		comment_box->set_visible_window(true);
 		add(*comment_box);
 		set_hexpand(true);
 

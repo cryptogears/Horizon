@@ -42,7 +42,7 @@ namespace Horizon {
 		Gtk::Grid* content_grid;  // Contains the image and the comment
 		Gtk::Grid* viewport_grid; // Contains comments and special widgets for 
 		                          // things like code tags.
-		Gtk::EventBox *comment_box;
+		Gtk::Viewport *comment_box;
 		Gtk::Label* comment;
 		Gtk::Label* linkbacks;
 
