@@ -258,8 +258,8 @@ namespace Horizon {
 	Manager::Manager() :
 		ev_catalog_thread(nullptr),
 		ev_thread_thread(nullptr),
-		ev_catalog_loop(ev::AUTO),
-		ev_thread_loop(ev::AUTO),
+		ev_catalog_loop(ev::AUTO | ev::POLL),
+		ev_thread_loop(ev::AUTO | ev::POLL),
 		thread_queue_w(ev_thread_loop),
 		catalog_queue_w(ev_catalog_loop),
 		kill_thread_w(ev_thread_loop),
