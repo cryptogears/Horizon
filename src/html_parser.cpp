@@ -13,6 +13,7 @@ namespace Horizon {
 	HtmlParser::HtmlParser() :
 		is_OP_link(false),
 		is_cross_thread_link(false),
+		is_dead_link(false),
 		is_code_tagged(false)
 	{
 		sax = g_new0(xmlSAXHandler, 1);
@@ -83,6 +84,10 @@ namespace Horizon {
 			}
 			if (hp->is_cross_thread_link) {
 				hp->built_string.append(" (Cross-Thread)");
+			}
+			if (hp->is_dead_link) {
+				hp->built_string.append(" (Dead)");
+				hp->is_dead_link = false;
 			}
 			hp->built_string.append("</span></a>");
 		} else if ( sname.find("span") != sname.npos ) {
@@ -178,6 +183,12 @@ namespace Horizon {
 			} else if ( sname.compare("a") == 0 &&
 			            sattrs.find("href") != sattrs.end() ) {
 				stream << "<a href=\"" << sattrs["href"] << "\"><span color=\"#34345C\">";
+				hp->built_string.append(stream.str());
+			} else if ( sname.compare("span") == 0 &&
+			            sattrs.count("class") == 1 &&
+			            sattrs["class"].compare("deadlink") == 0) {
+				stream << "<span>";
+				hp->is_dead_link = true;
 				hp->built_string.append(stream.str());
 			} else if (sname.compare("span") == 0) {
 				stream << "<span>";

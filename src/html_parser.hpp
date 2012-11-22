@@ -26,6 +26,7 @@ namespace Horizon {
 		Glib::ustring built_string;
 		bool is_OP_link;
 		bool is_cross_thread_link;
+		bool is_dead_link;
 		bool is_code_tagged;
 		gint64 thread_id;
 		
