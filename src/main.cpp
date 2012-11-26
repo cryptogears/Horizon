@@ -4,7 +4,7 @@
 #include <pangomm/cairofontmap.h>
 #include "application.hpp"
 #include "image_cache.hpp"
-
+#include <gtksourceviewmm.h>
 
 void init() __attribute__((constructor (101)));
 void cleanup() __attribute__((destructor (101)));
@@ -13,6 +13,7 @@ void init() {
 	xmlInitParser();
 	curl_global_init(CURL_GLOBAL_ALL);
 	Glib::init();
+	Gsv::init();
 }
 
 int main (int argc, char *argv[])

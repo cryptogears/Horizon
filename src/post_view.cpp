@@ -1,5 +1,6 @@
 #include "post_view.hpp"
 
+#include <iterator>
 #include <iostream>
 #include <gtkmm/viewport.h>
 #include <gtkmm/scrolledwindow.h>
@@ -11,25 +12,27 @@
 #include <glibmm/datetime.h>
 #include <gtkmm/socket.h>
 #include <gtkmm/cssprovider.h>
+#include <gtkmm/comboboxtext.h>
 #include "html_parser.hpp"
 #include "horizon_image.hpp"
 #include <giomm/unixoutputstream.h>
 #include <glibmm/fileutils.h>
 #include <glibmm/spawn.h>
+#include <gtksourceviewmm.h>
 
 namespace Horizon {
 
 	PostView::PostView(const Glib::RefPtr<Post> &in) :
 		Gtk::Grid(),
 		post(in),
-		post_info_grid(Gtk::manage(new Gtk::Grid())),
+		post_info_grid (Gtk::manage(new Gtk::Grid())),
 		image_info_grid(Gtk::manage(new Gtk::Grid())),
-		content_grid(Gtk::manage(new Gtk::Grid())),
-		viewport_grid(Gtk::manage(new Gtk::Grid())),
-		comment_box(Gtk::manage(new Gtk::Viewport(Gtk::Adjustment::create(0,0,0), Gtk::Adjustment::create(0,0,0)))),
-		comment(Gtk::manage(new Gtk::Label())),
-		linkbacks(Gtk::manage(new Gtk::Label())),
-		image(nullptr)
+		content_grid   (Gtk::manage(new Gtk::Grid())),
+		viewport_grid  (Gtk::manage(new Gtk::Grid())),
+		comment_box    (Gtk::manage(new Gtk::Viewport(Gtk::Adjustment::create(0,0,0), Gtk::Adjustment::create(0,0,0)))),
+		comment        (Gtk::manage(new Gtk::Label())),
+		linkbacks      (Gtk::manage(new Gtk::Label())),
+		image          (nullptr)
 	{
 		set_name("postview");
 		set_orientation(Gtk::ORIENTATION_VERTICAL);
@@ -125,6 +128,7 @@ namespace Horizon {
 			image_info_grid->add(*label);
 			viewport_grid->add(*image_info_grid);
 		}
+
 		linkbacks->signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
 		linkbacks->set_justify(Gtk::JUSTIFY_LEFT);
 		linkbacks->set_halign(Gtk::ALIGN_START);
@@ -154,6 +158,8 @@ namespace Horizon {
 		add(*comment_box);
 		set_hexpand(true);
 
+		set_comment_grid();
+
 		if ( post->has_image() ) {
 			auto s = sigc::mem_fun(*this, &PostView::on_image_state_changed);
 			image = Gtk::manage(new Image(post, s));
@@ -162,6 +168,10 @@ namespace Horizon {
 	}
 
 	PostView::~PostView() {
+	}
+
+	Glib::RefPtr<Post> PostView::get_post() const {
+		return post;
 	}
 
 	Glib::ustring PostView::get_comment_body() const {
@@ -175,36 +185,84 @@ namespace Horizon {
 			return Glib::RefPtr<Gdk::Pixbuf>();
 	}
 
+	static Glib::ustring str_squish(const Glib::ustring& in) {
+		if (in.size() > 0) {
+			auto start =   std::begin(in);
+			auto end   = --std::end  (in);
+			while ( start != in.end()   && *start == '\n' )
+				++start;
+			while ( end   != in.begin() && *end   == '\n' )
+				--end;
+			if ( start <= end ) {
+				return Glib::ustring(start, ++end);
+			}
+		}
+
+		return Glib::ustring();
+	}
+
+	static void on_language_changed(Glib::RefPtr<Gsv::Buffer>& buf, const Gtk::ComboBoxText* cbox) {
+		auto const lmgr = Gsv::LanguageManager::get_default();
+		buf->set_language(lmgr->get_language(cbox->get_active_text()));
+	}
+
+	void PostView::launch_editor(const Glib::ustring& code_text) {
+		std::string filename;
+		std::stringstream prefix;
+		prefix << "Horizon_" << post->get_id() << "_";
+		int fd = Glib::file_open_tmp(filename, prefix.str());
+		auto ostream_ptr = Gio::UnixOutputStream::create(fd, true);
+		ostream_ptr->write(code_text);
+		ostream_ptr->close();
+		std::stringstream cmdline;
+		cmdline << "gvim " << filename;
+		Glib::spawn_command_line_async(cmdline.str());
+	}
+
 	void PostView::set_comment_grid() {
-		auto parser = HtmlParser::getHtmlParser();
+		auto parser  = HtmlParser::getHtmlParser();
 		auto strings = parser->html_to_pango(post->get_comment(), post->get_thread_id());
-		
-		comment->set_markup(strings.front());
+		comment->set_markup(str_squish(strings.front()));
 		if (strings.size() > 1) {
 			bool is_code = true;
-			auto iter = strings.begin();
-			iter++;
-			for ( ; iter != strings.end(); iter++) {
+			auto iter = ++strings.begin();
+			for ( ; iter != strings.end(); ++iter) {
 				if (is_code) {
-					Gtk::Socket* socket = Gtk::manage(new Gtk::Socket());
-					socket->set_size_request(800, 300);
-					socket->set_hexpand(true);
-					viewport_grid->add(*socket);
-					guint64 id = socket->get_id();
-					socket->signal_plug_removed().connect(sigc::bind(sigc::mem_fun(*this, &PostView::on_plug_removed),id));
-					std::string filename;
-					std::stringstream prefix;
-					prefix << "Horizon_" << post->get_id() << "_";
-					int fd = Glib::file_open_tmp(filename, prefix.str());
-					auto ostream_ptr = Gio::UnixOutputStream::create(fd, true);
-					ostream_ptr->write(*iter);
-					ostream_ptr->close();
-					std::stringstream cmdline;
-					cmdline << "gvim --servername " << id << " --socketid " << id << " " << filename;
-					Glib::spawn_command_line_async(cmdline.str());
+					auto const code_text = str_squish(*iter);
+					auto const lmgr      = Gsv::LanguageManager::get_default();	
+					auto const ids       = lmgr->get_language_ids();
+					auto buf    = Gsv::Buffer::create();
+					auto grid   = Gtk::manage(new Gtk::Grid());
+					auto cbox   = Gtk::manage(new Gtk::ComboBoxText(true));
+					auto btn    = Gtk::manage(new Gtk::Button("Launch Editor"));
+					auto label  = Gtk::manage(new Gtk::Label(""));
+					auto sview  = Gtk::manage(new Gsv::View(buf));
+					label->set_hexpand(true);
+					btn  ->set_hexpand(false);
+					cbox ->set_hexpand(false);
+					buf->set_text(code_text);
+					buf->set_language(lmgr->get_language("c"));
+					typedef void (Gtk::ComboBoxText::*MethodType)(const Glib::ustring&);
+					std::for_each(std::begin(ids),
+					              std::end(ids),
+					              std::bind(MethodType(&Gtk::ComboBoxText::append),
+					                        cbox, std::placeholders::_1));
+					cbox->set_active_text("c");
+					auto on_language = sigc::bind(sigc::ptr_fun(&on_language_changed),
+					                              buf, cbox);
+					auto on_launch   = sigc::bind(sigc::mem_fun(*this, &PostView::launch_editor),
+					                              code_text);
+					btn ->signal_clicked().connect(on_launch);
+					cbox->signal_changed().connect(on_language);
+
+					grid->attach(*cbox,  0, 0, 1, 1);
+					grid->attach(*label, 1, 0, 1, 1);
+					grid->attach(*btn,   2, 0, 1, 1);
+					grid->attach(*sview, 0, 1, 3, 1);
+					viewport_grid->add(*grid);
 				} else {
 					Gtk::Label* c = Gtk::manage(new Gtk::Label());
-					c->set_markup(*iter);
+					c->set_markup(str_squish(*iter));
 					c->set_selectable(true);
 					c->set_valign(Gtk::ALIGN_START);
 					c->set_halign(Gtk::ALIGN_START);
@@ -218,13 +276,6 @@ namespace Horizon {
 				is_code = !is_code;
 			}
 		}
-		viewport_grid->show_all();
-		comment->queue_resize();
-	}
-
-	bool PostView::on_plug_removed(guint64 id) {
-		std::cerr << "On_plug_removed() " << id << std::endl;
-		return true;
 	}
 
 	void PostView::set_image_state(const Image::ImageState new_state) {
@@ -276,8 +327,9 @@ namespace Horizon {
 			viewport_grid->attach_next_to(*linkbacks, *post_info_grid, Gtk::POS_BOTTOM, 1, 1);
 			linkbacks->show();
 			viewport_grid->queue_resize();
-			queue_resize();
 		}
+
+		queue_resize();
 	}
 
 	void PostView::refresh(const Glib::RefPtr<Post> &in) {

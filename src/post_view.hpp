@@ -24,16 +24,18 @@ namespace Horizon {
 		void refresh( const Glib::RefPtr<Post> &in );
 		sigc::signal<bool, const Glib::ustring&> signal_activate_link;
 		void add_linkback(const gint64 id);
-		void set_comment_grid();
 		
 		Glib::ustring get_comment_body() const;
 		Glib::RefPtr<Gdk::Pixbuf> get_image() const;
 		void set_image_state(const Image::ImageState new_state);
+		Glib::RefPtr<Post> get_post() const;
 
 	private:
 		PostView() = delete;
 		PostView(const PostView&) = delete;
 		PostView& operator=(const PostView&) = delete;
+
+		void set_comment_grid();
 
 		Glib::RefPtr<Post> post;
 
@@ -51,13 +53,8 @@ namespace Horizon {
 		void set_new_scaled_image(const int width);
 		bool on_activate_link(const Glib::ustring&);
 		void on_image_state_changed(const Image::ImageState &state);
-		bool on_plug_removed(guint64);
-		/*
-		Gtk::TextView textview;
-		Glib::RefPtr<Gtk::TextBuffer> comment;
-		Glib::RefPtr<Gtk::TextTagTable> tag_table;
-		Glib::RefPtr<Gtk::Adjustment> vadjustment;
-		*/
+
+		void launch_editor(const Glib::ustring& code_text);
 	};
 }
 
