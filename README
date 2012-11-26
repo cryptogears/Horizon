@@ -10,6 +10,7 @@ Dependencies:
         json-glib > 0.14
         libxml2 > 2.7.8
         libev > 4.04
+        gtksourceviewmm >= 3.2
 
 To build it, you'll need the -devel/-dev versions of the above
 packages. There is no binary distribution yet, so you have to build
