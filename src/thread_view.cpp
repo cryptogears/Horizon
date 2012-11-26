@@ -24,6 +24,7 @@ namespace Horizon {
 	                       Glib::RefPtr<Gio::Settings> s) :
 		Gtk::Frame       (),
 		thread           (t),
+		ifetcher         (ImageFetcher::get(FOURCHAN)),
 		swindow          (Gtk::manage(new Gtk::ScrolledWindow())),
 		vadjustment      (swindow->get_vadjustment()),
 		full_grid        (Gtk::manage(new Gtk::Grid())),
@@ -198,12 +199,15 @@ namespace Horizon {
 	}
 
 	bool ThreadView::on_unshown_views() {
-		if (unshown_views.size() > 0) {
-			PostView* view = unshown_views.front();
-			view->show_all();
-			view->set_comment_grid(); // Must be done here so gVim spawns ok
-			unshown_views.pop_front();
-		} 
+		for ( auto i = 5; i; --i) {
+			if (unshown_views.size() > 0) {
+				PostView* view = unshown_views.front();
+				view->show_all();
+				unshown_views.pop_front();
+			} else {
+				break;
+			}
+		}
 
 		if (unshown_views.size() == 0) {
 			unshown_view_idle.disconnect();
@@ -214,6 +218,9 @@ namespace Horizon {
 	}
 
 	bool ThreadView::refresh() {
+		if (!tab_image->get_pixbuf())
+			refresh_tab_image();
+
 		bool was_new = false;
 		auto functor = std::bind(std::mem_fn(&ThreadView::refresh_post),
 		                         this, std::placeholders::_1);
@@ -230,16 +237,18 @@ namespace Horizon {
 		     ( (should_notify && thread->should_notify()) ||
 		       notify_switch->get_active())) {
 			auto iter = post_map.rbegin();
-			
-			notifier->notify(thread->id,// id,
-			                 "New 4chan post",// summary,
-			                 iter->second->get_comment_body(), // body,
-			                 "4chan-icon",
-			                 iter->second->get_image());
+			auto post = iter->second->get_post();
+
+			auto cb = std::bind(std::mem_fn(&Notifier::notify),
+			                    notifier,
+			                    thread->id,
+			                    "New 4chan post", // summary
+			                    iter->second->get_comment_body(), // body
+			                    "4chan-icon",
+			                    std::placeholders::_1);
+			ifetcher->download(post, cb, canceller);
 		}
 
-		if (!tab_image->get_pixbuf())
-			refresh_tab_image();
 
 		refresh_tab_text();
 
@@ -252,8 +261,9 @@ namespace Horizon {
 			auto post = thread->get_first_post();
 			if (post) {
 				auto cb = std::bind(&ThreadView::set_tab_image, this, std::placeholders::_1);
-				auto ifetcher = ImageFetcher::get(FOURCHAN);
 				ifetcher->download(post, cb, canceller);
+			} else {
+				fetching_image = false;
 			}
 		}
 	}

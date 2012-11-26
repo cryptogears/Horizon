@@ -4,7 +4,7 @@
 #include <memory>
 #include <giomm/dbusproxy.h>
 #include <glibmm/variant.h>
-#include <gdkmm/pixbuf.h>
+#include <gdkmm/pixbufloader.h>
 #include <glibmm/threads.h>
 
 namespace Horizon {
@@ -20,7 +20,7 @@ namespace Horizon {
 		            const std::string &summary,
 		            const std::string &body,
 		            const std::string &icon_url = "4chan-icon",
-		            const Glib::RefPtr<Gdk::Pixbuf> &image = Glib::RefPtr<Gdk::Pixbuf>());
+		            const Glib::RefPtr<Gdk::PixbufLoader> &image_loader = Glib::RefPtr<Gdk::PixbufLoader>());
 
 	protected:
 		Notifier();

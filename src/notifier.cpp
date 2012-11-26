@@ -59,8 +59,10 @@ namespace Horizon {
 	                      const std::string &summary,
 	                      const std::string &body,
 	                      const std::string &icon_url,
-	                      const Glib::RefPtr<Gdk::Pixbuf> &pixbuf) {
-
+	                      const Glib::RefPtr<Gdk::PixbufLoader> &pixbuf_loader) {
+		Glib::RefPtr<Gdk::Pixbuf> pixbuf;
+		if (pixbuf_loader)
+			pixbuf = pixbuf_loader->get_pixbuf();
 		std::vector<Glib::ustring> actions;
 		std::map<Glib::ustring, Glib::VariantBase> hints;
 

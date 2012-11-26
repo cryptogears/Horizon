@@ -31,6 +31,7 @@ namespace Horizon {
 
 	private:
 		std::shared_ptr<Thread>       thread;
+		std::shared_ptr<ImageFetcher> ifetcher;
 		Gtk::ScrolledWindow          *swindow;
 		Glib::RefPtr<Gtk::Adjustment> hadjustment;
 		Glib::RefPtr<Gtk::Adjustment> vadjustment;
