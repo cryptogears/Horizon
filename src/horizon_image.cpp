@@ -19,7 +19,7 @@ namespace Horizon {
 		is_scaled(false),
 		am_fetching_thumb(false),
 		am_fetching_image(false),
-		canceller(new Canceller()),
+		canceller(std::make_shared<Canceller>()),
 		ifetcher(std::move(image_fetcher))
 	{
 		set_has_window(false);
@@ -58,6 +58,10 @@ namespace Horizon {
 
 	Image::~Image() {
 		canceller->cancel();
+		image->unparent();
+		image = nullptr;
+		event_box->unparent();
+		event_box = nullptr;
 	}
 
 	void Image::reset_animation_iter() {
@@ -229,7 +233,7 @@ namespace Horizon {
 			if (G_UNLIKELY(!unscaled_image)) {
 				g_error("Received pixbuf image is null");
 			}
-
+			
 			image->set(unscaled_image);
 			image->show();
 			show_all();
@@ -539,20 +543,6 @@ namespace Horizon {
 		return G_TYPE_NONE;
 	}
 
-	void Image::on_remove(Gtk::Widget *child) {
-		if (child) {
-			const bool visible = child->get_visible();
-			if ( child == event_box ) {
-				event_box->unparent();
-				event_box = nullptr;
-				if (visible) queue_resize();
-			} 
-
-			if ( child == image ) {
-				image->unparent();
-				image = nullptr;
-				if (visible) queue_resize();
-			}
-		}
+	void Image::on_remove(Gtk::Widget*) {
 	}
 }

@@ -128,9 +128,9 @@ namespace Horizon {
 	void ImageFetcher::on_area_updated(int x, int y, int width, int height,
 	                                   std::shared_ptr<Request> request) {
 		if (request->area_updated_functor) {
-			std::function<void ()> f = std::bind(request->area_updated_functor, x, y, width, height);
+			auto f = std::bind(request->area_updated_functor, x, y, width, height);
 			{
-				auto pair = std::make_pair(request->canceller, f);
+				auto pair = std::make_pair(request->canceller, std::move(f));
 				pixbuf_update_queue.push_back(pair);
 			}
 			auto is_connected = pixbuf_updated_idle_is_connected.exchange(true);
@@ -155,12 +155,16 @@ namespace Horizon {
 		bool ret = true;
 		{
 			Glib::Threads::Mutex::Lock lock(pixbuf_update_queue_mutex);
-			if (pixbuf_update_queue.size() > 0) {
-				auto pair = pixbuf_update_queue.front();
-				auto canceller = pair.first;
-				auto functor = pair.second;
-				canceller->involke_if_not_cancelled(functor);
-				pixbuf_update_queue.pop_front();
+			for (auto i = 5; i; --i) {
+				if (pixbuf_update_queue.size() > 0) {
+					auto pair = pixbuf_update_queue.front();
+					auto p_canceller = pair.first;
+					auto functor = pair.second;
+					p_canceller->involke_if_not_cancelled(functor);
+					pixbuf_update_queue.pop_front();
+				} else {
+					break;
+				}
 			}
 
 			if ( pixbuf_update_queue.size() == 0 ) {
@@ -518,7 +522,6 @@ namespace Horizon {
 	                                            const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
 		std::string request_key = get_request_key(request->post,
 		                                          request->is_thumb);
-		std::shared_ptr<Canceller> canceller = request->canceller;
 		bool found_cb = false;
 		Glib::Threads::RWLock::WriterLock lock(request_cb_rwlock);
 		auto iter_pair = request_cb_map.equal_range(request_key);
@@ -530,11 +533,11 @@ namespace Horizon {
 			std::transform(lower_bound,
 			               upper_bound,
 			               std::back_inserter(cb_queue),
-			               [&loader, &canceller](const std::pair<std::string,
+			               [&loader, &request](const std::pair<std::string,
 			                         std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &)>
 			                         > &pair) {
-				               std::function<void ()> f = std::bind(pair.second, loader);
-				               return std::make_pair(canceller, f);
+				               auto f = std::bind(pair.second, loader);
+				               return std::make_pair(request->canceller, std::move(f));
 			               });
 			request_cb_map.erase(lower_bound, upper_bound);
 			auto is_connected = cb_queue_is_connected.exchange(true);
@@ -564,9 +567,9 @@ namespace Horizon {
 		Glib::Threads::RWLock::WriterLock cb_queue_lock(cb_queue_rwlock);
 		if ( !cb_queue.empty() ) {
 			auto pair = cb_queue.front();
-			auto canceller = pair.first;
+			auto p_canceller = pair.first;
 			auto cb = pair.second;
-			canceller->involke_if_not_cancelled(cb);
+			p_canceller->involke_if_not_cancelled(cb);
 			cb_queue.pop_front();
 		}
 
