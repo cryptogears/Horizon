@@ -6,9 +6,9 @@
 namespace Horizon {
 
 	Image::Image(const Glib::RefPtr<Post> &post_,
-	             std::shared_ptr<ImageFetcher> image_fetcher,
+	             const std::shared_ptr<ImageFetcher>& image_fetcher,
 	             sigc::slot<void, const ImageState&> state_change_callback) :
-		Gtk::Container(),
+		Gtk::Bin(),
 		post(post_),
 		event_box(Gtk::manage(new Gtk::EventBox())),
 		image(Gtk::manage(new Gtk::Image())),
@@ -20,7 +20,7 @@ namespace Horizon {
 		am_fetching_thumb(false),
 		am_fetching_image(false),
 		canceller(std::make_shared<Canceller>()),
-		ifetcher(std::move(image_fetcher))
+		ifetcher(image_fetcher)
 	{
 		set_has_window(false);
 		set_redraw_on_allocate(false);
@@ -31,8 +31,8 @@ namespace Horizon {
 		image->set_name("image");
 		image->set_halign(Gtk::ALIGN_START);
 		image->set_valign(Gtk::ALIGN_START);
-		event_box->set_parent(*this);
-		image->set_parent(*this);
+		event_box->add(*image);
+		add(*event_box);
 
 		state_changed_dispatcher.connect(sigc::mem_fun(*this,
 		                                               &Image::run_state_changed_callbacks));
@@ -58,10 +58,6 @@ namespace Horizon {
 
 	Image::~Image() {
 		canceller->cancel();
-		image->unparent();
-		image = nullptr;
-		event_box->unparent();
-		event_box = nullptr;
 	}
 
 	void Image::reset_animation_iter() {
@@ -532,17 +528,5 @@ namespace Horizon {
 
 		event_box->size_allocate(allocation);
 		image->size_allocate(allocation);
-	}
-	
-	void Image::forall_vfunc(gboolean, GtkCallback callback, gpointer callback_data) {
-		if (event_box) callback(GTK_WIDGET(event_box->gobj()), callback_data);
-		if (image)     callback(GTK_WIDGET(image    ->gobj()), callback_data);
-	}
-
-	GType Image::child_type_vfunc() const {
-		return G_TYPE_NONE;
-	}
-
-	void Image::on_remove(Gtk::Widget*) {
 	}
 }

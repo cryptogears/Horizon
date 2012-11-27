@@ -13,7 +13,7 @@
 
 namespace Horizon {
 
-	class Image : public Gtk::Container {
+	class Image : public Gtk::Bin {
 	public:
 		enum ImageState { NONE, THUMBNAIL, EXPAND, FULL };
 		virtual ~Image();
@@ -23,7 +23,7 @@ namespace Horizon {
 		void set_state(const ImageState new_state);
 
 		Image(const Glib::RefPtr<Post>&,
-		      std::shared_ptr<ImageFetcher> image_fetcher,
+		      const std::shared_ptr<ImageFetcher>& image_fetcher,
 		      sigc::slot<void, const Image::ImageState&>);
 
 	protected:
@@ -34,9 +34,6 @@ namespace Horizon {
 		virtual void get_preferred_height_vfunc(int& minimum_height, int& natural_height) const;
 		virtual void get_preferred_width_for_height_vfunc(int height, int& minimum_width, int& natural_width) const;
 		virtual void on_size_allocate(Gtk::Allocation& allocation);
-		virtual void forall_vfunc(gboolean include_internals, GtkCallback callback, gpointer callback_data);
-		virtual GType child_type_vfunc() const;
-		virtual void on_remove(Gtk::Widget* child);
 		
 	private:
 		Glib::RefPtr<Post>                     post;
