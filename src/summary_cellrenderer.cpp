@@ -1,5 +1,6 @@
 #include "summary_cellrenderer.hpp"
 #include <iostream>
+#include <iomanip>
 
 namespace Horizon {
 	
@@ -28,10 +29,19 @@ namespace Horizon {
 				thumb_natural_width = ts->get_thumb_pixbuf()->get_width();
 			}
 
+			auto ppm = static_cast<float>(ts->get_reply_count()) /
+				static_cast<float>(Glib::DateTime::
+				                   create_now_utc().to_unix() -
+				                   ts->get_unix_date());
+
+			ppm = ppm * static_cast<float>(60);
+
 			std::stringstream s;
 			s << "R: <b>" << ts->get_reply_count() << "</b> I: <b>"
-			  << ts->get_image_count() << "</b>\n"
+			  << ts->get_image_count() << "</b> PPM: <b>" 
+			  << std::fixed << std::setprecision(2) << ppm << "</b>\n"
 			  << ts->get_teaser();
+
 
 			cr_text.property_markup().set_value(s.str());
 			cr_text.property_wrap_mode().set_value(Pango::WRAP_WORD_CHAR);

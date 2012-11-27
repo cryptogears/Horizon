@@ -289,9 +289,10 @@ namespace Horizon {
 		is_404(false),
 		update_interval_iter(UPDATE_INTERVALS.begin())
 	{
-		size_t res_pos = url.rfind("/res/");
-		size_t board_pos = url.rfind("/", res_pos - 1);
-		number = url.substr(res_pos + 5, std::string::npos);
+		auto const hash_pos  = url.rfind("#");
+		auto const res_pos   = url.rfind("/res/");
+		auto const board_pos = url.rfind("/", res_pos - 1);
+		number = url.substr(res_pos + 5, hash_pos - res_pos - 5);
 		board = url.substr(board_pos + 1, res_pos - board_pos - 1 );
 		api_url = "http://api.4chan.org/" + board + "/res/" + number + ".json";
 		number = number.substr(0, number.find_first_of('#'));

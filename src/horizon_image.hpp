@@ -23,6 +23,7 @@ namespace Horizon {
 		void set_state(const ImageState new_state);
 
 		Image(const Glib::RefPtr<Post>&,
+		      std::shared_ptr<ImageFetcher> image_fetcher,
 		      sigc::slot<void, const Image::ImageState&>);
 
 	protected:
@@ -78,7 +79,7 @@ namespace Horizon {
 		void set_none_state();
 		void set_thumb_state();
 		void set_expand_state();
-		std::shared_ptr<ImageFetcher>          ifetcher;
+		std::weak_ptr<ImageFetcher>          ifetcher;
 
 		void refresh_size_request();
 		void set_new_scaled_image(const int width, const int height);

@@ -21,10 +21,13 @@ extern "C" {
 namespace Horizon {
 
 	ThreadView::ThreadView(std::shared_ptr<Thread> t,
-	                       Glib::RefPtr<Gio::Settings> s) :
+	                       Glib::RefPtr<Gio::Settings> s,
+	                       std::shared_ptr<ImageCache> c,
+	                       std::shared_ptr<ImageFetcher> i,
+	                       Glib::RefPtr<Gtk::Application> a,
+	                       std::shared_ptr<Notifier> n) :
 		Gtk::Frame       (),
 		thread           (t),
-		ifetcher         (ImageFetcher::get(FOURCHAN)),
 		swindow          (Gtk::manage(new Gtk::ScrolledWindow())),
 		vadjustment      (swindow->get_vadjustment()),
 		full_grid        (Gtk::manage(new Gtk::Grid())),
@@ -39,7 +42,10 @@ namespace Horizon {
 		tab_image        (Gtk::manage(new Gtk::Image())),
 		fetching_image   (false),
 		settings         (s),
-		notifier         (Notifier::getNotifier()),
+		notifier         (n),
+		image_cache      (c),
+		ifetcher         (i),
+		gapplication     (a),
 		canceller        (std::make_shared<Canceller>())
 	{
 		set_name("frame");
@@ -123,6 +129,7 @@ namespace Horizon {
 
 	ThreadView::~ThreadView() {
 		canceller->cancel();
+		hide();
 		if (tab_updates.connected())
 			tab_updates.disconnect();
 
@@ -172,7 +179,7 @@ namespace Horizon {
 			}
 		} else {
 			// This is a new post
-			PostView *pv = Gtk::manage(new PostView(post));
+			PostView *pv = Gtk::manage(new PostView(post, ifetcher));
 			post_map.insert({post->get_id(), pv});
 			pv->signal_activate_link.connect(sigc::mem_fun(*this, &ThreadView::on_activate_link));
 			post->mark_rendered();
@@ -239,14 +246,16 @@ namespace Horizon {
 			auto iter = post_map.rbegin();
 			auto post = iter->second->get_post();
 
-			auto cb = std::bind(std::mem_fn(&Notifier::notify),
-			                    notifier,
-			                    thread->id,
-			                    "New 4chan post", // summary
-			                    iter->second->get_comment_body(), // body
-			                    "4chan-icon",
-			                    std::placeholders::_1);
-			ifetcher->download(post, cb, canceller);
+			if (notifier) {
+				auto cb = std::bind(std::mem_fn(&Notifier::notify),
+				                    notifier,
+				                    thread->id,
+				                    "New 4chan post", // summary
+				                    iter->second->get_comment_body(), // body
+				                    "4chan-icon",
+				                    std::placeholders::_1);
+				ifetcher->download(post, cb, canceller);
+			}
 		}
 
 
@@ -348,20 +357,37 @@ namespace Horizon {
 		tab_label->set_markup(label);
 	}
 
+	/*
+	 *  The incoming link can be "1234" "1234#p1235"
+	 *  "/a/res/1234#p1234" or a full "http://link.com/index.html"
+	 */
 	bool ThreadView::on_activate_link(const Glib::ustring &link) {
 		gint64 post_num;
-		std::stringstream s;
 		if ( link.find("http://") != link.npos ) {
+			std::cerr << "Error: Links outside of 4chan don't work yet" <<std::endl;
 			return false;
 		}
-		s << link;
-		s >> post_num;
+
+		const auto hash_pos = link.rfind("#");
+		if (hash_pos != link.npos)
+			post_num = std::stoll(link.substr(hash_pos + 2));
+		else
+			post_num = std::stoll(link);
+
 		if ( post_map.count(post_num) == 1 ) {
 			auto widget = post_map[post_num];
 			grid->set_focus_child(*widget);
 			return true;
 		} else {
-			std::cerr << "Cross-thread links not yet supported." << std::endl;
+			Glib::ustring url;
+			Glib::ustring stripped_link = link.substr(0, hash_pos);
+			if (*(link.begin()) == '/') {
+				url = Glib::ustring::compose("http://boards.4chan.org%1", stripped_link);
+			} else {
+				url = Glib::ustring::compose("http://boards.4chan.org/%1/res/%2", thread->board, stripped_link);
+			}
+			auto v = Glib::Variant<Glib::ustring>::create(std::move(url));
+			gapplication->activate_action("open_thread", std::move(v));
 			return true;
 		}
 	}

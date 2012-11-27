@@ -7,39 +7,6 @@
 #include "horizon_curl.cpp"
 
 namespace Horizon {
-	std::shared_ptr<ImageFetcher> ImageFetcher::singleton_4chan = nullptr;
-	std::shared_ptr<ImageFetcher> ImageFetcher::singleton_catalog = nullptr;
-	Glib::Threads::Mutex          ImageFetcher::singleton_mutex;
-
-	std::shared_ptr<ImageFetcher> ImageFetcher::get(FETCH_TYPE type) {
-		Glib::Threads::Mutex::Lock lock(singleton_mutex);
-		
-		if (!singleton_4chan || !singleton_catalog) {
-			const std::vector<std::string> path_parts = { Glib::get_user_data_dir(),
-			                                              "horizon",
-			                                              CACHE_FILENAME };
-			const std::string path = Glib::build_filename( path_parts );
-			const Glib::RefPtr<Gio::File> cache_file = Gio::File::create_for_path(path);
-			const std::shared_ptr<ImageCache> cache = std::make_shared<ImageCache>(cache_file);
-			singleton_4chan = std::shared_ptr<ImageFetcher>(new ImageFetcher(cache));
-			singleton_catalog = std::shared_ptr<ImageFetcher>(new ImageFetcher(cache));
-		}
-		
-		switch (type) {
-		case FOURCHAN:
-			return singleton_4chan;
-		case CATALOG:
-			return singleton_catalog;
-		default:
-			return singleton_4chan;
-		}
-	}
-
-	void ImageFetcher::cleanup() {
-		singleton_4chan.reset();
-		singleton_catalog.reset();
-	}
-	
 	std::size_t ImageFetcher::curl_writeback(const std::string &str_buf,
 	                                         std::shared_ptr<Request> request) {
 		std::size_t wrote = 0;
@@ -163,20 +130,19 @@ namespace Horizon {
 		if (request->area_updated_functor) {
 			std::function<void ()> f = std::bind(request->area_updated_functor, x, y, width, height);
 			{
-				Glib::Threads::Mutex::Lock lock(pixbuf_updated_idle_mutex);
 				auto pair = std::make_pair(request->canceller, f);
 				pixbuf_update_queue.push_back(pair);
 			}
-			signal_pixbuf_updated();
+			auto is_connected = pixbuf_updated_idle_is_connected.exchange(true);
+			if (!is_connected)
+				signal_pixbuf_updated();
 		}
 	}
 
 	/*
-	 * Called on ev_thread
+	 * Called on Glib main thread
 	 */
-	void ImageFetcher::signal_pixbuf_updated() {
-		Glib::Threads::Mutex::Lock lock(pixbuf_updated_idle_mutex);
-
+	void ImageFetcher::signal_pixbuf_updated_dispatched() {
 		if (!pixbuf_updated_idle.connected()) {
 			pixbuf_updated_idle = Glib::signal_idle().connect(sigc::mem_fun(*this, &ImageFetcher::on_pixbuf_updated));
 		}
@@ -186,7 +152,6 @@ namespace Horizon {
 	 * Called on Glib::Main thread idle
 	 */
 	bool ImageFetcher::on_pixbuf_updated() {
-		Glib::Threads::Mutex::Lock lock(pixbuf_updated_idle_mutex);
 		bool ret = true;
 		{
 			Glib::Threads::Mutex::Lock lock(pixbuf_update_queue_mutex);
@@ -199,6 +164,7 @@ namespace Horizon {
 			}
 
 			if ( pixbuf_update_queue.size() == 0 ) {
+				pixbuf_updated_idle_is_connected = false;
 				pixbuf_updated_idle.disconnect();
 				ret = false;
 			} else {
@@ -267,17 +233,18 @@ namespace Horizon {
 			                                                  area_prepared_cb,
 			                                                  area_updated_cb,
 			                                                  canceller);
-			auto cache_cb = std::bind(&ImageFetcher::on_cache_result, this,
+			auto cache_cb = std::bind(&ImageFetcher::on_cache_result,
+			                          this,
 			                          std::placeholders::_1,
 			                          request);
 			if (get_thumb) {
 				if (image_cache->has_thumb(post)) {
-					image_cache->get_thumb_async(post, cache_cb);
+					image_cache->get_thumb_async(post, cache_cb, this->canceller);
 					in_cache = true;
 				}
 			} else {
 				if (image_cache->has_image(post)) {
-					image_cache->get_image_async(post, cache_cb);
+					image_cache->get_image_async(post, cache_cb, this->canceller);
 					in_cache = true;
 				}
 			}
@@ -570,13 +537,23 @@ namespace Horizon {
 				               return std::make_pair(canceller, f);
 			               });
 			request_cb_map.erase(lower_bound, upper_bound);
-			if (!cb_queue_idle.connected()) {
-				cb_queue_idle =  Glib::signal_idle().connect(sigc::mem_fun(*this, &ImageFetcher::process_cb_queue),
-				                                             Glib::PRIORITY_DEFAULT);
+			auto is_connected = cb_queue_is_connected.exchange(true);
+			if (!is_connected) {
+				signal_process_cb_queue();
 			}
 		}
 
 		return found_cb;
+	}
+
+	/*
+	 * Called on Glib Main Loop
+	 */
+	void ImageFetcher::signal_process_cb_queue_dispatched() {
+		if (!cb_queue_idle.connected()) {
+			cb_queue_idle =  Glib::signal_idle().connect(sigc::mem_fun(*this, &ImageFetcher::process_cb_queue),
+			                                             Glib::PRIORITY_DEFAULT);
+		}
 	}
 
 	/*
@@ -595,6 +572,7 @@ namespace Horizon {
 
 		if ( cb_queue.empty() ) {
 			ret = false;
+			cb_queue_is_connected = false;
 			cb_queue_idle.disconnect();
 		}
 
@@ -667,6 +645,7 @@ namespace Horizon {
 	void ImageFetcher::on_kill_loop_w(ev::async &, int) {
 		kill_loop_w.stop();
 		queue_w.stop();
+		timeout_w.stop();
 	}
 
 	void ImageFetcher::on_timeout_w(ev::timer &, int) {
@@ -678,7 +657,10 @@ namespace Horizon {
 	}
 
 	ImageFetcher::ImageFetcher(const std::shared_ptr<ImageCache>& cache) :
+		canceller(std::make_shared<Canceller>()),
 		image_cache(cache),
+		cb_queue_is_connected(false),
+		pixbuf_updated_idle_is_connected(false),
 		curl_error_buffer(g_new0(char, CURL_ERROR_SIZE)),
 		curl_multi(CurlMulti<std::shared_ptr<Request> >::create()),
 		running_handles(0),
@@ -688,6 +670,8 @@ namespace Horizon {
 		queue_w(ev_loop),
 		timeout_w(ev_loop)
 	{
+		signal_pixbuf_updated.connect(sigc::mem_fun(*this, &ImageFetcher::signal_pixbuf_updated_dispatched));
+		signal_process_cb_queue.connect(sigc::mem_fun(*this, &ImageFetcher::signal_process_cb_queue_dispatched));
 		Glib::Threads::Mutex::Lock lock(curl_data_mutex);
 
 		curl_multi->set_socket_function(&curl_socket_cb, this);
@@ -728,6 +712,12 @@ namespace Horizon {
 	}
 
 	ImageFetcher::~ImageFetcher() {
+		canceller->cancel();
+		if (cb_queue_idle)
+			cb_queue_idle.disconnect();
+		if (pixbuf_updated_idle)
+			pixbuf_updated_idle.disconnect();
+
 		kill_loop_w.send();
 		ev_thread->join();
 

@@ -6,6 +6,7 @@
 #include <queue>
 #include <map>
 #include <functional>
+#include <atomic>
 #include <glibmm/thread.h>
 #include <gdkmm/pixbuf.h>
 #include <glibmm/refptr.h>
@@ -54,9 +55,7 @@ namespace Horizon {
 
 	class ImageFetcher {
 	public:
-
-		static std::shared_ptr<ImageFetcher> get(FETCH_TYPE);
-		static void cleanup();
+		ImageFetcher(const std::shared_ptr<ImageCache>& cache);
 		~ImageFetcher();
 
 		/* Old interface */
@@ -73,11 +72,6 @@ namespace Horizon {
  		              );
 
 	private:
-		ImageFetcher(const std::shared_ptr<ImageCache>& cache);
-		static std::shared_ptr<ImageFetcher> singleton_4chan;
-		static std::shared_ptr<ImageFetcher> singleton_catalog;
-		static Glib::Threads::Mutex          singleton_mutex;
-
 		struct RequestComparitor {
 			typedef std::shared_ptr<Request> value_type;
 			bool operator() (const std::shared_ptr<Request> &lhs,
@@ -85,6 +79,7 @@ namespace Horizon {
 				return (rhs->is_thumb && !lhs->is_thumb) || (rhs->serial < lhs->serial);
 			}
 		} request_comparitor;
+		std::shared_ptr<Canceller> canceller;
 
 		/* Image Cache handles on-disk images */
 		std::shared_ptr<ImageCache> image_cache;
@@ -105,7 +100,10 @@ namespace Horizon {
 		std::deque<std::pair<std::shared_ptr<Canceller>, std::function<void ()> > > cb_queue;
 		mutable Glib::Threads::RWLock                      cb_queue_rwlock;
 		sigc::connection                                   cb_queue_idle;
+		Glib::Dispatcher                                   signal_process_cb_queue;
+		std::atomic<bool>                                  cb_queue_is_connected;
 
+		void signal_process_cb_queue_dispatched();
 		bool process_cb_queue();
 		bool add_request_cb(const std::string &request_key,
 		                    std::function<void (const Glib::RefPtr<Gdk::PixbufLoader> &)> cb);
@@ -114,9 +112,11 @@ namespace Horizon {
 		void add_request(const std::shared_ptr<Request> &);
 
 		/* Progressive Loading callbacks */
-		void signal_pixbuf_updated();
-		mutable Glib::Threads::Mutex pixbuf_updated_idle_mutex;
+		void signal_pixbuf_updated_dispatched();
+		Glib::Dispatcher signal_pixbuf_updated;
 		sigc::connection pixbuf_updated_idle;
+		std::atomic<bool> pixbuf_updated_idle_is_connected;
+
 		bool on_pixbuf_updated();
 		void on_area_prepared(std::shared_ptr<Request> request);
 		void on_area_updated(int x, int y, int width, int height, std::shared_ptr<Request> request);

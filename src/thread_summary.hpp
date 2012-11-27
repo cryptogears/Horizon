@@ -69,7 +69,6 @@ namespace Horizon {
 		Glib::RefPtr<Gdk::Pixbuf> get_thumb_pixbuf();
 		gint64 get_unix_date() const;
 
-		void fetch_thumb();
 		Glib::RefPtr<Horizon::Post> get_proxy_post() const;
 
 	private:

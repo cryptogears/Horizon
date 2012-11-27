@@ -11,19 +11,14 @@ namespace Horizon {
 
 	class Notifier {
 	public:
-		static std::shared_ptr<Notifier> getNotifier();
-		static void init();
-
-		~Notifier();
+		Notifier();
+		~Notifier() = default;
 
 		void notify(const gint64 id,
 		            const std::string &summary,
 		            const std::string &body,
 		            const std::string &icon_url = "4chan-icon",
 		            const Glib::RefPtr<Gdk::PixbufLoader> &image_loader = Glib::RefPtr<Gdk::PixbufLoader>());
-
-	protected:
-		Notifier();
 
 	private:
 		GdkPixbuf* scale_pixbuf(const GdkPixbuf *pixbuf);

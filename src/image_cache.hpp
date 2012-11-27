@@ -10,6 +10,7 @@
 #include <giomm/memoryinputstream.h>
 #include <gdkmm/pixbufloader.h>
 #include "thread.hpp"
+#include "canceller.hpp"
 
 #ifdef HAVE_EV___H
 #include <ev++.h>
@@ -74,9 +75,11 @@ namespace Horizon {
 		bool has_image(const Glib::RefPtr<Post> &post);
 
 		void get_thumb_async(const Glib::RefPtr<Post> &post,
-		                     std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback);
+		                     std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
+		                     std::shared_ptr<Canceller> canceller );
 		void get_image_async(const Glib::RefPtr<Post> &post,
-		                     std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback);
+		                     std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
+		                     std::shared_ptr<Canceller> canceller );
 
 		void write_thumb_async(const Glib::RefPtr<Post> &post,
 		                       Glib::RefPtr<Gio::MemoryInputStream> &istream);
@@ -104,19 +107,24 @@ namespace Horizon {
 		                       Glib::RefPtr<Gio::MemoryInputStream> > > image_write_queue;
 
 		mutable Glib::Threads::Mutex thumb_read_queue_lock;
-		std::deque< std::pair< Glib::RefPtr<Post>,
-		                       std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> > > thumb_read_queue;
+		std::deque< std::tuple< Glib::RefPtr<Post>,
+		                        std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>,
+		                        std::shared_ptr<Canceller> > > thumb_read_queue;
 		void read_thumb(const Glib::RefPtr<Post>&,
-		                std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>);
+		                std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>,
+		                std::shared_ptr<Canceller> canceller);
 
 		mutable Glib::Threads::Mutex image_read_queue_lock;
-		std::deque< std::pair< Glib::RefPtr<Post>,
-		                       std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> > > image_read_queue;
+		std::deque< std::tuple< Glib::RefPtr<Post>,
+		                        std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>,
+		                        std::shared_ptr<Canceller> > > image_read_queue;
 		void read_image(const Glib::RefPtr<Post> &,
-		                std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>);
+		                std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>,
+		                std::shared_ptr<Canceller> canceller);
 
 		void read(const Glib::RefPtr<Gio::File>&,
-		          std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>);
+		          std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>,
+		          std::shared_ptr<Canceller> canceller);
 
 		void             read_from_disk(const Glib::RefPtr<Gio::File>& cache_file,
 		                                const bool make_dirs);

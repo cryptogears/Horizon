@@ -1,10 +1,10 @@
 #include <iostream>
 #include <libxml/parser.h>
 #include <glibmm/init.h>
+#include <gtksourceviewmm.h>
 #include <pangomm/cairofontmap.h>
 #include "application.hpp"
 #include "image_cache.hpp"
-#include <gtksourceviewmm.h>
 
 void init() __attribute__((constructor (101)));
 void cleanup() __attribute__((destructor (101)));
@@ -27,8 +27,6 @@ int main (int argc, char *argv[])
 
 
 void cleanup() {
-	Horizon::ImageFetcher::cleanup();
-
 	/*
 	 * This is only required to clean up all memory before exit.
 	 */

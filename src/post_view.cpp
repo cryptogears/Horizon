@@ -22,7 +22,8 @@
 
 namespace Horizon {
 
-	PostView::PostView(const Glib::RefPtr<Post> &in) :
+	PostView::PostView(const Glib::RefPtr<Post> &in,
+	                   std::shared_ptr<ImageFetcher> ifetcher) :
 		Gtk::Grid(),
 		post(in),
 		post_info_grid (Gtk::manage(new Gtk::Grid())),
@@ -36,17 +37,22 @@ namespace Horizon {
 	{
 		set_name("postview");
 		set_orientation(Gtk::ORIENTATION_VERTICAL);
+		set_halign(Gtk::ALIGN_START);
 
 		viewport_grid->set_orientation(Gtk::ORIENTATION_VERTICAL);
+		viewport_grid->set_halign(Gtk::ALIGN_START);
 		
 		post_info_grid->set_name("posttopgrid");
 		post_info_grid->set_orientation(Gtk::ORIENTATION_HORIZONTAL);
 		post_info_grid->set_column_spacing(5);
+		post_info_grid->set_halign(Gtk::ALIGN_START);
 
 		auto label = Gtk::manage(new Gtk::Label(post->get_subject()));
 		label->set_name("subject");
 		label->set_hexpand(false);
 		label->set_ellipsize(Pango::ELLIPSIZE_END);
+		label->set_justify(Gtk::JUSTIFY_LEFT);
+		label->set_halign(Gtk::ALIGN_START);
 		post_info_grid->add(*label);
 
 		Glib::ustring capcode = post->get_capcode();
@@ -68,6 +74,8 @@ namespace Horizon {
 			label->set_ellipsize(Pango::ELLIPSIZE_END);
 		}
 		label->set_hexpand(false);
+		label->set_justify(Gtk::JUSTIFY_LEFT);
+		label->set_halign(Gtk::ALIGN_START);
 		post_info_grid->add(*label);
 
 		if (capcode.size() == 0 &&
@@ -76,6 +84,8 @@ namespace Horizon {
 			label->set_name("tripcode");
 			label->set_hexpand(false);
 			label->set_ellipsize(Pango::ELLIPSIZE_END);
+			label->set_justify(Gtk::JUSTIFY_LEFT);
+			label->set_halign(Gtk::ALIGN_START);
 			post_info_grid->add(*label);
 		}
 
@@ -83,12 +93,14 @@ namespace Horizon {
 		label = Gtk::manage(new Gtk::Label(post->get_time_str()));
 		label->set_name("time");
 		label->set_hexpand(false);
+		label->set_justify(Gtk::JUSTIFY_LEFT);
+		label->set_halign(Gtk::ALIGN_START);
 		post_info_grid->add(*label);
 
 		label = Gtk::manage(new Gtk::Label("No. " + post->get_number()));
 		label->set_hexpand(false);
-
 		label->set_justify(Gtk::JUSTIFY_LEFT);
+		label->set_halign(Gtk::ALIGN_START);
 		post_info_grid->add(*label);
 
 		viewport_grid->add(*post_info_grid);
@@ -97,6 +109,7 @@ namespace Horizon {
 		if ( post->has_image() ) {
 			image_info_grid->set_name("imageinfogrid");
 			image_info_grid->set_column_spacing(5);
+			image_info_grid->set_halign(Gtk::ALIGN_START);
 
 			std::string filename = post->get_original_filename() + post->get_image_ext();
 
@@ -104,6 +117,8 @@ namespace Horizon {
 			label->set_name("originalfilename");
 			label->set_hexpand(false);
 			label->set_ellipsize(Pango::ELLIPSIZE_END);
+			label->set_justify(Gtk::JUSTIFY_LEFT);
+			label->set_halign(Gtk::ALIGN_START);
 			image_info_grid->add(*label);
 
 			const gint64 original_id = g_ascii_strtoll(post->get_original_filename().c_str(), NULL, 10);
@@ -113,6 +128,8 @@ namespace Horizon {
 				label = Gtk::manage(new Gtk::Label(dtime.format("%B %-e, %Y")));
 				label->set_hexpand(false);
 				label->set_name("imagenameinfo");
+				label->set_justify(Gtk::JUSTIFY_LEFT);
+				label->set_halign(Gtk::ALIGN_START);
 				image_info_grid->add(*label);
 			} 
 
@@ -123,14 +140,16 @@ namespace Horizon {
 
 			label = Gtk::manage(new Gtk::Label(imgdims.str()));
 			label->set_hexpand(false);
-			label->set_justify(Gtk::JUSTIFY_LEFT);
 			label->set_name("imagenameinfo");
+			label->set_justify(Gtk::JUSTIFY_LEFT);
+			label->set_halign(Gtk::ALIGN_START);
 			image_info_grid->add(*label);
 			viewport_grid->add(*image_info_grid);
 		}
 
 		linkbacks->signal_activate_link().connect(sigc::mem_fun(*this, &PostView::on_activate_link), false);
 		linkbacks->set_justify(Gtk::JUSTIFY_LEFT);
+		linkbacks->set_halign(Gtk::ALIGN_START);
 		linkbacks->set_halign(Gtk::ALIGN_START);
 		linkbacks->set_line_wrap(true);
 		linkbacks->set_line_wrap(Pango::WRAP_WORD_CHAR);
@@ -147,14 +166,17 @@ namespace Horizon {
 
 
 		content_grid->set_name("commentgrid");
+		content_grid->set_halign(Gtk::ALIGN_START);
 		content_grid->add(*comment);
 
-		viewport_grid->add(*content_grid);
 		viewport_grid->set_hexpand(false);
+		viewport_grid->set_halign(Gtk::ALIGN_START);
+		viewport_grid->add(*content_grid);
 		
 		comment_box->set_name("commentview");
 		comment_box->add(*viewport_grid);
 		comment_box->set_hexpand(false);
+		comment_box->set_halign(Gtk::ALIGN_START);
 		add(*comment_box);
 		set_hexpand(true);
 
@@ -162,8 +184,9 @@ namespace Horizon {
 
 		if ( post->has_image() ) {
 			auto s = sigc::mem_fun(*this, &PostView::on_image_state_changed);
-			image = Gtk::manage(new Image(post, s));
+			image = Gtk::manage(new Image(post, std::move(ifetcher), s));
 			image->set_hexpand(false);
+			image->set_halign(Gtk::ALIGN_START);
 		}
 	}
 
@@ -292,17 +315,16 @@ namespace Horizon {
 			image->set_hexpand(false);
 			break;
 		case Image::THUMBNAIL:
-			content_grid->remove(*comment);
-			if (image->get_parent() == nullptr) {
-				content_grid->add(*image);
-			}
-			content_grid->attach_next_to(*comment, *image, Gtk::POS_RIGHT, 1, 1);
+			if (image->get_parent() != nullptr)
+				content_grid->remove(*image);
+			content_grid->attach_next_to(*image, *comment, Gtk::POS_LEFT, 1, 1);
 			image->set_hexpand(false);
 			break;
 		case Image::FULL:
 		case Image::EXPAND:
-			content_grid->remove(*comment);
-			content_grid->attach_next_to(*comment, *image, Gtk::POS_BOTTOM, 1, 1);
+			if (image->get_parent() != nullptr)
+				content_grid->remove(*image);
+			content_grid->attach_next_to(*image, *comment, Gtk::POS_TOP, 1, 1);
 			image->set_hexpand(true);
 			break;
 		}

@@ -75,30 +75,34 @@ namespace Horizon {
 			std::stringstream url_stream;
 			url_stream << "http://catalog.neet.tv/" << board << "/threads.json";
 			std::string url = url_stream.str();
+			bool try_again = true;
+			while (try_again) {
+				try {
+					Glib::Threads::Mutex::Lock lock(curler_mutex);
+					auto new_summaries = curler.pullBoard(url, board);
 
-			try {
-				Glib::Threads::Mutex::Lock lock(curler_mutex);
-				std::list<Glib::RefPtr<ThreadSummary> > new_summaries = curler.pullBoard(url, board);
+					if (new_summaries.size() > 0) {
+						Glib::Threads::Mutex::Lock lock(catalog_mutex);
+						auto iter = catalogs.find(board);
+						if (iter != catalogs.end()) {
+							// TODO We want update the summary. For now, replace
+							catalogs.erase(iter);
+						}
+						catalogs.insert(std::make_pair(board, std::move(new_summaries)));
 
-				if (new_summaries.size() > 0) {
-					Glib::Threads::Mutex::Lock lock(catalog_mutex);
-					auto iter = catalogs.find(board);
-					if (iter != catalogs.end()) {
-						// TODO We want update the summary. For now, replace
-						catalogs.erase(iter);
+						updated_boards.insert(board);
+						is_new = true;
 					}
-					catalogs.insert({board, new_summaries});
-
-					updated_boards.insert(board);
-					is_new = true;
+					try_again = false;
+				} catch (Thread404 e) {
+					std::cerr << "Got 404 while trying to pull catalog from "
+					          <<  url << std::endl;
+					try_again = false;
+				} catch (CurlException e) {
+					std::cerr << "Error: While pulling the catalog for "
+					          << "/" << board << "/ : "
+					          << e.what() << std::endl;
 				}
-			} catch (Thread404 e) {
-				std::cerr << "Got 404 while trying to pull catalog from "
-				          <<  url << std::endl;
-			} catch (CurlException e) {
-				std::cerr << "Error: While pulling the catalog for "
-				          << "/" << board << "/ :"
-				          << e.what() << std::endl;
 			}
 		} // for boards
 		if (is_new)

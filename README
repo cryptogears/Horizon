@@ -29,10 +29,12 @@ Features:
         entrybox next to the combobox above the catalog view. Use
         up/down arrows to navigate through multiple matches.
 
+        The catalog's PPM indicates the posts per minute since the
+        thread's inception.
+
         If you click on the 'Threads' label above the catalog, the
-        catalog will be sorted by the number of posts in the thread
-        divided by the age of the thread. This seems to work pretty
-        well for finding active threads, at least on /a/.
+        catalog will be sorted by PPM. Otherwise, it displays oldest
+        first.
 
         Add _any_ 4chan thread through the menu, or Ctrl-t. This will
         work for non-worksafe threads.
@@ -54,10 +56,10 @@ Features:
         You can also enable notifications for every post through the
         toggle switch.
 
-        If the original filename was something like
-        "1333910354345.jpg", next to the original filename will be the
-        parsed UNIX date, e.g. "April 8, 2012". Now you know just how
-        much of a newfag everyone is.
+        If the original filename was something like 1333910354345.jpg,
+        next to the original filename will be the parsed UNIX date,
+        e.g. "April 8, 2012". Now you know just how much of a newfag
+        everyone is.
 
         In the thread tabs, the LP field tells you how long it has
         been since the last post.
@@ -86,6 +88,8 @@ Features:
         thumbnails by default. One day I will add a GSetting key for
         this behavior.
 
+        Cross-thread and cross-board links will open a new tab.
+
 Coming soon:
 
        Tagging images, viewing archived image metadata, replying,
@@ -99,9 +103,13 @@ Coming soon:
        compromise.
 
 Bugs:
-        If you don't have gvim installed you're not going to see
-        anything in code tags. It would be relatively bothersome to
-        fix.
+
+        Some comments seem to have a wider left margin than others. I
+        have no idea why.
+
+        If you close all threads relatively quickly after opening
+        them, you may see a Glibmm warning about dispatchers. Its
+        harmless.
 
         All images are downloaded to disk (~/.local/share/horizon, or
         your equivalent XDG location). Browsing /a/ for a week has

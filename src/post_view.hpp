@@ -18,7 +18,8 @@ namespace Horizon {
 
 	class PostView : public Gtk::Grid {
 	public:
-		PostView( const Glib::RefPtr<Post> &in );
+		PostView( const Glib::RefPtr<Post> &in,
+		          std::shared_ptr<ImageFetcher> ifetcher);
 		virtual ~PostView();
 
 		void refresh( const Glib::RefPtr<Post> &in );
@@ -38,7 +39,6 @@ namespace Horizon {
 		void set_comment_grid();
 
 		Glib::RefPtr<Post> post;
-
 		Gtk::Grid* post_info_grid;
 		Gtk::Grid* image_info_grid;
 		Gtk::Grid* content_grid;  // Contains the image and the comment

@@ -455,7 +455,8 @@ namespace Horizon {
 	}
 
 	void ImageCache::read_thumb(const Glib::RefPtr<Post> &post,
-	                            std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
+	                            std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
+	                            std::shared_ptr<Canceller> canceller) {
 		Glib::RefPtr<Gio::File> file;
 		constexpr bool is_thumb = true;
 
@@ -479,11 +480,12 @@ namespace Horizon {
 		}
 
 		if (file)
-			read(file, callback);
+			read(file, callback, canceller);
 	}
 
 	void ImageCache::read_image(const Glib::RefPtr<Post> &post,
-	                            std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
+	                            std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
+	                            std::shared_ptr<Canceller> canceller) {
 		Glib::RefPtr<Gio::File> file;
 		constexpr bool is_thumb = false;
 		{
@@ -506,11 +508,12 @@ namespace Horizon {
 		}
 		
 		if (file)
-			read(file, callback);
+			read(file, callback, canceller);
 	}
 	
 	void ImageCache::read(const Glib::RefPtr<Gio::File>& file,
-	                      std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
+	                      std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
+	                      std::shared_ptr<Canceller> canceller) {
 		auto read_error = false;
 		auto loader = Gdk::PixbufLoader::create();
 		
@@ -582,7 +585,8 @@ namespace Horizon {
 		if (read_error)
 			loader.reset(); // Deletes the loader
 
-		callback(loader);
+		auto cb = std::bind(callback, loader);
+		canceller->involke_if_not_cancelled(cb);
 	}
 
 	void ImageCache::write_thumb_async(const Glib::RefPtr<Post> &post,
@@ -612,26 +616,28 @@ namespace Horizon {
 	}
 
 	void ImageCache::get_thumb_async(const Glib::RefPtr<Post> &post,
-	                                 std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
+	                                 std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
+	                                 std::shared_ptr<Canceller> canceller) {
 		if (G_UNLIKELY(!post))
 			g_error("Invalid post handed to get_thumb_async");
 
 		{
 			Glib::Threads::Mutex::Lock lock(thumb_read_queue_lock);
-			thumb_read_queue.push_back({post, callback});
+			thumb_read_queue.push_back(std::make_tuple(post, callback, canceller));
 		}
 
 		read_queue_w.send();
 	}
 
 	void ImageCache::get_image_async(const Glib::RefPtr<Post> &post,
-	                                 std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback) {
+	                                 std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> callback,
+	                                 std::shared_ptr<Canceller> canceller) {
 		if (G_UNLIKELY(!post))
 			g_error("Invalid post handed to get_thumb_async");
 
 		{
 			Glib::Threads::Mutex::Lock lock(image_read_queue_lock);
-			image_read_queue.push_back({post, callback});
+			image_read_queue.push_back(std::make_tuple(post, callback, canceller));
 		}
 
 		read_queue_w.send();
@@ -639,8 +645,9 @@ namespace Horizon {
 
 
 	void ImageCache::on_read_queue_w(ev::async &, int) {
-		std::vector< std::pair< Glib::RefPtr<Post>,
-		                        std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> > > work_list;
+		std::vector< std::tuple< Glib::RefPtr<Post>,
+		                         std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)>,
+		                         std::shared_ptr<Canceller> > > work_list;
 		{
 			Glib::Threads::Mutex::Lock lock(thumb_read_queue_lock);
 			work_list.reserve(thumb_read_queue.size());
@@ -651,9 +658,10 @@ namespace Horizon {
 		}
 
 		for (auto pair : work_list) {
-			Glib::RefPtr<Post> post = pair.first;
-			auto callback = pair.second;
-			read_thumb(post, callback);
+			Glib::RefPtr<Post> post = std::get<0>(pair);
+			auto callback = std::get<1>(pair);
+			auto canceller = std::get<2>(pair);
+			read_thumb(post, callback, canceller);
 		}
 
 		work_list.clear();
@@ -668,9 +676,10 @@ namespace Horizon {
 		}
 
 		for (auto pair : work_list) {
-			Glib::RefPtr<Post> post = pair.first;
-			auto callback = pair.second;
-			read_image(post, callback);
+			Glib::RefPtr<Post> post = std::get<0>(pair);
+			auto callback = std::get<1>(pair);
+			auto canceller = std::get<2>(pair);
+			read_image(post, callback, canceller);
 		}
 
 		work_list.clear();
@@ -944,16 +953,16 @@ namespace Horizon {
 
 	void ImageCache::on_kill_loop_w(ev::async &, int) {
 		timer_w.stop();
-		write_queue_w.stop();
-		read_queue_w.stop();
 		flush_w.stop();
 		kill_loop_w.stop();
+		read_queue_w.stop();
+		write_queue_w.stop();
 	}
 
 	ImageCache::~ImageCache() {
-		flush();
 		kill_loop_w.send();
 		ev_thread->join();
+		flush();
 	}
 
 	ImageCache::ImageCache(const Glib::RefPtr<Gio::File>& file) :

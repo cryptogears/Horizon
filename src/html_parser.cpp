@@ -113,111 +113,120 @@ namespace Horizon {
 	                                          const xmlChar* name,
 	                                          const xmlChar** attrs) {
 		HtmlParser* hp = static_cast<HtmlParser*>(user_data);
+		if (name != nullptr) {
+			try {
+				Glib::ustring sname( reinterpret_cast<const char*>(name) );
+				std::map<Glib::ustring, Glib::ustring> sattrs;
+				std::stringstream stream;
 
-		try {
-			Glib::ustring sname( reinterpret_cast<const char*>(name) );
-			std::map<Glib::ustring, Glib::ustring> sattrs;
-			std::stringstream stream;
-
-			if (attrs != nullptr) {
-				for ( int i = 0; attrs[i] != nullptr; i += 2) {
-					const Glib::ustring key(reinterpret_cast<const char*>(attrs[i]));
-					if ( attrs[i+1] != nullptr ) {
-						const Glib::ustring value(reinterpret_cast<const char*>(attrs[i+1]));
-						sattrs.insert({key, value});
-					} else {
-						sattrs.insert({key, ""});
-						break;
+				if (attrs != nullptr) {
+					for ( int i = 0; attrs[i] != nullptr; i += 2) {
+						const Glib::ustring key(reinterpret_cast<const char*>(attrs[i]));
+						if ( attrs[i+1] != nullptr ) {
+							const Glib::ustring value(reinterpret_cast<const char*>(attrs[i+1]));
+							sattrs.insert(std::make_pair(std::move(key), std::move(value)));
+						} else {
+							sattrs.insert(std::make_pair(std::move(key), ""));
+							break;
+						}
 					}
 				}
-			}
 
-			if ( sname.find("body") != sname.npos ) {
-			} else if ( sname.find("html") != sname.npos ) {
-			} else if ( sname.size() == 1 &&
-			             sname.find("p") != sname.npos ) {
-			} else if ( sname.find("br") != Glib::ustring::npos ) {
-				hp->built_string.append("\n");
-			} else if ( sname.size() == 1 && 
-			            sname.find("a") != Glib::ustring::npos &&
-			            sattrs.count("class") == 1 &&
-			            sattrs["class"].find("quotelink") != Glib::ustring::npos &&
-			            sattrs.count("href") == 1) {
-				std::size_t offset = sattrs["href"].find_last_of("p") + 1;
-				Glib::ustring postnum = sattrs["href"].substr(offset);
-				stream << "<a href=\"" << postnum << "\">"
-				       << "<span color=\"#D00\">";
-				hp->built_string.append(stream.str());
+				if ( sname.find("body") != sname.npos ) {
+				} else if ( sname.find("html") != sname.npos ) {
+				} else if ( sname.size() == 1 &&
+				            sname.find("p") != sname.npos ) {
+				} else if ( sname.find("br") != Glib::ustring::npos ) {
+					hp->built_string.append("\n");
+				} else if ( sname.size() == 1 && 
+				            sname.find("a") != Glib::ustring::npos &&
+				            sattrs.count("class") == 1 &&
+				            sattrs["class"].find("quotelink") != Glib::ustring::npos &&
+				            sattrs.count("href") == 1) {
+					auto const url     = sattrs["href"];
+					auto const offset  = url.find_last_of("p") + 1;
+					auto const postnum = sattrs["href"].substr(offset);
+					stream << "<a href=\"" << url << "\">"
+					       << "<span color=\"#D00\">";
+					hp->built_string.append(stream.str());
 
-				gint64 link_parent_id = g_ascii_strtoll(sattrs["href"].substr(0, offset - 2).c_str(),
-				                                        nullptr,
-				                                        10);
-				gint64 link_post_id = g_ascii_strtoll(sattrs["href"].substr(offset).c_str(),
-				                                      nullptr,
-				                                      10);
-				if ( link_post_id == link_parent_id )
-					hp->is_OP_link = true;
-				else
-					hp->is_OP_link = false;
-				if ( link_parent_id == hp->thread_id )
-					hp->is_cross_thread_link = false;
-				else
-					hp->is_cross_thread_link = true;
-			} else if (sname.find("span") != sname.npos &&
-			           sattrs.count("class") == 1 &&
-			           sattrs["class"].find("spoiler") != Glib::ustring::npos ) {
-				stream << "<span color=\"#000\" background=\"#000\">";
-				hp->built_string.append(stream.str());
+					auto parent_offset = offset - 3;
+					while (parent_offset > 0 && g_ascii_isdigit(url.c_str()[parent_offset]))
+						--parent_offset;
+					if (parent_offset != 0)
+						++parent_offset;
 
-			} else if ( sname.find("span") != sname.npos &&
-			            sattrs.count("class") == 1 &&
-			            sattrs["class"].find("quote") != sname.npos ) {
-				stream << "<span color=\"#789922\">";
-				hp->built_string.append(stream.str());
-			} else if ( sname.find("pre") != sname.npos &&
-			            sattrs.count("class") == 1 &&
-			            sattrs["class"].find("prettyprint") != Glib::ustring::npos ) {
-				hp->strings.push_back(hp->built_string);
-				hp->built_string.clear();
-				hp->is_code_tagged = true;
-			} else if ( sname.compare("a") == 0 &&
-			            sattrs.find("href") != sattrs.end() ) {
-				stream << "<a href=\"" << sattrs["href"] << "\"><span color=\"#34345C\">";
-				hp->built_string.append(stream.str());
-			} else if ( sname.compare("span") == 0 &&
-			            sattrs.count("class") == 1 &&
-			            sattrs["class"].compare("deadlink") == 0) {
-				stream << "<span>";
-				hp->is_dead_link = true;
-				hp->built_string.append(stream.str());
-			} else if (sname.compare("span") == 0) {
-				stream << "<span>";
-				std::cerr << "Debug: Unhandled span attributes: ";
-				for ( auto pair : sattrs )
-					std::cerr << "\"" << pair.first << "\" = \"" << pair.second << "\" ";
-				std::cerr << std::endl;					
-				hp->built_string.append(stream.str());
-			} else if (sname.compare("em") == 0) {
-				stream << "<i>";
-				hp->built_string.append(stream.str());
-			}
+					auto const link_parent_id = g_ascii_strtoll(url.substr(parent_offset).c_str(),
+					                                            nullptr,
+					                                            10);
+					auto const link_post_id = g_ascii_strtoll(postnum.c_str(),
+					                                          nullptr,
+					                                          10);
 
-			else {
-				std::cerr << "Debug: Unhandled tag \"" << name << "\"";
-				if (sattrs.size() > 0) {
-					std::cerr << " with attribute";
-					if (sattrs.size() > 1)
-						std::cerr << "s";
-					std::cerr << ": ";
-					
+					if ( link_post_id == link_parent_id )
+						hp->is_OP_link = true;
+					else
+						hp->is_OP_link = false;
+					if ( link_parent_id == hp->thread_id )
+						hp->is_cross_thread_link = false;
+					else
+						hp->is_cross_thread_link = true;
+				} else if (sname.find("span") != sname.npos &&
+				           sattrs.count("class") == 1 &&
+				           sattrs["class"].find("spoiler") != Glib::ustring::npos ) {
+					stream << "<span color=\"#000\" background=\"#000\">";
+					hp->built_string.append(stream.str());
+
+				} else if ( sname.find("span") != sname.npos &&
+				            sattrs.count("class") == 1 &&
+				            sattrs["class"].find("quote") != sname.npos ) {
+					stream << "<span color=\"#789922\">";
+					hp->built_string.append(stream.str());
+				} else if ( sname.find("pre") != sname.npos &&
+				            sattrs.count("class") == 1 &&
+				            sattrs["class"].find("prettyprint") != Glib::ustring::npos ) {
+					hp->strings.push_back(hp->built_string);
+					hp->built_string.clear();
+					hp->is_code_tagged = true;
+				} else if ( sname.compare("a") == 0 &&
+				            sattrs.find("href") != sattrs.end() ) {
+					stream << "<a href=\"" << sattrs["href"] << "\"><span color=\"#34345C\">";
+					hp->built_string.append(stream.str());
+				} else if ( sname.compare("span") == 0 &&
+				            sattrs.count("class") == 1 &&
+				            sattrs["class"].compare("deadlink") == 0) {
+					stream << "<span>";
+					hp->is_dead_link = true;
+					hp->built_string.append(stream.str());
+				} else if (sname.compare("span") == 0) {
+					stream << "<span>";
+					std::cerr << "Debug: Unhandled span attributes: ";
 					for ( auto pair : sattrs )
 						std::cerr << "\"" << pair.first << "\" = \"" << pair.second << "\" ";
+					std::cerr << std::endl;					
+					hp->built_string.append(stream.str());
+				} else if (sname.compare("em") == 0) {
+					stream << "<i>";
+					hp->built_string.append(stream.str());
 				}
-				std::cerr << std::endl;					
+
+				else {
+					std::cerr << "Debug: Unhandled tag \"" << name << "\"";
+					if (sattrs.size() > 0) {
+						std::cerr << " with attribute";
+						if (sattrs.size() > 1)
+							std::cerr << "s";
+						std::cerr << ": ";
+					
+						for ( auto pair : sattrs )
+							std::cerr << "\"" << pair.first << "\" = \"" << pair.second << "\" ";
+					}
+					std::cerr << std::endl;					
+				}
+			} catch (std::exception e) {
+				std::cerr << "Error startElement casting to string: " << e.what()
+				          << std::endl;
 			}
-		} catch (std::exception e) {
-			std::cerr << "Error startElement casting to string: " << e.what()
-			          << std::endl;
 		}
 	}
 

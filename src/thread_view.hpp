@@ -11,6 +11,7 @@
 #include <gtkmm/frame.h>
 #include <gtkmm/switch.h>
 #include <gtkmm/togglebutton.h>
+#include <gtkmm/application.h>
 #include "thread.hpp"
 #include "post_view.hpp"
 #include "notifier.hpp"
@@ -20,7 +21,12 @@ namespace Horizon {
 
 	class ThreadView : public Gtk::Frame {
 	public:
-		ThreadView(std::shared_ptr<Thread> t, Glib::RefPtr<Gio::Settings>);
+		ThreadView(std::shared_ptr<Thread> t,
+		           Glib::RefPtr<Gio::Settings> s,
+		           std::shared_ptr<ImageCache> c,
+		           std::shared_ptr<ImageFetcher> i,
+		           Glib::RefPtr<Gtk::Application> a,
+		           std::shared_ptr<Notifier> notifier = nullptr);
 		virtual ~ThreadView();
 		// Returns true is the thread is now 404
 		bool refresh();
@@ -31,7 +37,6 @@ namespace Horizon {
 
 	private:
 		std::shared_ptr<Thread>       thread;
-		std::shared_ptr<ImageFetcher> ifetcher;
 		Gtk::ScrolledWindow          *swindow;
 		Glib::RefPtr<Gtk::Adjustment> hadjustment;
 		Glib::RefPtr<Gtk::Adjustment> vadjustment;
@@ -56,7 +61,9 @@ namespace Horizon {
 		std::map<gint64, PostView*>   post_map;
 		Glib::RefPtr<Gio::Settings>   settings;
 		std::shared_ptr<Notifier>     notifier;
-
+		std::shared_ptr<ImageCache>   image_cache;
+		std::shared_ptr<ImageFetcher> ifetcher;
+		Glib::RefPtr<Gtk::Application> gapplication;
 		std::shared_ptr<Canceller>    canceller;
 
 		double                        prev_value;

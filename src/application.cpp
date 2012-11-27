@@ -72,11 +72,16 @@ namespace Horizon {
 			provider->load_from_file(file);
 			sc->add_provider_for_screen(screen, provider, GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 			gtk_application_add_window(gapplication->gobj(), GTK_WINDOW(window->gobj()));
+			window->signal_hide().connect(sigc::mem_fun(*this, &Application::on_window_hide));
 
 			window->show_all();
 		} else {
 			g_warning("Startup called twice");
 		}
+	}
+
+	void Application::on_window_hide() {
+		window.reset();
 	}
 
 	/* Called every time the executable is run */
@@ -96,6 +101,8 @@ namespace Horizon {
 
 		manager.signal_thread_updated.connect(sigc::mem_fun(*this, &Application::onUpdates));
 		manager.signal_catalog_updated.connect(sigc::mem_fun(*this, &Application::on_catalog_update));
+
+		catalog_image_fetcher = std::make_shared<ImageFetcher>(image_cache);
 
 		auto schemas = Gio::Settings::list_schemas();
 		auto iter = std::find(schemas.begin(),
@@ -226,11 +233,27 @@ namespace Horizon {
 		vurl = Glib::VariantBase::cast_dynamic< Glib::Variant<Glib::ustring> >(parameter);
 		Glib::ustring url = vurl.get();
 
+		std::cerr << "Opening url: " << url << std::endl;
 		if (validate_thread_url(url)) {
 			auto t = Thread::create(url);
 
 			if ( thread_map.count( t->id ) == 0 ) {
-				auto tv = Gtk::manage(new ThreadView(t, settings));
+				std::shared_ptr<Notifier> sp_notifier = notifier.lock();
+				if (!sp_notifier) {
+					sp_notifier = std::make_shared<Notifier>();
+					notifier = sp_notifier;
+				}
+
+				auto sp_ifetcher = chan_image_fetcher.lock();
+				if (!sp_ifetcher) {
+					sp_ifetcher = std::make_shared<ImageFetcher>(image_cache);
+					chan_image_fetcher = sp_ifetcher;
+				}
+
+				auto tv = Gtk::manage(new ThreadView(t, settings, image_cache,
+				                                     sp_ifetcher, gapplication,
+				                                     sp_notifier));
+
 				tv->signal_closed.connect( sigc::mem_fun(*this, &Application::on_thread_closed) );
 
 				notebook->append_page(*tv,
@@ -424,8 +447,7 @@ namespace Horizon {
 		if (board_combobox->get_active_row_number() == -1)
 			return;
 		const std::string active_board = get_board_from_fancy(board_combobox->get_active_text());
-		auto ifetcher = ImageFetcher::get(CATALOG);
-
+		
 		try {
 			auto catalog = manager.get_catalog(active_board);
 			std::map<gint64, Glib::RefPtr<ThreadSummary> > summary_map;
@@ -476,11 +498,12 @@ namespace Horizon {
 					                             thread->get_reply_count());
 					row.set_value(thread_summary_columns.image_count,
 					                             thread->get_image_count());
-					row.set_value(thread_summary_columns.ppm,
-					              static_cast<float>(thread->get_reply_count()) /
-					              static_cast<float>(Glib::DateTime::
-					                                 create_now_utc().to_unix() -
-					                                 thread->get_unix_date()));
+					auto ppm = static_cast<float>(thread->get_reply_count()) /
+						static_cast<float>(Glib::DateTime::
+						                   create_now_utc().to_unix() -
+						                   thread->get_unix_date());
+
+					row.set_value(thread_summary_columns.ppm, std::move(ppm));
 					row.set_value(thread_summary_columns.thread_summary,
 					                             thread);
 					summary_map.erase(match_iter);
@@ -497,7 +520,7 @@ namespace Horizon {
 					auto cb = std::bind(&Application::on_catalog_image, this,
 					                    std::placeholders::_1,
 					                    thread);
-					ifetcher->download(post, cb, canceller);
+					catalog_image_fetcher->download(post, cb, canceller);
 
 					iter->set_value(thread_summary_columns.thread_summary,
 					                thread);
@@ -549,6 +572,9 @@ namespace Horizon {
 	}
 
 
+	/*
+	 * Runs on Glib Main Loop
+	 */
 	void Application::onUpdates() {
 		while (manager.is_updated_thread()) {
 			gint64 tid = manager.pop_updated_thread();
@@ -624,7 +650,12 @@ namespace Horizon {
 		gapplication->signal_activate().connect(sigc::mem_fun(*this, &Application::on_activate));
 		gapplication->signal_startup().connect(sigc::mem_fun(*this, &Application::on_startup));
 
-		Notifier::init();
+		const std::vector<std::string> path_parts = { Glib::get_user_data_dir(),
+		                                              "horizon",
+		                                              CACHE_FILENAME };
+		const std::string path = Glib::build_filename( path_parts );
+		const Glib::RefPtr<Gio::File> cache_file = Gio::File::create_for_path(path);
+		image_cache           = std::make_shared<ImageCache>(cache_file);
 	}
 
 }

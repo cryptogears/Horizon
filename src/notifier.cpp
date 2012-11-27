@@ -6,15 +6,6 @@
 
 namespace Horizon {
 
-	std::shared_ptr<Notifier> Notifier::getNotifier() {
-		static std::shared_ptr<Notifier> notifier = std::shared_ptr<Notifier>(new Notifier());
-		return notifier;
-	}
-
-	void Notifier::init() {
-		getNotifier();
-	}
-
 	Notifier::Notifier() {
 		auto slot = sigc::mem_fun(this, &Notifier::on_proxy_created);
 
@@ -39,9 +30,6 @@ namespace Horizon {
 		} catch (Glib::Error e) {
 			std::cerr << "Error sending notification: " << e.what() << std::endl;
 		}
-	}
-
-	Notifier::~Notifier() {
 	}
 
 	void Notifier::send_notification(Glib::VariantContainerBase notification) {

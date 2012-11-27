@@ -6,6 +6,7 @@
 namespace Horizon {
 
 	Image::Image(const Glib::RefPtr<Post> &post_,
+	             std::shared_ptr<ImageFetcher> image_fetcher,
 	             sigc::slot<void, const ImageState&> state_change_callback) :
 		Gtk::Container(),
 		post(post_),
@@ -19,7 +20,7 @@ namespace Horizon {
 		am_fetching_thumb(false),
 		am_fetching_image(false),
 		canceller(new Canceller()),
-		ifetcher(ImageFetcher::get(FOURCHAN))
+		ifetcher(std::move(image_fetcher))
 	{
 		set_has_window(false);
 		set_redraw_on_allocate(false);
@@ -103,7 +104,9 @@ namespace Horizon {
 		if (!am_fetching_thumb) {
 			am_fetching_thumb = true;
 			std::function<void (const Glib::RefPtr<Gdk::PixbufLoader>&)> cb = std::bind(&Image::on_thumb, this, std::placeholders::_1);
-			ifetcher->download(post, cb, canceller, true, nullptr, nullptr);
+			if (auto sp_ifetcher = ifetcher.lock()) {
+				sp_ifetcher->download(post, cb, canceller, true, nullptr, nullptr);
+			}
 		}
 	}
 
@@ -125,7 +128,9 @@ namespace Horizon {
 			                              std::placeholders::_2,
 			                              std::placeholders::_3,
 			                              std::placeholders::_4);
-			ifetcher->download(post, callback, canceller, false, area_prepared, area_updated);
+			if (auto sp_ifetcher = ifetcher.lock()) {
+				sp_ifetcher->download(post, callback, canceller, false, area_prepared, area_updated);
+			}
 		}
 	}
 

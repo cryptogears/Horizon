@@ -39,6 +39,7 @@ namespace Horizon {
 	private:
 		void on_activate();  // Gio::Application signal
 		void on_startup();   // Gio::Application signal
+		void on_window_hide();
 		void setup_actions();
 		void setup_window();
 		// When the ThreadView is closed, we remove from thread_map
@@ -53,6 +54,10 @@ namespace Horizon {
 		std::map<gint64, ThreadView*> thread_map;
 
 		Horizon::Manager manager;
+		std::weak_ptr<Notifier> notifier;
+		std::shared_ptr<ImageCache> image_cache;
+		std::shared_ptr<ImageFetcher> catalog_image_fetcher;
+		std::weak_ptr<ImageFetcher> chan_image_fetcher;
 		std::shared_ptr<Canceller> canceller;
 		sigc::connection manager_alarm;
 		sigc::connection summary_alarm;

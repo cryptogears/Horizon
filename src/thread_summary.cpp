@@ -118,15 +118,6 @@ namespace Horizon {
 		return post;
 	}
 
-	void ThreadSummary::fetch_thumb() {
-		if (! horizon_thread_summary_get_thumb_pixbuf(gobj()) ) {
-			auto ifetcher = ImageFetcher::get(CATALOG);
-			auto post = get_proxy_post();
-			auto cb = std::bind(&ThreadSummary::on_thumb, this, std::placeholders::_1);
-			ifetcher->download(post, cb, canceller);
-		}
-	}
-
 	void ThreadSummary::on_thumb(const Glib::RefPtr<Gdk::PixbufLoader> &loader) {
 		if (loader) {
 			auto pixbuf = loader->get_pixbuf();
