@@ -281,7 +281,7 @@ horizon_thread_summary_set_id (HorizonThreadSummary *ts, gint64 id) {
 	ts->priv->url = g_strdup_printf("http://boards.4chan.org/%s/res/%" G_GINT64_FORMAT, ts->priv->board, ts->priv->id);
 
 	g_free(ts->priv->thumb_url);
-	ts->priv->thumb_url = g_strdup_printf("http://catalog.neet.tv/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
+	ts->priv->thumb_url = g_strdup_printf("http://4index.gropes.us/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
 }
 
 void horizon_thread_summary_set_id_from_string (HorizonThreadSummary *ts, const gchar* id_str) {
@@ -293,7 +293,7 @@ void horizon_thread_summary_set_id_from_string (HorizonThreadSummary *ts, const 
 	ts->priv->url = g_strdup_printf("http://boards.4chan.org/%s/res/%" G_GINT64_FORMAT, ts->priv->board, ts->priv->id);
 
 	g_free(ts->priv->thumb_url);
-	ts->priv->thumb_url = g_strdup_printf("http://catalog.neet.tv/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
+	ts->priv->thumb_url = g_strdup_printf("http://4index.gropes.us/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
 }
 
 gint64
@@ -349,7 +349,7 @@ horizon_thread_summary_set_board(HorizonThreadSummary *ts, const gchar* board) {
 	ts->priv->url = g_strdup_printf("http://boards.4chan.org/%s/res/%" G_GINT64_FORMAT, ts->priv->board, ts->priv->id);
 
 	g_free(ts->priv->thumb_url);
-	ts->priv->thumb_url = g_strdup_printf("http://catalog.neet.tv/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
+	ts->priv->thumb_url = g_strdup_printf("http://4index.gropes.us/%s/src/%" G_GINT64_FORMAT ".jpg", ts->priv->board, ts->priv->id);
 
 }
 

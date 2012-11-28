@@ -118,11 +118,18 @@ namespace Horizon {
 	 * GSettings XML file.
 	 */
 	static const std::vector< std::string > CATALOG_BOARDS = {
+		"3", "a", "adv", "an", "c", "cgl", "ck", "cm", "co", "d", "diy", "e",
+		"fa", "fit", "g", "gif", "h", "hc", "hm", "hr", "i", "ic", "int", "jp",
+		"k", "lit", "m", "mlp", "mu", "n", "o", "p", "po", "pol", "q", "r",
+		"r9k", "s", "sci", "soc", "sp", "t", "tg", "toy", "trv", "tv", "u", "v",
+		"vp", "w", "wg", "wsg", "x", "y" };
+	/* catalog.neet.tv 
+	static const std::vector< std::string > CATALOG_BOARDS = {
 		"a", "c", "g", "k", "m", "o", "p", "v", "vg", "w", "cm", "3", "adv",
 		"an", "cgl", "ck", "co", "diy", "fa", "fit", "int", "jp", "lit", "mlp",
 		"mu", "n", "po", "sci", "sp", "tg", "toy", "trv", "tv", "vp", "wsg",
 		"x", "q" };
-		
+	*/
 }
 
 #endif

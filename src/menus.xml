@@ -15,52 +15,12 @@
         <attribute name='label'>Boards</attribute>
         <section>
           <item>
-            <attribute name='label'>/a/</attribute>
-            <attribute name='action'>app.toggle_board_a</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/c/</attribute>
-            <attribute name='action'>app.toggle_board_c</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/g/</attribute>
-            <attribute name='action'>app.toggle_board_g</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/k/</attribute>
-            <attribute name='action'>app.toggle_board_k</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/m/</attribute>
-            <attribute name='action'>app.toggle_board_m</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/o/</attribute>
-            <attribute name='action'>app.toggle_board_o</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/p/</attribute>
-            <attribute name='action'>app.toggle_board_p</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/v/</attribute>
-            <attribute name='action'>app.toggle_board_v</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/vg/</attribute>
-            <attribute name='action'>app.toggle_board_vg</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/w/</attribute>
-            <attribute name='action'>app.toggle_board_w</attribute>
-          </item>
-          <item>
-            <attribute name='label'>/cm/</attribute>
-            <attribute name='action'>app.toggle_board_cm</attribute>
-          </item>
-          <item>
             <attribute name='label'>/3/</attribute>
             <attribute name='action'>app.toggle_board_3</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/a/</attribute>
+            <attribute name='action'>app.toggle_board_a</attribute>
           </item>
           <item>
             <attribute name='label'>/adv/</attribute>
@@ -71,6 +31,10 @@
             <attribute name='action'>app.toggle_board_an</attribute>
           </item>
           <item>
+            <attribute name='label'>/c/</attribute>
+            <attribute name='action'>app.toggle_board_c</attribute>
+          </item>
+          <item>
             <attribute name='label'>/cgl/</attribute>
             <attribute name='action'>app.toggle_board_cgl</attribute>
           </item>
@@ -79,12 +43,24 @@
             <attribute name='action'>app.toggle_board_ck</attribute>
           </item>
           <item>
+            <attribute name='label'>/cm/</attribute>
+            <attribute name='action'>app.toggle_board_cm</attribute>
+          </item>
+          <item>
             <attribute name='label'>/co/</attribute>
             <attribute name='action'>app.toggle_board_co</attribute>
           </item>
           <item>
+            <attribute name='label'>/d/</attribute>
+            <attribute name='action'>app.toggle_board_d</attribute>
+          </item>
+          <item>
             <attribute name='label'>/diy/</attribute>
             <attribute name='action'>app.toggle_board_diy</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/e/</attribute>
+            <attribute name='action'>app.toggle_board_e</attribute>
           </item>
           <item>
             <attribute name='label'>/fa/</attribute>
@@ -95,6 +71,38 @@
             <attribute name='action'>app.toggle_board_fit</attribute>
           </item>
           <item>
+            <attribute name='label'>/g/</attribute>
+            <attribute name='action'>app.toggle_board_g</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/gif/</attribute>
+            <attribute name='action'>app.toggle_board_gif</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/h/</attribute>
+            <attribute name='action'>app.toggle_board_h</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/hc/</attribute>
+            <attribute name='action'>app.toggle_board_hc</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/hm/</attribute>
+            <attribute name='action'>app.toggle_board_hm</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/hr/</attribute>
+            <attribute name='action'>app.toggle_board_hr</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/i/</attribute>
+            <attribute name='action'>app.toggle_board_i</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/ic/</attribute>
+            <attribute name='action'>app.toggle_board_ic</attribute>
+          </item>
+          <item>
             <attribute name='label'>/int/</attribute>
             <attribute name='action'>app.toggle_board_int</attribute>
           </item>
@@ -103,8 +111,16 @@
             <attribute name='action'>app.toggle_board_jp</attribute>
           </item>
           <item>
+            <attribute name='label'>/k/</attribute>
+            <attribute name='action'>app.toggle_board_k</attribute>
+          </item>
+          <item>
             <attribute name='label'>/lit/</attribute>
             <attribute name='action'>app.toggle_board_lit</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/m/</attribute>
+            <attribute name='action'>app.toggle_board_m</attribute>
           </item>
           <item>
             <attribute name='label'>/mlp/</attribute>
@@ -119,16 +135,52 @@
             <attribute name='action'>app.toggle_board_n</attribute>
           </item>
           <item>
+            <attribute name='label'>/o/</attribute>
+            <attribute name='action'>app.toggle_board_o</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/p/</attribute>
+            <attribute name='action'>app.toggle_board_p</attribute>
+          </item>
+          <item>
             <attribute name='label'>/po/</attribute>
             <attribute name='action'>app.toggle_board_po</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/pol/</attribute>
+            <attribute name='action'>app.toggle_board_pol</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/q/</attribute>
+            <attribute name='action'>app.toggle_board_q</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/r/</attribute>
+            <attribute name='action'>app.toggle_board_r</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/r9k/</attribute>
+            <attribute name='action'>app.toggle_board_r9k</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/s/</attribute>
+            <attribute name='action'>app.toggle_board_s</attribute>
           </item>
           <item>
             <attribute name='label'>/sci/</attribute>
             <attribute name='action'>app.toggle_board_sci</attribute>
           </item>
           <item>
+            <attribute name='label'>/soc/</attribute>
+            <attribute name='action'>app.toggle_board_soc</attribute>
+          </item>
+          <item>
             <attribute name='label'>/sp/</attribute>
             <attribute name='action'>app.toggle_board_sp</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/t/</attribute>
+            <attribute name='action'>app.toggle_board_t</attribute>
           </item>
           <item>
             <attribute name='label'>/tg/</attribute>
@@ -147,8 +199,24 @@
             <attribute name='action'>app.toggle_board_tv</attribute>
           </item>
           <item>
+            <attribute name='label'>/u/</attribute>
+            <attribute name='action'>app.toggle_board_u</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/v/</attribute>
+            <attribute name='action'>app.toggle_board_v</attribute>
+          </item>
+          <item>
             <attribute name='label'>/vp/</attribute>
             <attribute name='action'>app.toggle_board_vp</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/w/</attribute>
+            <attribute name='action'>app.toggle_board_w</attribute>
+          </item>
+          <item>
+            <attribute name='label'>/wg/</attribute>
+            <attribute name='action'>app.toggle_board_wg</attribute>
           </item>
           <item>
             <attribute name='label'>/wsg/</attribute>
@@ -159,8 +227,8 @@
             <attribute name='action'>app.toggle_board_x</attribute>
           </item>
           <item>
-          <attribute name='label'>/q/</attribute>
-          <attribute name='action'>app.toggle_board_q</attribute>
+            <attribute name='label'>/y/</attribute>
+            <attribute name='action'>app.toggle_board_y</attribute>
           </item>
         </section>
       </submenu>

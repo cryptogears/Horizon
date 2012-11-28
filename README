@@ -22,8 +22,7 @@ There is a buildable tarball in the github 'Downloads' area.
 Features:
 
         Catalog pane on left. Choose which boards are browsible
-        through the menu.  (Worksafe boards only, since its pulled
-        from catalog.neet.tv)
+        through the menu.
 
         You can search for any thread in the catalog by typing in the
         entrybox next to the combobox above the catalog view. Use
@@ -36,8 +35,8 @@ Features:
         catalog will be sorted by PPM. Otherwise, it displays oldest
         first.
 
-        Add _any_ 4chan thread through the menu, or Ctrl-t. This will
-        work for non-worksafe threads.
+        Add _any_ 4chan thread through the menu, or Ctrl-t. If the
+        catalog is broken, this will still work.
 
         Click on pictures to make them big. Again to make them small.
 

@@ -8,40 +8,10 @@
         <default>true</default>
       </key>
 
-	  <key name="board-a" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-c" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-g" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-k" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-m" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-o" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-p" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-v" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-vg" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-w" type="b">
-        <default>false</default>
-      </key>
-      <key name="board-cm" type="b">
-        <default>false</default>
-      </key>
       <key name="board-3" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-a" type="b">
         <default>false</default>
       </key>
       <key name="board-adv" type="b">
@@ -50,16 +20,28 @@
       <key name="board-an" type="b">
         <default>false</default>
       </key>
+      <key name="board-c" type="b">
+        <default>false</default>
+      </key>
       <key name="board-cgl" type="b">
         <default>false</default>
       </key>
       <key name="board-ck" type="b">
         <default>false</default>
       </key>
+      <key name="board-cm" type="b">
+        <default>false</default>
+      </key>
       <key name="board-co" type="b">
         <default>false</default>
       </key>
+      <key name="board-d" type="b">
+        <default>false</default>
+      </key>
       <key name="board-diy" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-e" type="b">
         <default>false</default>
       </key>
       <key name="board-fa" type="b">
@@ -68,13 +50,43 @@
       <key name="board-fit" type="b">
         <default>false</default>
       </key>
+      <key name="board-g" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-gif" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-h" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-hc" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-hm" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-hr" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-i" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-ic" type="b">
+        <default>false</default>
+      </key>
       <key name="board-int" type="b">
         <default>false</default>
       </key>
       <key name="board-jp" type="b">
         <default>false</default>
       </key>
+      <key name="board-k" type="b">
+        <default>false</default>
+      </key>
       <key name="board-lit" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-m" type="b">
         <default>false</default>
       </key>
       <key name="board-mlp" type="b">
@@ -86,13 +98,40 @@
       <key name="board-n" type="b">
         <default>false</default>
       </key>
+      <key name="board-o" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-p" type="b">
+        <default>false</default>
+      </key>
       <key name="board-po" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-pol" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-q" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-r" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-r9k" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-s" type="b">
         <default>false</default>
       </key>
       <key name="board-sci" type="b">
         <default>false</default>
       </key>
+      <key name="board-soc" type="b">
+        <default>false</default>
+      </key>
       <key name="board-sp" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-t" type="b">
         <default>false</default>
       </key>
       <key name="board-tg" type="b">
@@ -107,7 +146,19 @@
       <key name="board-tv" type="b">
         <default>false</default>
       </key>
+      <key name="board-u" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-v" type="b">
+        <default>false</default>
+      </key>
       <key name="board-vp" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-w" type="b">
+        <default>false</default>
+      </key>
+      <key name="board-wg" type="b">
         <default>false</default>
       </key>
       <key name="board-wsg" type="b">
@@ -116,7 +167,7 @@
       <key name="board-x" type="b">
         <default>false</default>
       </key>
-      <key name="board-q" type="b">
+      <key name="board-y" type="b">
         <default>false</default>
       </key>
       

@@ -73,10 +73,10 @@ namespace Horizon {
 
 		for (auto board : work_list) {
 			std::stringstream url_stream;
-			url_stream << "http://catalog.neet.tv/" << board << "/threads.json";
+			url_stream << "http://4index.gropes.us/" << board << "/threads.json";
 			std::string url = url_stream.str();
-			bool try_again = true;
-			while (try_again) {
+			int attempts = 0;
+			while (++attempts < 10) {
 				try {
 					Glib::Threads::Mutex::Lock lock(curler_mutex);
 					auto new_summaries = curler.pullBoard(url, board);
@@ -93,11 +93,11 @@ namespace Horizon {
 						updated_boards.insert(board);
 						is_new = true;
 					}
-					try_again = false;
+					break;
 				} catch (Thread404 e) {
 					std::cerr << "Got 404 while trying to pull catalog from "
 					          <<  url << std::endl;
-					try_again = false;
+					break;
 				} catch (CurlException e) {
 					std::cerr << "Error: While pulling the catalog for "
 					          << "/" << board << "/ : "
